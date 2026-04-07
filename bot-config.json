@@ -1,0 +1,49 @@
+{
+  "leaderboardChannelId": "1482385246291759258",
+  "tierTestChannelId": "1482384960638947550",
+  "currentTesterChannelId": "1482385780683833480",
+  "currentTesterMessageId": "1485923405789270026",
+  "registeredRoleId": "1483048939031892098",
+  "testerStats": {
+    "1482397381155623016": 28,
+    "1249331528329330791": 1
+  },
+  "unrankedRoleId": "1485924078870335660",
+  "titleRoleIds": {
+    "Rookie": "1482790579573362698",
+    "Combat Initiate": "1482791898589433888",
+    "Combat Specialist": "1484092036884856844",
+    "Combat Cadet": "1483173319493550150",
+    "Combat Novice": "1483173333573963857",
+    "Combat Ace": "1486685987684876370"
+  },
+  "resultsChannelId": "1482385104113373244",
+  "tierTesterRoleId": "1482426389989691524",
+  "tierTestMessageId": "1485925332547797063",
+  "emojiStrings": {
+    "axe_pvp": "<:axe_pvp:1486100330092429372>",
+    "crystal_pvp": "<:crystal_pvp:1486100332437307523>",
+    "mace_pvp": "<:mace_pvp:1486100334748106802>",
+    "nethpot": "<:nethpot:1486100337608626256>",
+    "pot_pvp": "<:pot_pvp:1486100341320716379>",
+    "smp_pvp": "<:smp_pvp:1486100344126836807>",
+    "sword_pvp": "<:sword_pvp:1486100347591327855>",
+    "uhc": "<:uhc:1486100350208446484>",
+    "combat_ace": "<a:combat_ace:1486100356260823251>",
+    "combat_cadet": "<:combat_cadet:1486100358882132069>",
+    "combat_grandmaster": "<a:combat_grandmaster:1486100364557156413>",
+    "combat_initiate": "<:combat_initiate:1486100368319582218>",
+    "combat_master": "<a:combat_master:1486100374304722966>",
+    "combat_novice": "<:combat_novice:1486100377635131402>",
+    "combat_specialist": "<:combat_specialist:1486100382135619794>",
+    "rookie": "<:rookie:1486100386828914738>",
+    "down": "<:down:1486262505872429117>",
+    "high_down": "<:high_down:1486262508405788682>",
+    "high_up": "<:high_up:1486262511031554048>",
+    "up": "<:up:1486262513397141636>"
+  },
+  "staffRoleId": "1474687768734073026",
+  "leaderboardMessageId": "1490228655425847329",
+  "modRoleId": "1490349442929266708",
+  "staffChannelId": "1488488526243823636"
+}

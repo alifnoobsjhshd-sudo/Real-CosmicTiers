@@ -1,2 +1,5 @@
 [agent]
 expertMode = true
+
+[nix]
+packages = ["unzipNLS"]

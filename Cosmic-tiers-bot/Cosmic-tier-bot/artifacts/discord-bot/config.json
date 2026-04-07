@@ -1,0 +1,47 @@
+{
+  "resultsChannelId": "1482385104113373244",
+  "tierTesterRoleId": "1482426389989691524",
+  "tierTestChannelId": "1482384960638947550",
+  "tierTestMessageId": "1482432651771248743",
+  "currentTesterChannelId": "1482385780683833480",
+  "currentTesterMessageId": "1482652102760333404",
+  "testerStats": {
+    "1249331528329330791": 3,
+    "1385960889357959198": 1,
+    "1482397381155623016": 36,
+    "1385574284289769525": 1
+  },
+  "unrankedRoleId": "1482657250861383712",
+  "leaderboardChannelId": "1482385246291759258",
+  "leaderboardMessageId": "1482733128471543986",
+  "titleRoleIds": {
+    "Elite Novice": "1482745126018351375",
+    "Rookie": "1482790579573362698",
+    "Elite Initiate": "1482791115861262466",
+    "Combat Initiate": "1482791899327889562",
+    "Elite Ace": "1482792743972503776",
+    "Elite Master": "1482804356792451094",
+    "Novice": "1482805312762150983",
+    "Combat Cadet": "1483173319493550150",
+    "Combat Novice": "1483173333573963857"
+  },
+  "registeredRoleId": "1483048939031892098",
+  "emojiStrings": {
+    "axe_pvp": "<:axe_pvp:1483337388745818133>",
+    "crystal_pvp": "<:crystal_pvp:1483337390897631377>",
+    "mace_pvp": "<:mace_pvp:1483337393254830182>",
+    "nethpot": "<:nethpot:1483337395352113302>",
+    "pot_pvp": "<:pot_pvp:1483337397520306257>",
+    "smp_pvp": "<:smp_pvp:1483337399558869133>",
+    "sword_pvp": "<:sword_pvp:1483337402175979585>",
+    "uhc": "<:uhc:1483337406152441897>",
+    "combat_ace": "<a:combat_ace:1483337412213211236>",
+    "combat_cadet": "<:combat_cadet:1483337416508178574>",
+    "combat_grandmaster": "<a:combat_grandmaster:1483337422774341715>",
+    "combat_initiate": "<:combat_initiate:1483337426532302939>",
+    "combat_master": "<a:combat_master:1483337433054445642>",
+    "combat_novice": "<:combat_novice:1483337436040794252>",
+    "combat_specialist": "<:combat_specialist:1483337439471865906>",
+    "rookie": "<:rookie:1483337443905241158>"
+  }
+}

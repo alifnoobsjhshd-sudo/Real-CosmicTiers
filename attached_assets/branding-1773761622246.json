@@ -1,0 +1,125 @@
+{
+  "colorScheme": "dark",
+  "fonts": [
+    {
+      "family": "GeistSans",
+      "role": "unknown"
+    }
+  ],
+  "colors": {
+    "primary": "#131A23",
+    "accent": "#121822",
+    "background": "#10161D",
+    "textPrimary": "#10161D",
+    "link": "#121822"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "GeistSans",
+      "heading": "GeistSans"
+    },
+    "fontStacks": {
+      "heading": [
+        "GeistSans"
+      ],
+      "body": [
+        "GeistSans"
+      ],
+      "paragraph": [
+        "GeistSans"
+      ]
+    },
+    "fontSizes": {
+      "h1": "36px",
+      "h2": "12px",
+      "body": "16px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 8,
+    "borderRadius": "0px"
+  },
+  "components": {
+    "input": {
+      "background": "transparent",
+      "textColor": "#99A1AF",
+      "borderColor": null,
+      "borderRadius": "0px",
+      "borderRadiusCorners": {
+        "topLeft": "0px",
+        "topRight": "0px",
+        "bottomRight": "0px",
+        "bottomLeft": "0px"
+      },
+      "shadow": "none"
+    },
+    "buttonPrimary": {
+      "background": "#131A23",
+      "textColor": "#F9FAFB",
+      "borderRadius": "0px",
+      "borderRadiusCorners": {
+        "topLeft": "0px",
+        "topRight": "0px",
+        "bottomRight": "0px",
+        "bottomLeft": "0px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "https://mctiers.com/icons/nav_skip.png",
+    "favicon": null,
+    "ogImage": null,
+    "logoHref": "File saved at: attached_assets/logoHref.html",
+    "logoAlt": "Nav Skip Link"
+  },
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Selected #0 because it is located in the header, is visible, and links to the homepage, which are strong indicators of a primary brand logo.",
+    "confidence": 0.9,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "HT1",
+      "reasoning": "Button #0 was selected as the primary CTA due to its position as the first button, which often indicates importance. However, all buttons share the same color, making it difficult to distinguish a primary CTA based on color alone."
+    },
+    "secondary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "All buttons share the same background color, making it impossible to select a secondary button with a different color. Thus, no valid secondary button exists."
+    },
+    "confidence": 0.6
+  },
+  "personality": {
+    "tone": "minimalist",
+    "energy": "low",
+    "targetAudience": "unknown"
+  },
+  "designSystem": {
+    "framework": "custom",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.6,
+    "colors": 0.8,
+    "overall": 0.7
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": 0,
+        "selectedLogoReasoning": "Selected #0 because it is located in the header, is visible, and links to the homepage, which are strong indicators of a primary brand logo.",
+        "confidence": 0.9
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}

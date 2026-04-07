@@ -1,0 +1,48 @@
+{
+  "byDiscordId": {
+    "1249331528329330791": {
+      "discordId": "1249331528329330791",
+      "mcUsername": "Zen0x",
+      "region": "AS",
+      "skinUrl": "https://cdn.discordapp.com/ephemeral-attachments/1483027962050641993/1483466365213085930/579e4c2063571440.png?ex=69bab136&is=69b95fb6&hm=d3814097cde1d37fdb879d179ed868083d462296d0d1b2603f6f08901fd7f3b2&",
+      "registeredAt": 1773656820188,
+      "renderedSkinPath": "/home/runner/workspace/Cosmic-tier-bot/artifacts/discord-bot/rendered-skins/1249331528329330791.png"
+    },
+    "1223953713450713130": {
+      "discordId": "1223953713450713130",
+      "mcUsername": "TbkZer0",
+      "region": "AS",
+      "skinUrl": null,
+      "registeredAt": 1773667205100
+    },
+    "1471564622883586202": {
+      "discordId": "1471564622883586202",
+      "mcUsername": "aaispro333",
+      "region": "AS",
+      "skinUrl": null,
+      "registeredAt": 1773672788933
+    },
+    "1277679135963086858": {
+      "discordId": "1277679135963086858",
+      "mcUsername": "Azaan_172",
+      "region": "AS",
+      "skinUrl": null,
+      "registeredAt": 1773672812021
+    },
+    "1474088634180436068": {
+      "discordId": "1474088634180436068",
+      "mcUsername": "NotSkely24",
+      "region": "AS",
+      "skinUrl": null,
+      "registeredAt": 1773756981852,
+      "renderedSkinPath": "/home/runner/workspace/Cosmic-tier-bot/artifacts/discord-bot/rendered-skins/1474088634180436068.png"
+    }
+  },
+  "byMcUsername": {
+    "zen0x": "1249331528329330791",
+    "tbkzer0": "1223953713450713130",
+    "aaispro333": "1471564622883586202",
+    "azaan_172": "1277679135963086858",
+    "notskely24": "1474088634180436068"
+  }
+}

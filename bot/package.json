@@ -1,0 +1,18 @@
+{
+  "name": "cosmic-tiers-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx index.ts",
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "jimp": "^0.22.12"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.27",
+    "tsx": "^4.21.0",
+    "typescript": "^5.6.3"
+  }
+}
