@@ -914,7 +914,7 @@ function TitlesInfo() {
 {Number(title.minPoints) === 0
   ? "Starting rank - no points required."
   : `Requires ${title.minPoints}+ points.`
-}
+  
                   ? "Starting rank — no points required."
                   : `Requires ${title.minPoints}+ points.`}
               </p>
