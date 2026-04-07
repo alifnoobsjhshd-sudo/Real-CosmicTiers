@@ -911,7 +911,10 @@ function TitlesInfo() {
                 </span>
               </div>
               <p className="text-muted-foreground text-sm">
-                {title.minPoints === 0
+{Number(title.minPoints) === 0
+  ? "Starting rank - no points required."
+  : `Requires ${title.minPoints}+ points.`
+}
                   ? "Starting rank — no points required."
                   : `Requires ${title.minPoints}+ points.`}
               </p>
