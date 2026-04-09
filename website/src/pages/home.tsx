@@ -126,8 +126,8 @@ export default function Home() {
     });
   }
 
-  const discordLink = infoData?.discordLink || "#";
-  const websiteLink = infoData?.websiteLink || "#";
+  const discordLink = infoData?.discordLink || import.meta.env.VITE_DISCORD_LINK || "#";
+  const websiteLink = infoData?.websiteLink || import.meta.env.VITE_WEBSITE_LINK || "#";
 
   return (
     <div className="min-h-screen bg-background text-foreground">

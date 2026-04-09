@@ -15,24 +15,10 @@ declare module "http" {
   }
 }
 
-const WEBSITE_LINK = process.env.WEBSITE_LINK ?? "";
-const allowedOrigins = [
-  WEBSITE_LINK,
-  "http://localhost:5173",
-  "http://localhost:3000",
-].filter(Boolean);
-
 app.use((req, res, next) => {
-  const origin = req.headers.origin ?? "";
-  const isAllowed = !allowedOrigins.length || allowedOrigins.includes(origin);
-  if (isAllowed) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", WEBSITE_LINK || "*");
-  }
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-internal-api-key");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
     return;
