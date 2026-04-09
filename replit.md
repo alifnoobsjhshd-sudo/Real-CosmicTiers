@@ -40,6 +40,20 @@ Website (Vercel) ──────────┘
 - **Start application** — `NODE_ENV=development tsx server/index.ts` — Full-stack dev server on port 5000
 - **Discord Bot** — `NODE_ENV=development tsx bot/index.ts` — Discord bot process
 
+## Backend Deployment (Render)
+
+The `backend/` folder is the standalone deployable backend.
+
+- **Build command**: `npm install && npm run build`
+- **Start command**: `npm run start` (runs `node dist/index.cjs`)
+- **Health/UptimeRobot endpoint**: `GET /health` — always returns 200
+- **Root ping endpoint**: `GET /` — returns plain text, also pingable
+
+### Fixed Issues (backend/src/index.ts)
+- Removed duplicate `app.listen()` that was causing EADDRINUSE crash on startup
+- Moved `/` and `/health` routes to be registered before the server starts
+- Added `/health` endpoint for UptimeRobot monitoring
+
 ## Key Files
 
 ### Bot (`bot/`)

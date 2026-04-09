@@ -85,6 +85,14 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get("/", (_req, res) => {
+  res.send("Cosmic Tiers Backend is alive 🚀");
+});
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: Date.now() });
+});
+
 (async () => {
   await registerRoutes(httpServer, app);
 
@@ -106,13 +114,3 @@ app.use((req, res, next) => {
     },
   );
 })();
-
-
-app.get("/", (req, res) => {
-  res.send("Bot is alive 🚀");
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Web server running on port ${PORT}`);
-});
