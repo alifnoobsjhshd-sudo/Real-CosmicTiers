@@ -42,11 +42,11 @@ export const registerOtherCommand = new SlashCommandBuilder()
 
 export const setSkinCommand = new SlashCommandBuilder()
   .setName('skin-change')
-  .setDescription('Update your registered Minecraft skin')
+  .setDescription('Update your registered Minecraft skin (PNG only, max 20 KB)')
   .addAttachmentOption(option =>
     option
       .setName('skin')
-      .setDescription('Your Minecraft skin PNG file')
+      .setDescription('Your Minecraft skin PNG file (max 20 KB)')
       .setRequired(false)
   )
   .addStringOption(option =>
@@ -59,13 +59,12 @@ export const setSkinCommand = new SlashCommandBuilder()
 
 export const skinChangeOtherCommand = new SlashCommandBuilder()
   .setName('skin-change-other')
-  .setDescription('Change the skin for another registered user (admin only)')
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+  .setDescription('Change the skin for another registered user (staff only)')
   .addUserOption(option =>
     option.setName('user').setDescription('The registered Discord user').setRequired(true)
   )
   .addAttachmentOption(option =>
-    option.setName('skin').setDescription('Their Minecraft skin PNG file').setRequired(false)
+    option.setName('skin').setDescription('Their Minecraft skin PNG file (max 20 KB)').setRequired(false)
   )
   .addStringOption(option =>
     option
@@ -73,6 +72,46 @@ export const skinChangeOtherCommand = new SlashCommandBuilder()
       .setDescription('Reset to default Steve skin instead')
       .addChoices({ name: 'Yes — reset to default', value: 'yes' })
       .setRequired(false)
+  );
+
+export const editProfileCommand = new SlashCommandBuilder()
+  .setName('edit-profile')
+  .setDescription('Edit your registered profile (region and/or skin)')
+  .addStringOption(option =>
+    option
+      .setName('region')
+      .setDescription('Update your region')
+      .setRequired(false)
+      .addChoices(
+        { name: 'AS — Asia',          value: 'AS' },
+        { name: 'EU — Europe',        value: 'EU' },
+        { name: 'NA — North America', value: 'NA' },
+        { name: 'SA — South America', value: 'SA' },
+        { name: 'AF — Africa',        value: 'AF' },
+        { name: 'OC — Oceania',       value: 'OC' },
+        { name: 'AN — Antarctica',    value: 'AN' },
+      )
+  )
+  .addAttachmentOption(option =>
+    option
+      .setName('skin')
+      .setDescription('Upload a new Minecraft skin PNG (max 20 KB)')
+      .setRequired(false)
+  )
+  .addStringOption(option =>
+    option
+      .setName('reset_skin')
+      .setDescription('Reset your skin back to the default Steve skin')
+      .addChoices({ name: 'Yes — reset to default', value: 'yes' })
+      .setRequired(false)
+  );
+
+export const setModRoleCommand = new SlashCommandBuilder()
+  .setName('set-mod-role')
+  .setDescription('Set the Mod role that can use staff skin commands (admin only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+  .addRoleOption(option =>
+    option.setName('role').setDescription('The Mod role').setRequired(true)
   );
 
 export const resultCommand = new SlashCommandBuilder()

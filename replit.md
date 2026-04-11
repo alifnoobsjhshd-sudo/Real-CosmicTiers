@@ -16,16 +16,17 @@ A full-stack Minecraft PvP tier test system consisting of:
 
 ## Deployment-Ready Services
 
-The project is split into three independently deployable services:
+The project is split into three independently deployable services on Render, all sharing one PostgreSQL database:
 
 | Service | Directory | Deploy To | Start Command |
 |---------|-----------|-----------|---------------|
-| Bot | `bot/` | Koyeb | `npm run start` |
-| Backend API | `backend/` | Koyeb | `npm run start` (or `npm run dev`) |
-| Website | `website/` | Vercel | `npm run build` |
+| Bot | `bot/` | Render | `npm run start` |
+| Backend API | `backend/` | Render | `npm run start` (runs `node dist/index.cjs`) |
+| Website | `website/` | Render (Static) | `npm run build` → `dist/` |
 
 Each service has its own `package.json`, `tsconfig.json`, and `.env.example`.
-See `DEPLOYMENT.md` for the complete step-by-step hosting guide.
+
+**IMPORTANT: All persistent data (skins, registrations, config) must be stored in PostgreSQL, never the filesystem (Render wipes files on redeploy).**
 
 ## Connection Flow
 

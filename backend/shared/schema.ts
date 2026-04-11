@@ -23,12 +23,18 @@ export const players = pgTable("players", {
   region: text("region").notNull(),
   skinUrl: text("skin_url"),
   renderedSkinPath: text("rendered_skin_path"),
+  renderedSkinData: text("rendered_skin_data"),
   registeredAt: bigint("registered_at", { mode: "number" }).notNull(),
   isTester: boolean("is_tester").default(false).notNull(),
   testCount: integer("test_count").default(0).notNull(),
   previousPoints: integer("previous_points").default(0).notNull(),
   testerGameModes: text("tester_game_modes").array(),
   specialTitle: text("special_title"),
+});
+
+export const guildConfig = pgTable("guild_config", {
+  guildId: text("guild_id").primaryKey(),
+  configJson: text("config_json").notNull().default('{}'),
 });
 
 export const specialTitles = pgTable("special_titles", {

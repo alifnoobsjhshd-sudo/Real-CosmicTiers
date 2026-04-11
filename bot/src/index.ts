@@ -32,6 +32,8 @@ import {
   registerOtherCommand,
   setSkinCommand,
   skinChangeOtherCommand,
+  editProfileCommand,
+  setModRoleCommand,
   resultCommand,
   doneCommand,
   addTestCommand,
@@ -57,7 +59,7 @@ import {
   giveTitleCommand,
   removeTitleCommand,
 } from './commands.js';
-import { getConfig, setConfig, incrementTesterStat, clearTesterStat } from './config.js';
+import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
   BUTTON_ID,
   PANEL_REGISTER_ID,
@@ -105,8 +107,10 @@ import {
   saveRegistration,
   updateSkin,
   updateRenderedSkinPath,
+  updateRegion,
   getAllRegistrations,
   deleteRegistration,
+  loadRegistrationsFromApi,
 } from './registration.js';
 import { sanitizeToEmojiName, getGameModeEmoji, getEmojiString } from './emojis.js';
 import { renderMinecraftSkin } from './skinrender.js';
@@ -517,8 +521,8 @@ async function handleRegisterModal(interaction: ModalSubmitInteraction) {
     `**Minecraft Username:** \`${mcUsername}\`\n` +
     `**Region:** \`${region}\`\n\n` +
     `You've been given the **Registered** role and a role named after your MC username.\n\n` +
-    `📸 **Upload your skin:**\n` +
-    `Use \`/skin-change\` and attach your Minecraft skin PNG file to set a custom skin.\n` +
+    `📸 **Set your skin:** Use \`/skin-change\` and attach your Minecraft skin **PNG** file (max 20 KB).\n` +
+    `✏️ **Edit your profile:** Use \`/edit-profile\` to change your region or skin at any time.\n` +
     `You're currently using the default Steve skin.`,
   );
 }
@@ -559,13 +563,13 @@ async function handleSkinChange(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  if (!attachment.contentType?.startsWith('image/')) {
-    await interaction.editReply('❌ The attached file must be an image (PNG). Please try again.');
+  if (attachment.contentType !== 'image/png') {
+    await interaction.editReply('❌ The skin file must be a **PNG** image. Please try again with a `.png` file.');
     return;
   }
 
-  if (attachment.size > 2 * 1024 * 1024) {
-    await interaction.editReply('❌ Skin file is too large. Please upload an image under **2MB**.');
+  if (attachment.size > 20 * 1024) {
+    await interaction.editReply('❌ Skin file is too large. Please upload a PNG under **20 KB**.');
     return;
   }
 
@@ -574,7 +578,7 @@ async function handleSkinChange(interaction: ChatInputCommandInteraction) {
 
   await interaction.editReply(
     `✅ Skin updated for **\`${reg.mcUsername}\`**!\n` +
-    `Your new skin will appear in future result embeds.`,
+    `Your new skin will appear on the website and in future result embeds.`,
   );
 }
 
@@ -678,8 +682,7 @@ async function handleResult(interaction: ChatInputCommandInteraction) {
     }
   });
 
-  const renderedSkinPath = join(RENDERED_SKINS_DIR, `${reg.discordId}.png`);
-  const hasSkin          = existsSync(renderedSkinPath);
+  const skinThumbnail = `${WEBSITE_API_URL}/api/skin/${reg.discordId}`;
 
   const testerReg = getRegistrationByDiscordId(tester.id);
 
@@ -704,14 +707,12 @@ async function handleResult(interaction: ChatInputCommandInteraction) {
     .setTitle(`${emoji} Tier Test Result — ${label}`)
     .setColor(color)
     .setAuthor({ name: `Tested by ${tester.username}`, iconURL: tester.displayAvatarURL({ size: 256 }) })
-    .setThumbnail(hasSkin ? 'attachment://skin.png' : (reg.skinUrl ?? null))
+    .setThumbnail(skinThumbnail)
     .addFields(...embedFields)
     .setFooter({ text: 'Tier Test System' })
     .setTimestamp();
 
-  const files: AttachmentBuilder[] = hasSkin
-    ? [new AttachmentBuilder(readFileSync(renderedSkinPath), { name: 'skin.png' })]
-    : [];
+  const files: AttachmentBuilder[] = [];
 
   // Assign the tier role and update before sending so we get accurate point data
   const roleResult = await assignTierRole(guild, reg.discordId, mode, earned, color);
@@ -830,8 +831,7 @@ async function handleProfile(interaction: ChatInputCommandInteraction) {
   const titleEmoji = getEmojiString(sanitizeToEmojiName(title.name));
   const titleDisplay = titleEmoji ? `${titleEmoji} ${title.name}` : title.name;
 
-  const renderedSkinPath = join(RENDERED_SKINS_DIR, `${reg.discordId}.png`);
-  const hasSkin = existsSync(renderedSkinPath);
+  const profileSkinThumbnail = `${WEBSITE_API_URL}/api/skin/${reg.discordId}`;
 
   const registeredDate = new Date(reg.registeredAt).toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -866,16 +866,12 @@ async function handleProfile(interaction: ChatInputCommandInteraction) {
     .setTitle(`👤 Profile — ${mcUsername}`)
     .setColor(title.color)
     .setDescription(`<@${reg.discordId}>`)
-    .setThumbnail(hasSkin ? 'attachment://skin.png' : (reg.skinUrl ?? null))
+    .setThumbnail(profileSkinThumbnail)
     .addFields(...embedFields)
     .setFooter({ text: 'Cosmic Tiers System' })
     .setTimestamp();
 
-  const files: AttachmentBuilder[] = hasSkin
-    ? [new AttachmentBuilder(readFileSync(renderedSkinPath), { name: 'skin.png' })]
-    : [];
-
-  await interaction.editReply({ embeds: [embed], files });
+  await interaction.editReply({ embeds: [embed], files: [] });
 }
 
 // ─── /delete-user Command ─────────────────────────────────────────────────────
@@ -1307,8 +1303,12 @@ async function handleSkinChangeOther(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
 
   const caller = interaction.member as GuildMember;
-  if (!caller.permissions.has(PermissionFlagsBits.Administrator)) {
-    await interaction.editReply('❌ Only administrators can use `/skin-change-other`.');
+  const config = getConfig();
+  const isAdmin     = caller.permissions.has(PermissionFlagsBits.Administrator);
+  const hasStaffRole = config.staffRoleId ? caller.roles.cache.has(config.staffRoleId) : false;
+  const hasModRole   = config.modRoleId   ? caller.roles.cache.has(config.modRoleId)   : false;
+  if (!isAdmin && !hasStaffRole && !hasModRole) {
+    await interaction.editReply('❌ Only staff or moderators can use `/skin-change-other`.');
     return;
   }
 
@@ -1329,6 +1329,17 @@ async function handleSkinChangeOther(interaction: ChatInputCommandInteraction) {
     return;
   }
 
+  if (attachment) {
+    if (attachment.contentType !== 'image/png') {
+      await interaction.editReply('❌ The skin file must be a **PNG** image. Please try again with a `.png` file.');
+      return;
+    }
+    if (attachment.size > 20 * 1024) {
+      await interaction.editReply('❌ Skin file is too large. Please upload a PNG under **20 KB**.');
+      return;
+    }
+  }
+
   let skinUrl: string | null = null;
   if (reset === 'yes') {
     skinUrl = null;
@@ -1341,6 +1352,83 @@ async function handleSkinChangeOther(interaction: ChatInputCommandInteraction) {
 
   const label = reset === 'yes' ? 'reset to the default Steve skin' : 'updated to the uploaded skin';
   await interaction.editReply(`✅ Skin for <@${target.id}> (\`${reg.mcUsername}\`) has been **${label}**.`);
+}
+
+// ─── /edit-profile Command ────────────────────────────────────────────────────
+
+async function handleEditProfile(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const wait = checkCooldown(interaction.user.id, 'edit-profile', 10_000);
+  if (wait > 0) {
+    await interaction.editReply(`⏳ Please wait **${wait}s** before editing your profile again.`);
+    return;
+  }
+
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+  if (!reg) {
+    await interaction.editReply('❌ You are not registered. Use `/register` to register first.');
+    return;
+  }
+
+  const newRegion    = interaction.options.getString('region');
+  const skinAttach   = interaction.options.getAttachment('skin');
+  const resetSkin    = interaction.options.getString('reset_skin');
+
+  if (!newRegion && !skinAttach && !resetSkin) {
+    await interaction.editReply(
+      '❌ Please provide at least one option to update: **region**, **skin**, or **reset_skin**.',
+    );
+    return;
+  }
+
+  const changes: string[] = [];
+
+  if (newRegion) {
+    updateRegion(interaction.user.id, newRegion);
+    await callApi('/api/bot/update-profile', { discordId: interaction.user.id, region: newRegion });
+    changes.push(`🌍 Region → **\`${newRegion}\`**`);
+  }
+
+  if (resetSkin === 'yes') {
+    updateSkin(interaction.user.id, null);
+    void renderAndUploadSkin(interaction.user.id, null);
+    changes.push(`🎨 Skin → **default Steve skin**`);
+  } else if (skinAttach) {
+    if (skinAttach.contentType !== 'image/png') {
+      await interaction.editReply('❌ The skin file must be a **PNG** image. Please try again with a `.png` file.');
+      return;
+    }
+    if (skinAttach.size > 20 * 1024) {
+      await interaction.editReply('❌ Skin file is too large. Please upload a PNG under **20 KB**.');
+      return;
+    }
+    updateSkin(interaction.user.id, skinAttach.url);
+    void renderAndUploadSkin(interaction.user.id, skinAttach.url);
+    changes.push(`🎨 Skin → **updated**`);
+  }
+
+  await interaction.editReply(
+    `✅ **Profile updated for \`${reg.mcUsername}\`:**\n${changes.join('\n')}`,
+  );
+}
+
+// ─── /set-mod-role Command ────────────────────────────────────────────────────
+
+async function handleSetModRole(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const caller = interaction.member as GuildMember;
+  if (!caller.permissions.has(PermissionFlagsBits.Administrator)) {
+    await interaction.editReply('❌ Only administrators can use `/set-mod-role`.');
+    return;
+  }
+
+  const role = interaction.options.getRole('role', true);
+  setConfig({ modRoleId: role.id });
+  await interaction.editReply(
+    `✅ Mod role set to <@&${role.id}>. Members with this role can now use \`/skin-change-other\`.`,
+  );
 }
 
 // ─── /done Command (tier testers only) ────────────────────────────────────────
@@ -1583,8 +1671,7 @@ async function handleAddTest(interaction: ChatInputCommandInteraction) {
   const color            = getTierColor(earned);
   const previousPoints   = getMemberPoints(playerMember);
 
-  const renderedSkinPath = join(RENDERED_SKINS_DIR, `${reg.discordId}.png`);
-  const hasSkin          = existsSync(renderedSkinPath);
+  const addTestSkinThumbnail = `${WEBSITE_API_URL}/api/skin/${reg.discordId}`;
 
   const modeDisplay = (() => { const e = getGameModeEmoji(mode); return e ? `${e} ${mode}` : mode; })();
   const websiteLinkField = getWebsiteLinkField();
@@ -1604,14 +1691,10 @@ async function handleAddTest(interaction: ChatInputCommandInteraction) {
     .setTitle(`${emoji} Tier Test Result — ${label}`)
     .setColor(color)
     .setAuthor({ name: `Tested by ${testerUser.username}`, iconURL: testerUser.displayAvatarURL({ size: 256 }) })
-    .setThumbnail(hasSkin ? 'attachment://skin.png' : (reg.skinUrl ?? null))
+    .setThumbnail(addTestSkinThumbnail)
     .addFields(...embedFields)
     .setFooter({ text: 'Tier Test System' })
     .setTimestamp();
-
-  const files: AttachmentBuilder[] = hasSkin
-    ? [new AttachmentBuilder(readFileSync(renderedSkinPath), { name: 'skin.png' })]
-    : [];
 
   const roleResult = await assignTierRole(guild, reg.discordId, mode, earned, color);
 
@@ -1639,7 +1722,7 @@ async function handleAddTest(interaction: ChatInputCommandInteraction) {
     try {
       const ch = await interaction.client.channels.fetch(config.resultsChannelId);
       if (ch && ch.isTextBased()) {
-        const resultMsg = await (ch as TextChannel).send({ embeds: [embed], files });
+        const resultMsg = await (ch as TextChannel).send({ embeds: [embed] });
         for (const reactionEmoji of RESULT_REACTION_EMOJIS) {
           try { await resultMsg.react(reactionEmoji); } catch { /* ignore */ }
         }
@@ -2239,6 +2322,8 @@ async function registerCommands(clientId: string) {
         registerOtherCommand.toJSON(),
         setSkinCommand.toJSON(),
         skinChangeOtherCommand.toJSON(),
+        editProfileCommand.toJSON(),
+        setModRoleCommand.toJSON(),
         resultCommand.toJSON(),
         doneCommand.toJSON(),
         addTestCommand.toJSON(),
@@ -2275,6 +2360,10 @@ async function registerCommands(clientId: string) {
 
 client.once('clientReady', async () => {
   console.log(`[Bot] Logged in as ${client.user!.tag}`);
+
+  await loadConfigFromApi();
+  await loadRegistrationsFromApi();
+
   await registerCommands(client.user!.id);
   setInterval(() => refreshTierTestPanel(client),    10 * 60 * 1000);
   setInterval(() => refreshTesterListPanel(client),  10 * 60 * 1000);
@@ -2487,6 +2576,8 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'register-other')             return await handleRegisterOther(interaction);
       if (interaction.commandName === 'skin-change')                 return await handleSkinChange(interaction);
       if (interaction.commandName === 'skin-change-other')          return await handleSkinChangeOther(interaction);
+      if (interaction.commandName === 'edit-profile')               return await handleEditProfile(interaction);
+      if (interaction.commandName === 'set-mod-role')               return await handleSetModRole(interaction);
       if (interaction.commandName === 'result')                     return await handleResult(interaction);
       if (interaction.commandName === 'done')                       return await handleDone(interaction);
       if (interaction.commandName === 'add-test')                   return await handleAddTest(interaction);

@@ -5,6 +5,7 @@ import {
   retiredPlayerTiers as retiredPlayerTiersTable,
   resultEntries as resultEntriesTable,
   specialTitles as specialTitlesTable,
+  guildConfig as guildConfigTable,
   TITLES,
   TIER_POINTS,
   type PlayerProfile,
@@ -49,7 +50,10 @@ export interface IStorage {
 
   registerPlayer(data: { discordId: string; mcUsername: string; region: string; skinUrl?: string | null }): Promise<void>;
   updatePlayerSkin(discordId: string, renderedSkinPath: string | null): Promise<void>;
+  updatePlayerSkinData(discordId: string, base64Data: string | null): Promise<void>;
+  getSkinData(discordId: string): Promise<string | null>;
   updatePlayerProfile(discordId: string, data: { mcUsername?: string; region?: string }): Promise<void>;
+  getAllPlayers(): Promise<Array<{ discordId: string; mcUsername: string; region: string; skinUrl: string | null; registeredAt: number }>>;
   postResult(data: {
     discordId: string;
     mcUsername: string;
@@ -72,6 +76,8 @@ export interface IStorage {
   getTesters(): Promise<TierTester[]>;
   getResults(limit?: number): Promise<ResultEntry[]>;
   getSkin(discordId: string): Promise<string | null>;
+  getGuildConfig(guildId: string): Promise<Record<string, any>>;
+  setGuildConfig(guildId: string, config: Record<string, any>): Promise<void>;
 
   createSpecialTitle(
     name: string,
@@ -133,6 +139,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(playersTable.discordId, discordId));
   }
 
+  async updatePlayerSkinData(discordId: string, base64Data: string | null): Promise<void> {
+    await db
+      .update(playersTable)
+      .set({ renderedSkinData: base64Data })
+      .where(eq(playersTable.discordId, discordId));
+  }
+
+  async getSkinData(discordId: string): Promise<string | null> {
+    const result = await db.select().from(playersTable).where(eq(playersTable.discordId, discordId)).limit(1);
+    return result[0]?.renderedSkinData ?? null;
+  }
+
   async updatePlayerProfile(discordId: string, data: { mcUsername?: string; region?: string }): Promise<void> {
     const updates: Record<string, unknown> = {};
     if (data.mcUsername) updates.mcUsername = data.mcUsername;
@@ -142,6 +160,17 @@ export class DatabaseStorage implements IStorage {
       .update(playersTable)
       .set(updates as any)
       .where(eq(playersTable.discordId, discordId));
+  }
+
+  async getAllPlayers(): Promise<Array<{ discordId: string; mcUsername: string; region: string; skinUrl: string | null; registeredAt: number }>> {
+    const rows = await db.select().from(playersTable);
+    return rows.map(p => ({
+      discordId: p.discordId,
+      mcUsername: p.mcUsername,
+      region: p.region,
+      skinUrl: p.skinUrl ?? null,
+      registeredAt: p.registeredAt,
+    }));
   }
 
   async postResult(data: {
@@ -308,7 +337,7 @@ export class DatabaseStorage implements IStorage {
           tiers,
           retiredTiers: retiredByPlayer[p.discordId] ?? [],
           registeredAt: p.registeredAt,
-          renderedSkinPath: p.renderedSkinPath ?? null,
+          renderedSkinPath: p.renderedSkinData ? `has_skin` : (p.renderedSkinPath ?? null),
           rank: 0,
           trend: calcTrend(pointDelta),
           title: getTitleForPoints(totalPoints),
@@ -356,7 +385,7 @@ export class DatabaseStorage implements IStorage {
           totalPoints,
           title: getTitleForPoints(totalPoints),
           trend: calcTrend(pointDelta),
-          renderedSkinPath: p.renderedSkinPath ?? null,
+          renderedSkinPath: p.renderedSkinData ? `has_skin` : (p.renderedSkinPath ?? null),
           rank: 0,
           gameModes: p.testerGameModes ?? [],
         } as TierTester;
@@ -410,7 +439,7 @@ export class DatabaseStorage implements IStorage {
             totalPoints,
             title: getTitleForPoints(totalPoints),
             trend: calcTrend(pointDelta),
-            renderedSkinPath: p.renderedSkinPath ?? null,
+            renderedSkinPath: p.renderedSkinData ? `has_skin` : (p.renderedSkinPath ?? null),
             rank: 0,
             gameModes: p.testerGameModes ?? [],
           };
@@ -439,6 +468,26 @@ export class DatabaseStorage implements IStorage {
   async getSkin(discordId: string): Promise<string | null> {
     const result = await db.select().from(playersTable).where(eq(playersTable.discordId, discordId)).limit(1);
     return result[0]?.renderedSkinPath ?? null;
+  }
+
+  async getGuildConfig(guildId: string): Promise<Record<string, any>> {
+    const result = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, guildId)).limit(1);
+    if (!result[0]) return {};
+    try {
+      return JSON.parse(result[0].configJson);
+    } catch {
+      return {};
+    }
+  }
+
+  async setGuildConfig(guildId: string, config: Record<string, any>): Promise<void> {
+    await db
+      .insert(guildConfigTable)
+      .values({ guildId, configJson: JSON.stringify(config) })
+      .onConflictDoUpdate({
+        target: guildConfigTable.guildId,
+        set: { configJson: JSON.stringify(config) },
+      });
   }
 
   async createSpecialTitle(
@@ -542,7 +591,7 @@ export class DatabaseStorage implements IStorage {
       gameModeData[tierEntry.gameMode][tierEntry.tier].push({
         discordId: tierEntry.discordId,
         mcUsername: player.mcUsername,
-        renderedSkinPath: player.renderedSkinPath ?? null,
+        renderedSkinPath: player.renderedSkinData ? `has_skin` : (player.renderedSkinPath ?? null),
         trend: calcGameModeTrend(tierEntry.discordId, tierEntry.gameMode),
       });
     }
