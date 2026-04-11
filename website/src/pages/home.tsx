@@ -248,6 +248,19 @@ export default function Home() {
         open={!!selectedPlayer}
         onClose={() => setSelectedPlayer(null)}
       />
+
+      <section aria-label="About CosmicTiers" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
+        <h2>CosmicTiers — Minecraft PvP Tier List &amp; Rankings</h2>
+        <p>CosmicTiers is an advanced Minecraft cracked PvP tier list and ranking system with full Discord bot integration. Players are ranked by a points-based tier system across multiple competitive game modes, making it one of the most structured PvP ranking platforms for the Minecraft community.</p>
+        <h3>What is a Minecraft PvP Tier List?</h3>
+        <p>A Minecraft PvP tier list ranks players by their skill level in specific combat styles. CosmicTiers uses a structured tier system ranging from LT5 (entry level) up to HT1 (elite), with each tier assigned a points value. Your total points across all game modes determine your overall rank and title on the leaderboard.</p>
+        <h3>Supported Game Modes</h3>
+        <p>CosmicTiers supports competitive ranking in eight Minecraft PvP game modes: Sword PvP, UHC (Ultra Hardcore), Pot PvP, Nethpot, SMP PvP, Axe PvP, Mace PvP, and Crystal PvP. Each mode has its own dedicated tier testers who assess and rank players through controlled tier tests.</p>
+        <h3>CosmicTiers vs MCTiers</h3>
+        <p>CosmicTiers is a community-driven alternative to MCTiers, designed specifically for cracked Minecraft servers and players. Unlike MCTiers, CosmicTiers features automated Discord bot integration, live leaderboard updates, multi-game-mode support, and a custom special title system for top-ranked community members.</p>
+        <h3>How Rankings Work</h3>
+        <p>Players register through the Discord bot, then request tier tests in their chosen game modes. Certified Tier Testers evaluate each player and assign a tier from HT1 to LT5. Results are recorded in real time and reflected on the public leaderboard. Players earn titles like Rookie, Combat Initiate, Combat Novice, Combat Cadet, Combat Specialist, Combat Ace, Combat Master, and Combat Grandmaster based on their total accumulated points.</p>
+      </section>
     </div>
   );
 }

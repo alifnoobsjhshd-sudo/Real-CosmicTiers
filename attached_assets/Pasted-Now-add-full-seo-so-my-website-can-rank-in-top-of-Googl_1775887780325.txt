@@ -1,0 +1,66 @@
+Now add full seo so my website can rank in top of Google search.
+
+GOAL:
+Improve SEO (Google + social media visibility) WITHOUT breaking any existing functionality, UI, or API system.
+
+CRITICAL RULES:
+- DO NOT modify or delete any logic inside App.tsx
+- DO NOT remove or change routing (wouter system)
+- DO NOT break API calls (/api/leaderboard, /api/testers, /api/results, /api/top-players, /api/info)
+- DO NOT change UI layout or component structure
+- DO NOT remove any existing features
+- ENSURE the app still builds and runs after changes
+
+TASK 1 - index.html SEO IMPROVEMENT:
+Inside <head> of index.html, add or improve:
+
+- TITLE:
+CosmicTiers - Minecraft Cracked PvP Tier Lists & Rankings
+
+- META DESCRIPTION:
+CosmicTiers is an advanced Minecraft PvP tier list system with bot integration. Explore cracked Minecraft PvP rankings, competitive tier lists, and player leaderboards.
+
+- META KEYWORDS:
+Minecraft PvP tier list, CosmicTiers, cracked Minecraft servers, PvP rankings, leaderboard system
+
+- OPEN GRAPH TAGS:
+og:title, og:description, og:type, og:image
+
+- TWITTER CARDS:
+twitter:title, twitter:description, twitter:card
+
+- theme-color: #6a00ff
+
+DO NOT remove fonts, favicon, or script imports.
+
+TASK 2 - Home.tsx SEO CONTENT BLOCK:
+In src/pages/home.tsx, ONLY add a small SEO text section at the VERY BOTTOM of the JSX return.
+
+REQUIREMENTS:
+- Must NOT affect UI or layout
+- Must be lightweight
+- Must include:
+  - About CosmicTiers
+  - Minecraft PvP ranking explanation
+  - Supported game modes (Sword PvP, UHC, Pot PvP, Nethpot, SMP PvP, Axe PvP, Mace PvP, Crystal PvP)
+  - Why CosmicTiers is an alternative to MCTiers
+
+Use simple headings (h2/h3) and paragraphs.
+
+DO NOT:
+- Rewrite Home.tsx completely
+- Remove leaderboard logic
+- Change tabs or navigation system
+- Modify App.tsx
+
+ALLOWED:
+- Add SEO meta tags in index.html
+- Add SEO text block in Home.tsx bottom
+- Improve readability of headings if safe
+
+FINAL RESULT:
+- Website must still function exactly the same
+- Leaderboard system must remain fully working
+- Tabs must work (Leaderboard, Testers, Results, Top, Info)
+- Only SEO should be improved
+- Website should be better indexed by Google and social media
