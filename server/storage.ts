@@ -49,6 +49,8 @@ export interface IStorage {
 
   registerPlayer(data: { discordId: string; mcUsername: string; region: string; skinUrl?: string | null }): Promise<void>;
   updatePlayerSkin(discordId: string, renderedSkinPath: string | null): Promise<void>;
+  updatePlayerSkinData(discordId: string, base64Data: string | null): Promise<void>;
+  getSkinData(discordId: string): Promise<string | null>;
   updatePlayerProfile(discordId: string, data: { mcUsername?: string; region?: string }): Promise<void>;
   postResult(data: {
     discordId: string;
@@ -131,6 +133,18 @@ export class DatabaseStorage implements IStorage {
       .update(playersTable)
       .set({ renderedSkinPath })
       .where(eq(playersTable.discordId, discordId));
+  }
+
+  async updatePlayerSkinData(discordId: string, base64Data: string | null): Promise<void> {
+    await db
+      .update(playersTable)
+      .set({ renderedSkinData: base64Data })
+      .where(eq(playersTable.discordId, discordId));
+  }
+
+  async getSkinData(discordId: string): Promise<string | null> {
+    const result = await db.select().from(playersTable).where(eq(playersTable.discordId, discordId)).limit(1);
+    return result[0]?.renderedSkinData ?? null;
   }
 
   async updatePlayerProfile(discordId: string, data: { mcUsername?: string; region?: string }): Promise<void> {

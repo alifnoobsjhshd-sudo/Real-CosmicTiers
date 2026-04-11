@@ -63,16 +63,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { discordId } = req.params;
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.setHeader("Pragma", "no-cache");
-      const skinPath = await storage.getSkin(discordId);
-      if (skinPath && fs.existsSync(skinPath)) {
-        res.sendFile(skinPath);
+
+      const skinData = await storage.getSkinData(discordId);
+      if (skinData) {
+        const buffer = Buffer.from(skinData, "base64");
+        res.setHeader("Content-Type", "image/png");
+        res.send(buffer);
         return;
       }
+
       const localPath = path.join(RENDERED_SKINS_DIR, `${discordId}.png`);
       if (fs.existsSync(localPath)) {
         res.sendFile(localPath);
         return;
       }
+
       res.status(404).json({ error: "Skin not found" });
     } catch (err) {
       console.error("[skin]", err);
@@ -140,11 +145,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         res.status(400).json({ error: "Missing discordId or data" });
         return;
       }
-      fs.mkdirSync(RENDERED_SKINS_DIR, { recursive: true });
-      const filePath = path.join(RENDERED_SKINS_DIR, `${discordId}.png`);
-      const buffer = Buffer.from(data, "base64");
-      fs.writeFileSync(filePath, buffer);
-      await storage.updatePlayerSkin(discordId, filePath);
+      await storage.updatePlayerSkinData(discordId, data);
       res.json({ ok: true });
     } catch (err) {
       console.error("[bot/upload-skin]", err);

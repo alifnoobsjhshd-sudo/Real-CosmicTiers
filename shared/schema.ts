@@ -23,6 +23,7 @@ export const players = pgTable("players", {
   region: text("region").notNull(),
   skinUrl: text("skin_url"),
   renderedSkinPath: text("rendered_skin_path"),
+  renderedSkinData: text("rendered_skin_data"),
   registeredAt: bigint("registered_at", { mode: "number" }).notNull(),
   isTester: boolean("is_tester").default(false).notNull(),
   testCount: integer("test_count").default(0).notNull(),
