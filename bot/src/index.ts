@@ -545,9 +545,7 @@ async function handleSkinChange(interaction: ChatInputCommandInteraction) {
 
   if (reset === 'yes') {
     updateSkin(interaction.user.id, null);
-    void renderAndSaveSkin(interaction.user.id, null).then(async path => {
-      await notifyWebsiteSkin(interaction.user.id, path);
-    });
+    void renderAndUploadSkin(interaction.user.id, null);
     await interaction.editReply(
       `✅ Your skin has been reset to the **default Steve skin** for \`${reg.mcUsername}\`.`,
     );
@@ -572,9 +570,7 @@ async function handleSkinChange(interaction: ChatInputCommandInteraction) {
   }
 
   updateSkin(interaction.user.id, attachment.url);
-  void renderAndSaveSkin(interaction.user.id, attachment.url).then(async path => {
-    await notifyWebsiteSkin(interaction.user.id, path);
-  }).catch(err => console.error('[skin] /skin-change render error:', err));
+  void renderAndUploadSkin(interaction.user.id, attachment.url);
 
   await interaction.editReply(
     `✅ Skin updated for **\`${reg.mcUsername}\`**!\n` +
@@ -1341,8 +1337,7 @@ async function handleSkinChangeOther(interaction: ChatInputCommandInteraction) {
   }
 
   updateSkin(target.id, skinUrl);
-  const renderedPath = await renderAndSaveSkin(target.id, skinUrl);
-  if (renderedPath) await notifyWebsiteSkin(target.id, renderedPath);
+  await renderAndUploadSkin(target.id, skinUrl);
 
   const label = reset === 'yes' ? 'reset to the default Steve skin' : 'updated to the uploaded skin';
   await interaction.editReply(`✅ Skin for <@${target.id}> (\`${reg.mcUsername}\`) has been **${label}**.`);
@@ -2457,9 +2452,7 @@ client.on('messageCreate', async (message: Message) => {
       if (isOwner && reg) {
         try { await message.delete(); } catch { /* no permission */ }
         updateSkin(message.author.id, attachment.url);
-        void renderAndSaveSkin(message.author.id, attachment.url).then(async path => {
-          await notifyWebsiteSkin(message.author.id, path);
-        }).catch(err => console.error('[skin] Ticket skin update error:', err));
+        void renderAndUploadSkin(message.author.id, attachment.url);
         try {
           await channel.send({
             content:

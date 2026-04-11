@@ -61,6 +61,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/skin/:discordId", async (req, res) => {
     try {
       const { discordId } = req.params;
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
       const skinPath = await storage.getSkin(discordId);
       if (skinPath && fs.existsSync(skinPath)) {
         res.sendFile(skinPath);
@@ -127,6 +129,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json({ ok: true });
     } catch (err) {
       console.error("[bot/skin]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/bot/upload-skin", botAuth, async (req, res) => {
+    try {
+      const { discordId, data } = req.body;
+      if (!discordId || !data) {
+        res.status(400).json({ error: "Missing discordId or data" });
+        return;
+      }
+      fs.mkdirSync(RENDERED_SKINS_DIR, { recursive: true });
+      const filePath = path.join(RENDERED_SKINS_DIR, `${discordId}.png`);
+      const buffer = Buffer.from(data, "base64");
+      fs.writeFileSync(filePath, buffer);
+      await storage.updatePlayerSkin(discordId, filePath);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[bot/upload-skin]", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
