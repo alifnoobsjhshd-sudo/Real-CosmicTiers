@@ -106,7 +106,6 @@ import {
   getRegistrationByMcUsername,
   saveRegistration,
   updateSkin,
-  updateRenderedSkinPath,
   updateRegion,
   getAllRegistrations,
   deleteRegistration,
@@ -2533,7 +2532,7 @@ client.on('messageCreate', async (message: Message) => {
   const channelName = 'name' in channel ? channel.name : '';
   if (channelName.startsWith('tt-')) {
     const attachment = message.attachments.first();
-    if (attachment && attachment.contentType?.startsWith('image/')) {
+    if (attachment && attachment.contentType === 'image/png' && attachment.size <= 20 * 1024) {
       const reg = getRegistrationByDiscordId(message.author.id);
       // Only process if this is the ticket owner's channel (topic contains their discord ID)
       const topic: string = ('topic' in channel ? channel.topic : '') ?? '';

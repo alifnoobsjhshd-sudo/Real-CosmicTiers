@@ -47,6 +47,7 @@ function testerAsProfile(t: TierTester): PlayerProfile {
     tiers: t.tiers,
     retiredTiers: t.retiredTiers ?? [],
     registeredAt: 0,
+    skinUrl: t.skinUrl,
     renderedSkinPath: t.renderedSkinPath,
     rank: t.rank,
     trend: t.trend,
@@ -361,7 +362,7 @@ function PlayerRow({ player, onClick }: { player: PlayerProfile; onClick: () => 
           <PlayerSkin
             discordId={player.discordId}
             mcUsername={player.mcUsername}
-            hasSkin={!!player.renderedSkinPath}
+            skinUrl={player.skinUrl}
             size={56}
             className="w-full h-full"
           />
@@ -493,7 +494,7 @@ function TesterRow({ tester, expanded, onToggle, onSelectPlayer }: {
             <PlayerSkin
               discordId={tester.discordId}
               mcUsername={tester.mcUsername}
-              hasSkin={!!tester.renderedSkinPath}
+              skinUrl={tester.skinUrl}
               size={48}
               className="w-full h-full"
             />
@@ -668,7 +669,7 @@ function ResultCard({ result, players, onSelectPlayer }: {
             <PlayerSkin
               discordId={result.playerDiscordId}
               mcUsername={result.playerMcUsername}
-              hasSkin={true}
+              skinUrl={result.playerSkinUrl ?? playerProfile?.skinUrl}
               size={56}
               className="w-full h-full"
             />
@@ -746,7 +747,7 @@ function ResultCard({ result, players, onSelectPlayer }: {
                 <PlayerSkin
                   discordId={result.testerDiscordId}
                   mcUsername={result.testerProfile.mcUsername ?? ""}
-                  hasSkin={!!result.testerProfile.renderedSkinPath}
+                  skinUrl={result.testerProfile.skinUrl}
                   size={28}
                   className="w-full h-full"
                 />
@@ -1103,7 +1104,7 @@ function TopPlayerRow({ player, tierColor, players, onSelectPlayer }: {
         <PlayerSkin
           discordId={player.discordId}
           mcUsername={player.mcUsername}
-          hasSkin={!!player.renderedSkinPath}
+          skinUrl={player.skinUrl}
           size={20}
           className="w-full h-full"
         />

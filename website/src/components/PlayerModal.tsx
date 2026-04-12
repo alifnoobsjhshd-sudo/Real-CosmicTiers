@@ -57,7 +57,7 @@ export function PlayerModal({ player, open, onClose }: PlayerModalProps) {
             <PlayerSkin
               discordId={player.discordId}
               mcUsername={player.mcUsername}
-              hasSkin={!!player.renderedSkinPath}
+              skinUrl={player.skinUrl}
               size={96}
               className="rounded-full w-24 h-24"
             />

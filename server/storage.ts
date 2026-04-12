@@ -42,6 +42,10 @@ function calcTrend(pointDelta: number): TrendArrow {
   return null;
 }
 
+function getPlayerSkinUrl(discordId: string): string {
+  return `/api/skin/${encodeURIComponent(discordId)}`;
+}
+
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -322,7 +326,8 @@ export class DatabaseStorage implements IStorage {
           tiers,
           retiredTiers: retiredByPlayer[p.discordId] ?? [],
           registeredAt: p.registeredAt,
-          renderedSkinPath: p.renderedSkinPath ?? null,
+          skinUrl: getPlayerSkinUrl(p.discordId),
+          renderedSkinPath: getPlayerSkinUrl(p.discordId),
           rank: 0,
           trend: calcTrend(pointDelta),
           title: getTitleForPoints(totalPoints),
@@ -370,7 +375,8 @@ export class DatabaseStorage implements IStorage {
           totalPoints,
           title: getTitleForPoints(totalPoints),
           trend: calcTrend(pointDelta),
-          renderedSkinPath: p.renderedSkinPath ?? null,
+          skinUrl: getPlayerSkinUrl(p.discordId),
+          renderedSkinPath: getPlayerSkinUrl(p.discordId),
           rank: 0,
           gameModes: p.testerGameModes ?? [],
         } as TierTester;
@@ -424,7 +430,8 @@ export class DatabaseStorage implements IStorage {
             totalPoints,
             title: getTitleForPoints(totalPoints),
             trend: calcTrend(pointDelta),
-            renderedSkinPath: p.renderedSkinPath ?? null,
+            skinUrl: getPlayerSkinUrl(p.discordId),
+            renderedSkinPath: getPlayerSkinUrl(p.discordId),
             rank: 0,
             gameModes: p.testerGameModes ?? [],
           };
@@ -436,6 +443,7 @@ export class DatabaseStorage implements IStorage {
       id: r.id,
       playerDiscordId: r.playerDiscordId,
       playerMcUsername: r.playerMcUsername,
+      playerSkinUrl: getPlayerSkinUrl(r.playerDiscordId),
       testerDiscordId: r.testerDiscordId,
       testerMcUsername: r.testerMcUsername ?? null,
       gameMode: r.gameMode,
@@ -556,7 +564,8 @@ export class DatabaseStorage implements IStorage {
       gameModeData[tierEntry.gameMode][tierEntry.tier].push({
         discordId: tierEntry.discordId,
         mcUsername: player.mcUsername,
-        renderedSkinPath: player.renderedSkinPath ?? null,
+        skinUrl: getPlayerSkinUrl(tierEntry.discordId),
+        renderedSkinPath: getPlayerSkinUrl(tierEntry.discordId),
         trend: calcGameModeTrend(tierEntry.discordId, tierEntry.gameMode),
       });
     }

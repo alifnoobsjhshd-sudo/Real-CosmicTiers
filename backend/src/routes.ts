@@ -8,6 +8,15 @@ const INTERNAL_API_KEY = process.env["INTERNAL_API_KEY"] ?? "";
 const DEFAULT_SKIN_PATH = path.resolve(process.cwd(), "default-skin.png");
 const TITLE_ICONS_DIR = path.resolve(process.cwd(), "title-icons");
 
+function sendDefaultSkin(res: Response) {
+  if (fs.existsSync(DEFAULT_SKIN_PATH)) {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.sendFile(DEFAULT_SKIN_PATH);
+    return;
+  }
+  res.status(404).json({ error: "Default skin not found" });
+}
+
 function botAuth(req: Request, res: Response, next: NextFunction) {
   if (INTERNAL_API_KEY) {
     const key = req.headers["x-internal-api-key"] as string;
@@ -71,7 +80,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return;
       }
 
-      res.status(404).json({ error: "Skin not found" });
+      sendDefaultSkin(res);
     } catch (err) {
       console.error("[skin]", err);
       res.status(500).json({ error: "Internal server error" });
@@ -79,12 +88,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/default-skin", (_req, res) => {
-    if (fs.existsSync(DEFAULT_SKIN_PATH)) {
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      res.sendFile(DEFAULT_SKIN_PATH);
-    } else {
-      res.status(404).json({ error: "Default skin not found" });
-    }
+    sendDefaultSkin(res);
   });
 
   app.get("/api/title-icon/:filename", (req, res) => {
@@ -172,6 +176,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { discordId, data } = req.body;
       if (!discordId) {
         res.status(400).json({ error: "Missing discordId" });
+        return;
+      }
+      if (data != null && typeof data !== "string") {
+        res.status(400).json({ error: "Skin data must be a base64 string" });
         return;
       }
       await storage.updatePlayerSkinData(discordId, data ?? null);

@@ -23,7 +23,7 @@ import {
   type TextChannel,
   type Message,
 } from 'discord.js';
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -109,7 +109,6 @@ import {
   getRegistrationByMcUsername,
   saveRegistration,
   updateSkin,
-  updateRenderedSkinPath,
   updateMcUsername,
   updateRegion,
   getAllRegistrations,
@@ -119,13 +118,16 @@ import { sanitizeToEmojiName, getGameModeEmoji, getEmojiString } from './emojis.
 import { renderMinecraftSkin } from './skinrender.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const RENDERED_SKINS_DIR = join(__dir, '..', 'rendered-skins');
 
 const TOKEN    = process.env['DISCORD_BOT_TOKEN'];
 const GUILD_ID = process.env['SERVER_ID'] ?? '';
 const WEBSITE_API_URL = process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000';
 const INTERNAL_API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 const WEBSITE_LINK = process.env['WEBSITE_LINK'] ?? '';
+
+function getBackendSkinUrl(discordId: string): string {
+  return `${WEBSITE_API_URL.replace(/\/$/, '')}/api/skin/${encodeURIComponent(discordId)}`;
+}
 
 if (!TOKEN) throw new Error('DISCORD_BOT_TOKEN is not set');
 
@@ -157,7 +159,7 @@ const client = new Client({
 
 async function callApi(path: string, body: unknown): Promise<any> {
   try {
-    const res = await fetch(`${WEBSITE_API_URL}${path}`, {
+    const res = await fetch(`${WEBSITE_API_URL.replace(/\/$/, '')}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -373,9 +375,8 @@ async function getOrCreateMcUsernameRole(guild: Guild, mcUsername: string): Prom
   });
 }
 
-async function renderAndSaveSkin(discordId: string, skinUrl: string | null): Promise<string | null> {
+async function renderAndUploadSkin(discordId: string, skinUrl: string | null): Promise<Buffer | null> {
   try {
-    mkdirSync(RENDERED_SKINS_DIR, { recursive: true });
     let skinBuffer: Buffer | null = null;
     if (skinUrl) {
       try {
@@ -384,19 +385,16 @@ async function renderAndSaveSkin(discordId: string, skinUrl: string | null): Pro
       } catch { /* fall through to default */ }
     }
     const rendered = await renderMinecraftSkin(skinBuffer, 'bust');
-    const outPath  = join(RENDERED_SKINS_DIR, `${discordId}.png`);
-    writeFileSync(outPath, rendered);
-    updateRenderedSkinPath(discordId, outPath);
-    console.log(`[skin] Rendered and saved for ${discordId}`);
-    return outPath;
+    await callApi('/api/bot/upload-skin', {
+      discordId,
+      data: rendered.toString('base64'),
+    });
+    console.log(`[skin] Rendered and uploaded for ${discordId}`);
+    return rendered;
   } catch (err) {
-    console.error(`[skin] Render failed for ${discordId}:`, err);
+    console.error(`[skin] Render/upload failed for ${discordId}:`, err);
     return null;
   }
-}
-
-async function notifyWebsiteSkin(discordId: string, renderedPath: string | null): Promise<void> {
-  await callApi('/api/bot/skin', { discordId, renderedSkinPath: renderedPath });
 }
 
 async function completeRegistration(
@@ -413,8 +411,7 @@ async function completeRegistration(
 
   // Render skin synchronously so the file is ready before registration is confirmed
   try {
-    const renderedPath = await renderAndSaveSkin(discordId, skinUrl);
-    if (renderedPath) await notifyWebsiteSkin(discordId, renderedPath);
+    await renderAndUploadSkin(discordId, skinUrl);
   } catch (err) {
     console.error('[skin] Registration render error:', err);
   }
@@ -578,9 +575,7 @@ async function handleSkinChange(interaction: ChatInputCommandInteraction) {
 
   if (reset === 'yes') {
     updateSkin(interaction.user.id, null);
-    void renderAndSaveSkin(interaction.user.id, null).then(async path => {
-      await notifyWebsiteSkin(interaction.user.id, path);
-    });
+    void renderAndUploadSkin(interaction.user.id, null);
     await interaction.editReply(
       `✅ Your skin has been reset to the **default Steve skin** for \`${reg.mcUsername}\`.`,
     );
@@ -594,20 +589,18 @@ async function handleSkinChange(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  if (!attachment.contentType?.startsWith('image/')) {
-    await interaction.editReply('❌ The attached file must be an image (PNG). Please try again.');
+  if (attachment.contentType !== 'image/png') {
+    await interaction.editReply('❌ The skin file must be a **PNG** image. Please try again with a `.png` file.');
     return;
   }
 
-  if (attachment.size > 2 * 1024 * 1024) {
-    await interaction.editReply('❌ Skin file is too large. Please upload an image under **2MB**.');
+  if (attachment.size > 20 * 1024) {
+    await interaction.editReply('❌ Skin file is too large. Please upload a PNG under **20 KB**.');
     return;
   }
 
   updateSkin(interaction.user.id, attachment.url);
-  void renderAndSaveSkin(interaction.user.id, attachment.url).then(async path => {
-    await notifyWebsiteSkin(interaction.user.id, path);
-  }).catch(err => console.error('[skin] /skin-change render error:', err));
+  void renderAndUploadSkin(interaction.user.id, attachment.url).catch(err => console.error('[skin] /skin-change render error:', err));
 
   await interaction.editReply(
     `✅ Skin updated for **\`${reg.mcUsername}\`**!\n` +
@@ -718,9 +711,6 @@ async function handleResult(interaction: ChatInputCommandInteraction) {
     }
   });
 
-  const renderedSkinPath = join(RENDERED_SKINS_DIR, `${reg.discordId}.png`);
-  const hasSkin          = existsSync(renderedSkinPath);
-
   const testerReg = getRegistrationByDiscordId(tester.id);
 
   const embedFields: { name: string; value: string; inline?: boolean }[] = [
@@ -741,14 +731,12 @@ async function handleResult(interaction: ChatInputCommandInteraction) {
     .setTitle(`${emoji} Tier Test Result — ${label}`)
     .setColor(color)
     .setAuthor({ name: `Tested by ${tester.username}`, iconURL: tester.displayAvatarURL({ size: 256 }) })
-    .setThumbnail(hasSkin ? 'attachment://skin.png' : (reg.skinUrl ?? null))
+    .setThumbnail(getBackendSkinUrl(reg.discordId))
     .addFields(...embedFields)
     .setFooter({ text: 'Tier Test System' })
     .setTimestamp();
 
-  const files: AttachmentBuilder[] = hasSkin
-    ? [new AttachmentBuilder(readFileSync(renderedSkinPath), { name: 'skin.png' })]
-    : [];
+  const files: AttachmentBuilder[] = [];
 
   // Assign the tier role and update before sending so we get accurate point data
   const roleResult = await assignTierRole(guild, reg.discordId, mode, earned, color);
@@ -880,9 +868,6 @@ async function handleProfile(interaction: ChatInputCommandInteraction) {
   const titleEmoji = getEmojiString(sanitizeToEmojiName(title.name));
   const titleDisplay = titleEmoji ? `${titleEmoji} ${title.name}` : title.name;
 
-  const renderedSkinPath = join(RENDERED_SKINS_DIR, `${reg.discordId}.png`);
-  const hasSkin = existsSync(renderedSkinPath);
-
   const registeredDate = new Date(reg.registeredAt).toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
@@ -916,14 +901,12 @@ async function handleProfile(interaction: ChatInputCommandInteraction) {
     .setTitle(`👤 Profile — ${mcUsername}`)
     .setColor(title.color)
     .setDescription(`<@${reg.discordId}>`)
-    .setThumbnail(hasSkin ? 'attachment://skin.png' : (reg.skinUrl ?? null))
+    .setThumbnail(getBackendSkinUrl(reg.discordId))
     .addFields(...embedFields)
     .setFooter({ text: 'Cosmic Tiers System' })
     .setTimestamp();
 
-  const files: AttachmentBuilder[] = hasSkin
-    ? [new AttachmentBuilder(readFileSync(renderedSkinPath), { name: 'skin.png' })]
-    : [];
+  const files: AttachmentBuilder[] = [];
 
   await interaction.editReply({ embeds: [embed], files });
 }
@@ -1379,6 +1362,17 @@ async function handleSkinChangeOther(interaction: ChatInputCommandInteraction) {
     return;
   }
 
+  if (attachment) {
+    if (attachment.contentType !== 'image/png') {
+      await interaction.editReply('❌ The skin file must be a **PNG** image. Please try again with a `.png` file.');
+      return;
+    }
+    if (attachment.size > 20 * 1024) {
+      await interaction.editReply('❌ Skin file is too large. Please upload a PNG under **20 KB**.');
+      return;
+    }
+  }
+
   let skinUrl: string | null = null;
   if (reset === 'yes') {
     skinUrl = null;
@@ -1387,8 +1381,7 @@ async function handleSkinChangeOther(interaction: ChatInputCommandInteraction) {
   }
 
   updateSkin(target.id, skinUrl);
-  const renderedPath = await renderAndSaveSkin(target.id, skinUrl);
-  if (renderedPath) await notifyWebsiteSkin(target.id, renderedPath);
+  await renderAndUploadSkin(target.id, skinUrl);
 
   const label = reset === 'yes' ? 'reset to the default Steve skin' : 'updated to the uploaded skin';
   await interaction.editReply(`✅ Skin for <@${target.id}> (\`${reg.mcUsername}\`) has been **${label}**.`);
@@ -1458,16 +1451,14 @@ async function applyProfileEdits(
 
   // ── Skin change ──────────────────────────────────────────────────────────
   if (skinAttachment) {
-    if (!skinAttachment.contentType?.startsWith('image/')) {
-      return '❌ The attached skin file must be an image (PNG). Please try again.';
+    if (skinAttachment.contentType !== 'image/png') {
+      return '❌ The attached skin file must be a **PNG** image. Please try again with a `.png` file.';
     }
-    if (skinAttachment.size > 2 * 1024 * 1024) {
-      return '❌ Skin file is too large. Please upload an image under **2MB**.';
+    if (skinAttachment.size > 20 * 1024) {
+      return '❌ Skin file is too large. Please upload a PNG under **20 KB**.';
     }
     updateSkin(discordId, skinAttachment.url);
-    void renderAndSaveSkin(discordId, skinAttachment.url).then(async path => {
-      await notifyWebsiteSkin(discordId, path);
-    }).catch(err => console.error('[edit-profile] Skin render error:', err));
+    void renderAndUploadSkin(discordId, skinAttachment.url).catch(err => console.error('[edit-profile] Skin render error:', err));
     changes.push('**Skin:** Updated to uploaded image');
   }
 
@@ -1815,9 +1806,6 @@ async function handleAddTest(interaction: ChatInputCommandInteraction) {
   const color            = getTierColor(earned);
   const previousPoints   = getMemberPoints(playerMember);
 
-  const renderedSkinPath = join(RENDERED_SKINS_DIR, `${reg.discordId}.png`);
-  const hasSkin          = existsSync(renderedSkinPath);
-
   const modeDisplay = (() => { const e = getGameModeEmoji(mode); return e ? `${e} ${mode}` : mode; })();
   const websiteLinkField = getWebsiteLinkField();
 
@@ -1836,14 +1824,12 @@ async function handleAddTest(interaction: ChatInputCommandInteraction) {
     .setTitle(`${emoji} Tier Test Result — ${label}`)
     .setColor(color)
     .setAuthor({ name: `Tested by ${testerUser.username}`, iconURL: testerUser.displayAvatarURL({ size: 256 }) })
-    .setThumbnail(hasSkin ? 'attachment://skin.png' : (reg.skinUrl ?? null))
+    .setThumbnail(getBackendSkinUrl(reg.discordId))
     .addFields(...embedFields)
     .setFooter({ text: 'Tier Test System' })
     .setTimestamp();
 
-  const files: AttachmentBuilder[] = hasSkin
-    ? [new AttachmentBuilder(readFileSync(renderedSkinPath), { name: 'skin.png' })]
-    : [];
+  const files: AttachmentBuilder[] = [];
 
   const roleResult = await assignTierRole(guild, reg.discordId, mode, earned, color);
 
@@ -2878,7 +2864,7 @@ client.on('messageCreate', async (message: Message) => {
   const channelName = 'name' in channel ? channel.name : '';
   if (channelName.startsWith('tt-')) {
     const attachment = message.attachments.first();
-    if (attachment && attachment.contentType?.startsWith('image/')) {
+    if (attachment && attachment.contentType === 'image/png' && attachment.size <= 20 * 1024) {
       const reg = getRegistrationByDiscordId(message.author.id);
       // Only process if this is the ticket owner's channel (topic contains their discord ID)
       const topic: string = ('topic' in channel ? channel.topic : '') ?? '';
@@ -2886,9 +2872,7 @@ client.on('messageCreate', async (message: Message) => {
       if (isOwner && reg) {
         try { await message.delete(); } catch { /* no permission */ }
         updateSkin(message.author.id, attachment.url);
-        void renderAndSaveSkin(message.author.id, attachment.url).then(async path => {
-          await notifyWebsiteSkin(message.author.id, path);
-        }).catch(err => console.error('[skin] Ticket skin update error:', err));
+        void renderAndUploadSkin(message.author.id, attachment.url).catch(err => console.error('[skin] Ticket skin update error:', err));
         try {
           await channel.send({
             content:

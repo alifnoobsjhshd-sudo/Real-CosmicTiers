@@ -55,6 +55,14 @@ The `backend/` folder is the standalone deployable backend.
 - Moved `/` and `/health` routes to be registered before the server starts
 - Added `/health` endpoint for UptimeRobot monitoring
 
+## Skin System
+
+- Uploaded Minecraft skins are rendered by the Discord bot and saved to PostgreSQL as base64 PNG data in `players.rendered_skin_data`.
+- The bot no longer depends on `rendered-skins/` local files for website skin persistence.
+- The backend serves all player skins through `GET /api/skin/:discordId`; if a player has no saved skin data, the route serves the default Steve skin.
+- Public backend responses expose `skinUrl` for leaderboard players, tier testers, top players, and tester profiles, plus `playerSkinUrl` for result entries.
+- The website renders `player.skinUrl`/`result.playerSkinUrl` through `PlayerSkin` and no longer uses Mojang or mc-heads avatar URLs.
+
 ## Key Files
 
 ### Bot (`bot/`)

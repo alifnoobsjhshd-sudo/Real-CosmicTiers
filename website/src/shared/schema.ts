@@ -43,6 +43,7 @@ export interface SpecialTitle {
 export interface TopPlayerEntry {
   discordId: string;
   mcUsername: string;
+  skinUrl: string;
   renderedSkinPath: string | null;
   trend: TrendArrow;
 }
@@ -60,6 +61,7 @@ export interface PlayerProfile {
   tiers: Record<string, string>;
   retiredTiers: string[];
   registeredAt: number;
+  skinUrl: string;
   renderedSkinPath: string | null;
   rank: number;
   trend: TrendArrow;
@@ -79,6 +81,7 @@ export interface TierTester {
   totalPoints: number;
   title: TitleEntry;
   trend: TrendArrow;
+  skinUrl: string;
   renderedSkinPath: string | null;
   rank: number;
   gameModes: string[];
@@ -88,6 +91,7 @@ export interface ResultEntry {
   id: number;
   playerDiscordId: string;
   playerMcUsername: string;
+  playerSkinUrl: string;
   testerDiscordId: string;
   testerMcUsername: string | null;
   gameMode: string;
