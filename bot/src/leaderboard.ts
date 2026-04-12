@@ -16,7 +16,11 @@ import { getTitleEmoji, formatTierWithEmoji, getEmojiString, sanitizeToEmojiName
 
 const WEBSITE_LINK = process.env['WEBSITE_LINK'] ?? '';
 
-const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP'];
+const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP', 'cartpvp'];
+
+function displayGameMode(gameMode: string): string {
+  return gameMode === 'cartpvp' ? 'Cart-PvP' : gameMode;
+}
 const PAGE_SIZE = 5;
 
 export const LB_PREV_ID = 'lb_prev';
@@ -46,7 +50,7 @@ export const TITLES: { name: string; minPoints: number; color: number }[] = [
 function getRolePoints(roleName: string): number {
   for (const mode of GAME_MODES) {
     for (const [tier, pts] of Object.entries(TIER_POINTS)) {
-      if (roleName === `${mode} ${tier}`) return pts;
+      if (roleName === `${displayGameMode(mode)} ${tier}`) return pts;
     }
   }
   return 0;

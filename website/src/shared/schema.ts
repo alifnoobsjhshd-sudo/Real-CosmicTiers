@@ -1,6 +1,6 @@
 export const GAME_MODES = [
   "Sword-PvP", "UHC", "Pot-PvP", "Nethpot",
-  "SMP-PvP", "Axe-PvP", "Mace-PvP", "Crystal-PvP",
+  "SMP-PvP", "Axe-PvP", "Mace-PvP", "Crystal-PvP", "cartpvp",
 ] as const;
 
 export type GameMode = typeof GAME_MODES[number];

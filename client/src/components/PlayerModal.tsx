@@ -26,6 +26,7 @@ const GAME_MODE_LABELS: Record<string, string> = {
   "Axe-PvP": "Axe PvP",
   "Mace-PvP": "Mace PvP",
   "Crystal-PvP": "Crystal PvP",
+  cartpvp: "Cart-PvP",
 };
 
 export function PlayerModal({ player, open, onClose }: PlayerModalProps) {

@@ -15,6 +15,7 @@ export function getEmojiString(name: string): string {
 }
 
 export function getGameModeEmoji(gameMode: string): string {
+  if (gameMode === 'cartpvp' || gameMode === 'Cart-PvP') return getEmojiString('cartpvp') || getEmojiString('cart_pvp');
   return getEmojiString(sanitizeToEmojiName(gameMode));
 }
 

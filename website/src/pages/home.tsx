@@ -27,6 +27,7 @@ const GAME_MODE_IMAGES: Record<string, string> = {
   "Axe-PvP":     "/Axe-PvP.png",
   "Mace-PvP":    "/Mace-PvP.png",
   "Crystal-PvP": "/Crystal-PvP.png",
+  cartpvp: "/Cart-PvP.png",
 };
 
 function TrendIcon({ trend, size = "sm" }: { trend?: TrendArrow; size?: "sm" | "md" }) {
@@ -256,7 +257,7 @@ export default function Home() {
         <h3>What is a Minecraft PvP Tier List?</h3>
         <p>A Minecraft PvP tier list ranks players by their skill level in specific combat styles. CosmicTiers uses a structured tier system ranging from LT5 (entry level) up to HT1 (elite), with each tier assigned a points value. Your total points across all game modes determine your overall rank and title on the leaderboard.</p>
         <h3>Supported Game Modes</h3>
-        <p>CosmicTiers supports competitive ranking in eight Minecraft PvP game modes: Sword PvP, UHC (Ultra Hardcore), Pot PvP, Nethpot, SMP PvP, Axe PvP, Mace PvP, and Crystal PvP. Each mode has its own dedicated tier testers who assess and rank players through controlled tier tests.</p>
+        <p>CosmicTiers supports competitive ranking in nine Minecraft PvP game modes: Sword PvP, UHC (Ultra Hardcore), Pot PvP, Nethpot, SMP PvP, Axe PvP, Mace PvP, Crystal PvP, and Cart-PvP. Each mode has its own dedicated tier testers who assess and rank players through controlled tier tests.</p>
         <h3>CosmicTiers vs MCTiers</h3>
         <p>CosmicTiers is a community-driven alternative to MCTiers, designed specifically for cracked Minecraft servers and players. Unlike MCTiers, CosmicTiers features automated Discord bot integration, live leaderboard updates, multi-game-mode support, and a custom special title system for top-ranked community members.</p>
         <h3>How Rankings Work</h3>
@@ -900,7 +901,7 @@ function InformationSection({
               ) : (
                 <span className="text-lg">🎮</span>
               )}
-              <span className="text-foreground text-sm font-medium">{mode}</span>
+              <span className="text-foreground text-sm font-medium">{GAME_MODE_LABELS[mode] ?? mode}</span>
             </div>
           ))}
         </div>
@@ -956,6 +957,7 @@ const GAME_MODE_LABELS: Record<string, string> = {
   "Axe-PvP": "Axe",
   "Mace-PvP": "Mace",
   "Crystal-PvP": "Crystal",
+  cartpvp: "Cart-PvP",
 };
 
 function TopSection({
@@ -1013,7 +1015,7 @@ function TopSection({
       ) : totalPlayers === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
           <Crown className="h-10 w-10 opacity-30" />
-          <p className="text-base font-medium">No players in {activeGameMode} yet</p>
+          <p className="text-base font-medium">No players in {GAME_MODE_LABELS[activeGameMode] ?? activeGameMode} yet</p>
         </div>
       ) : (
         /* Tier columns */

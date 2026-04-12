@@ -1,0 +1,279 @@
+Read everything carefully before making any changes.
+
+---
+
+PROJECT OVERVIEW:
+
+This project is called CosmicTiers.
+
+It is a full-stack Minecraft PvP tier system designed for cracked Minecraft players.
+
+Players can:
+- Register via Discord bot
+- Get tested by staff
+- Receive a tier ranking
+- View leaderboard and profiles on the website
+
+---
+
+SYSTEM ARCHITECTURE:
+
+The project is divided into 3 main services:
+
+1. BACKEND
+- Folder: backend/
+- Tech: Node.js + Express
+- Handles:
+  - API routes
+  - Database operations
+  - Game modes
+  - Tier system logic
+- Hosted on Render (Web Service)
+
+2. DISCORD BOT
+- Folder: bot/
+- Tech: Node.js (Discord.js)
+- Handles:
+  - Commands (/register, /test, /result, /tier, /edit-profile)
+  - Staff interactions
+  - Assigning tier roles
+  - Sending result messages
+- Communicates with backend API
+- Hosted on Render (Web Service)
+
+3. WEBSITE
+- Folder: website/
+- Tech: React + Vite
+- Handles:
+  - Leaderboard
+  - Player cards
+  - Player profiles
+  - Tier tester UI
+- Fetches data from backend API
+- Hosted on Render (Static Site)
+
+---
+
+DATABASE:
+
+- PostgreSQL (Neon or similar)
+- Stores ALL persistent data:
+  - users
+  - profiles
+  - tiers
+  - game modes
+  - results
+  - skins
+
+IMPORTANT:
+- No data should rely on local files
+- Everything must persist after redeploy
+
+---
+
+HOW THE SYSTEM WORKS:
+
+Flow:
+User → Discord Bot → Backend → Database → Website
+
+1. User registers via Discord bot
+2. Backend creates user in database
+3. Staff tests player using bot commands
+4. Bot sends results to backend
+5. Backend stores:
+   - tier
+   - points
+   - game mode
+6. Website fetches and displays data
+
+---
+
+TIER SYSTEM:
+
+- Each game mode has its own tier ranking
+- Staff assigns tiers using bot commands
+- Backend stores:
+  - player tier
+  - points
+  - game mode
+- Bot:
+  - creates and assigns Discord roles
+- Website:
+  - displays tier in leaderboard and profile
+
+---
+
+GAME MODE SYSTEM:
+
+- Multiple PvP modes exist:
+  - Nodebuff
+  - Boxing
+  - Nethpot
+  - Sword-PvP
+
+- Each mode has:
+  - separate leaderboard
+  - separate stats
+  - separate tiers
+
+- IMPORTANT STRUCTURE:
+
+Each mode uses:
+- id (internal): lowercase, no spaces (e.g. "nodebuff")
+- name (display): formatted (e.g. "Nodebuff")
+
+Example:
+- id: "swordpvp"
+- name: "Sword-PvP"
+
+---
+
+GOAL:
+
+Add a NEW game mode:
+
+Cart-PvP
+
+---
+
+REQUIREMENTS:
+
+Cart-PvP must behave EXACTLY like all existing game modes.
+
+---
+
+IMPLEMENTATION:
+
+1. GAME MODE
+
+Add:
+- id: "cartpvp"
+- name: "Cart-PvP"
+
+---
+
+2. APPLY EVERYWHERE (VERY IMPORTANT)
+
+Add Cart-PvP to ALL places where other game modes exist:
+
+- leaderboard tabs
+- player profile
+- tier tester
+- results
+- top section
+- information section
+- available modes list
+- dropdowns/select menus
+- bot embeds/messages
+- any UI or logic where game modes are used
+
+---
+
+3. BACKEND
+
+- Ensure all APIs support Cart-PvP:
+  - leaderboard
+  - profile
+  - results
+  - tier system
+
+- Example:
+  GET /api/leaderboard?mode=cartpvp
+
+- Store and retrieve Cart-PvP data like other modes
+
+---
+
+4. DATABASE
+
+- Store Cart-PvP data exactly like other modes
+- Do NOT create special logic
+- Reuse existing structure
+
+---
+
+5. DISCORD BOT
+
+Cart-PvP must work in ALL commands:
+
+- /test
+- /queue
+- /result
+- /tier
+- /edit-profile
+
+Bot must:
+- allow staff to assign Cart-PvP tier
+- create Cart-PvP tier roles
+- assign roles correctly
+- show Cart-PvP in messages and embeds
+
+Example:
+"Cart-PvP Tier: A"
+
+---
+
+6. WEBSITE
+
+- Add Cart-PvP to all UI sections
+- Use provided Cart-PvP icon
+- Display name as "Cart-PvP"
+
+---
+
+7. CONSISTENCY (CRITICAL)
+
+Use:
+- id: cartpvp (internal)
+- name: Cart-PvP (display)
+
+Do NOT use:
+- cart-pvp
+- cartPvP
+
+---
+
+8. LOGIC RULE
+
+- Do NOT duplicate logic
+- Extend existing system dynamically
+- Cart-PvP must automatically use:
+  - same tier system
+  - same ranking system
+  - same point system
+
+---
+
+9. VERIFICATION
+
+Ensure:
+- Cart-PvP appears everywhere other modes appear
+- Bot commands fully support Cart-PvP
+- Backend stores and returns correct data
+- Website displays correct leaderboard/profile
+- Roles are created and assigned properly
+
+---
+
+FINAL TASK:
+
+Implement Cart-PvP fully across backend, bot, and website.
+
+Also explain:
+- what was added
+- what files were modified
+- how Cart-PvP integrates into the system
+
+
+And yeah here is the image icon that you should use for the Cart-PvP icon.
+
+
+And no need to add all the inv variables because I have host my all the service in render.
+
+Website - render • static site
+Backend - render • web service
+Bot - render • web service.
+
+So do all the changes and fixes after understanding project and and what is your task.
+
+And yeah by using /upload command the Cart-PvP icon image will also uploaded to the server as custom emojis like all of the game modes. And the custom emojis will show in all the discord bot massage where others game mode massage show like leaderboard, tester, result, information command, tier test, etc.

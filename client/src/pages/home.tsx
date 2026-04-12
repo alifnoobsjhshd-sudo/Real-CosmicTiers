@@ -27,6 +27,7 @@ const GAME_MODE_IMAGES: Record<string, string> = {
   "Axe-PvP":     "/Axe-PvP.png",
   "Mace-PvP":    "/Mace-PvP.png",
   "Crystal-PvP": "/Crystal-PvP.png",
+  cartpvp: "/Cart-PvP.png",
 };
 
 function TrendIcon({ trend, size = "sm" }: { trend?: TrendArrow; size?: "sm" | "md" }) {
@@ -887,7 +888,7 @@ function InformationSection({
               ) : (
                 <span className="text-lg">🎮</span>
               )}
-              <span className="text-foreground text-sm font-medium">{mode}</span>
+              <span className="text-foreground text-sm font-medium">{GAME_MODE_LABELS[mode] ?? mode}</span>
             </div>
           ))}
         </div>
@@ -943,6 +944,7 @@ const GAME_MODE_LABELS: Record<string, string> = {
   "Axe-PvP": "Axe",
   "Mace-PvP": "Mace",
   "Crystal-PvP": "Crystal",
+  cartpvp: "Cart-PvP",
 };
 
 function TopSection({
@@ -1000,7 +1002,7 @@ function TopSection({
       ) : totalPlayers === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
           <Crown className="h-10 w-10 opacity-30" />
-          <p className="text-base font-medium">No players in {activeGameMode} yet</p>
+          <p className="text-base font-medium">No players in {GAME_MODE_LABELS[activeGameMode] ?? activeGameMode} yet</p>
         </div>
       ) : (
         /* Tier columns */

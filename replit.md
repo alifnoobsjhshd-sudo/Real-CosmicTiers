@@ -99,7 +99,7 @@ The `backend/` folder is the standalone deployable backend.
 - `bot-registrations.json` — Player registrations (Discord ID, MC username, region, skin)
 - `rendered-skins/` — Pre-rendered Minecraft bust images (PNG)
 - `default-skin.png` — Default Steve skin fallback
-- `emojis/` — Game mode emoji images (uploaded via /upload command)
+- `bot/emojis/` — Game mode emoji images (uploaded via /upload command)
 
 ## API Endpoints
 
@@ -159,13 +159,13 @@ The `backend/` folder is the standalone deployable backend.
 ## Phase 1 Feature Summary (Implemented)
 
 ### Tier Test Flow
-- "Start Tier Test" now shows game mode selection buttons (8 modes, 2 rows of 4) instead of a text modal
+- "Start Tier Test" now shows game mode selection buttons (9 modes, including Cart-PvP) instead of a text modal
 - After selecting a game mode, a private ticket channel is created
 - Ticket mentions both the general Tier Tester role AND the game-mode-specific tester role (e.g. "Nethpot Tester")
 - Ticket channel topic stores: user ID, MC username, region, game mode
 
 ### /add-tester Command
-- Requires `game-mode` option (dropdown with all 8 modes)
+- Requires `game-mode` option (dropdown with all 9 modes)
 - Assigns both the general "Tier Tester" role AND a `<GameMode> Tester` role (e.g. "Nethpot Tester")
 - Auto-creates the `<GameMode> Tester` role if it doesn't exist
 - Persists which game modes the tester tests in the `tester_game_modes` DB column
@@ -187,7 +187,9 @@ The `backend/` folder is the standalone deployable backend.
 
 ## Game Modes
 
-Sword-PvP, UHC, Pot-PvP, Nethpot, SMP-PvP, Axe-PvP, Mace-PvP, Crystal-PvP
+Sword-PvP, UHC, Pot-PvP, Nethpot, SMP-PvP, Axe-PvP, Mace-PvP, Crystal-PvP, Cart-PvP
+
+Cart-PvP uses the internal key `cartpvp` in stored game mode data and Discord command values, while Discord roles and user-facing UI display `Cart-PvP`.
 
 ## Tier System (Points)
 

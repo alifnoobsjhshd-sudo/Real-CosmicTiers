@@ -14,7 +14,11 @@ import { formatTierWithEmoji, getGameModeEmoji } from './emojis.js';
 const WEBSITE_LINK = process.env['WEBSITE_LINK'] ?? '';
 const WEBSITE_API_URL = process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000';
 
-const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP'];
+const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP', 'cartpvp'];
+
+function displayGameMode(gameMode: string): string {
+  return gameMode === 'cartpvp' ? 'Cart-PvP' : gameMode;
+}
 const TIERS = ['LT5', 'HT5', 'LT4', 'HT4', 'LT3', 'HT3', 'LT2', 'HT2', 'LT1', 'HT1'];
 const PAGE_SIZE = 5;
 
@@ -23,7 +27,7 @@ export const TL_NEXT_ID = 'tl_next';
 
 export function isTierRoleName(name: string): boolean {
   return GAME_MODES.some(mode =>
-    TIERS.some(tier => name === `${mode} ${tier}` || name === `${mode} R${tier}`)
+    TIERS.some(tier => name === `${displayGameMode(mode)} ${tier}` || name === `${displayGameMode(mode)} R${tier}`)
   );
 }
 

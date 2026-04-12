@@ -187,7 +187,11 @@ export const REG_INPUT_REGION  = 'reg_region';
 // ─── Tier / Role Constants ────────────────────────────────────────────────────
 
 const ALL_TIERS  = ['LT5','HT5','LT4','HT4','LT3','HT3','LT2','HT2','LT1','HT1'];
-const GAME_MODES = ['Sword-PvP','UHC','Pot-PvP','Nethpot','SMP-PvP','Axe-PvP','Mace-PvP','Crystal-PvP'];
+const GAME_MODES = ['Sword-PvP','UHC','Pot-PvP','Nethpot','SMP-PvP','Axe-PvP','Mace-PvP','Crystal-PvP','cartpvp'];
+
+function displayGameMode(gameMode: string): string {
+  return gameMode === 'cartpvp' ? 'Cart-PvP' : gameMode;
+}
 
 function getTierColor(tier: string): number {
   if (tier.includes('1')) return 0xFFD700;
@@ -207,7 +211,7 @@ function getRankChange(previous: string, earned: string): { emoji: string; label
 }
 
 function buildRoleName(mode: string, tier: string): string {
-  return `${mode} ${tier}`;
+  return `${displayGameMode(mode)} ${tier}`;
 }
 
 // ─── Trend Arrow Helpers ─────────────────────────────────────────────────────
@@ -820,7 +824,7 @@ async function handleProfile(interaction: ChatInputCommandInteraction) {
       if (parts.length < 2) return false;
       const tier = parts[parts.length - 1];
       const mode = parts.slice(0, -1).join(' ');
-      return GAME_MODES.includes(mode) && ALL_TIERS.includes(tier);
+      return GAME_MODES.map(displayGameMode).includes(mode) && ALL_TIERS.includes(tier);
     })
     .map(r => r.name)
     .sort();
@@ -941,7 +945,7 @@ async function handleDeleteUser(interaction: ChatInputCommandInteraction) {
 
     // Remove all game-mode-specific tester roles (e.g. "Sword-PvP Tester", "Nethpot Tester")
     for (const mode of GAME_MODES) {
-      const gmRoleName = `${mode} Tester`;
+      const gmRoleName = `${displayGameMode(mode)} Tester`;
       const gmRole = guild.roles.cache.find(r => r.name === gmRoleName);
       if (gmRole && member.roles.cache.has(gmRole.id)) {
         try {
@@ -1201,7 +1205,7 @@ async function handleAddTester(interaction: ChatInputCommandInteraction) {
     }
 
     // ── Find or create game-mode-specific tester role ─────────────────────────
-    const gmRoleName = `${gameMode} Tester`;
+    const gmRoleName = `${displayGameMode(gameMode)} Tester`;
     let gmRole = guild.roles.cache.find(r => r.name === gmRoleName);
     if (!gmRole) {
       gmRole = await guild.roles.create({
@@ -1474,7 +1478,8 @@ async function handleDone(interaction: ChatInputCommandInteraction) {
   }
 
   const testerReg = getRegistrationByDiscordId(interaction.user.id);
-  const modeEmoji = (() => { const e = getGameModeEmoji(gameMode); return e ? `${e} ${gameMode}` : gameMode; })();
+  const modeDisplay = displayGameMode(gameMode);
+  const modeEmoji = (() => { const e = getGameModeEmoji(gameMode); return e ? `${e} ${modeDisplay}` : modeDisplay; })();
   const staffMention = config.staffRoleId ? `<@&${config.staffRoleId}>` : '@staff';
 
   const embed = new EmbedBuilder()
@@ -1565,7 +1570,7 @@ async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
 
   // Remove all game-mode-specific tester roles
   for (const mode of GAME_MODES) {
-    const gmRoleName = `${mode} Tester`;
+    const gmRoleName = `${displayGameMode(mode)} Tester`;
     const gmRole = guild.roles.cache.find(r => r.name === gmRoleName);
     if (gmRole && member.roles.cache.has(gmRole.id)) {
       try {
@@ -1800,7 +1805,7 @@ async function handleHelpInfo(interaction: ChatInputCommandInteraction) {
       },
       {
         name: '🎮 Available Game Modes',
-        value: '`Sword-PvP` · `UHC` · `Pot-PvP` · `Nethpot` · `SMP-PvP` · `Axe-PvP` · `Mace-PvP` · `Crystal-PvP`',
+        value: '`Sword-PvP` · `UHC` · `Pot-PvP` · `Nethpot` · `SMP-PvP` · `Axe-PvP` · `Mace-PvP` · `Crystal-PvP` · `Cart-PvP`',
       },
       {
         name: '📊 Tier Rankings (Highest → Lowest)',
@@ -2220,7 +2225,7 @@ async function handleLeaderboardPage(interaction: ButtonInteraction, newPage: nu
 
 // ─── /upload Command ──────────────────────────────────────────────────────────
 
-const EMOJIS_DIR = join(__dir, '..', 'Cosmic-tiers-bot', 'Cosmic-tier-bot', 'artifacts', 'discord-bot', 'emojis');
+const EMOJIS_DIR = EMOJIS_DIR_SRC;
 const IMAGE_EXTS = /\.(png|gif|jpg|jpeg|webp)$/i;
 
 async function handleUploadEmoji(interaction: ChatInputCommandInteraction) {

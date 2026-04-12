@@ -92,7 +92,7 @@ async function buildPanelEmbed(guild: Guild): Promise<EmbedBuilder> {
       { name: '🌍 Supported Regions', value: '`AS` · `AF` · `EU` · `NA` · `SA` · `OC` · `AN`' },
       {
         name: '🎮 Available Game Modes',
-        value: 'Sword-PvP · UHC · Pot-PvP · Nethpot · SMP-PvP · Axe-PvP · Mace-PvP · Crystal-PvP',
+        value: 'Sword-PvP · UHC · Pot-PvP · Nethpot · SMP-PvP · Axe-PvP · Mace-PvP · Crystal-PvP · Cart-PvP',
       },
       { name: '👥 Tier Testers', value: testerLine },
     )

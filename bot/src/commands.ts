@@ -141,6 +141,7 @@ export const resultCommand = new SlashCommandBuilder()
         { name: 'Axe PvP',      value: 'Axe-PvP' },
         { name: 'Mace PvP',     value: 'Mace-PvP' },
         { name: 'Crystal PvP',  value: 'Crystal-PvP' },
+        { name: 'Cart-PvP',     value: 'cartpvp' },
       )
   )
   .addStringOption(option =>
@@ -181,6 +182,7 @@ export const doneCommand = new SlashCommandBuilder()
         { name: 'Axe PvP',      value: 'Axe-PvP' },
         { name: 'Mace PvP',     value: 'Mace-PvP' },
         { name: 'Crystal PvP',  value: 'Crystal-PvP' },
+        { name: 'Cart-PvP',     value: 'cartpvp' },
       )
   )
   .addStringOption(option =>
@@ -221,6 +223,7 @@ export const addTestCommand = new SlashCommandBuilder()
         { name: 'Axe PvP',      value: 'Axe-PvP' },
         { name: 'Mace PvP',     value: 'Mace-PvP' },
         { name: 'Crystal PvP',  value: 'Crystal-PvP' },
+        { name: 'Cart-PvP',     value: 'cartpvp' },
       )
   )
   .addStringOption(option =>
@@ -455,5 +458,6 @@ export const addTesterCommand = new SlashCommandBuilder()
         { name: 'Axe PvP',      value: 'Axe-PvP' },
         { name: 'Mace PvP',     value: 'Mace-PvP' },
         { name: 'Crystal PvP',  value: 'Crystal-PvP' },
+        { name: 'Cart-PvP',     value: 'cartpvp' },
       )
   );

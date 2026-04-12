@@ -142,7 +142,11 @@ export const REG_SKIP_PREFIX   = 'reg_skip';
 // ─── Tier / Role Constants ─────────────────────────────────────────────────────
 
 const ALL_TIERS  = ['LT5','HT5','LT4','HT4','LT3','HT3','LT2','HT2','LT1','HT1'];
-const GAME_MODES = ['Sword-PvP','UHC','Pot-PvP','Nethpot','SMP-PvP','Axe-PvP','Mace-PvP','Crystal-PvP'];
+const GAME_MODES = ['Sword-PvP','UHC','Pot-PvP','Nethpot','SMP-PvP','Axe-PvP','Mace-PvP','Crystal-PvP','cartpvp'];
+
+function displayGameMode(gameMode: string): string {
+  return gameMode === 'cartpvp' ? 'Cart-PvP' : gameMode;
+}
 
 function getTierColor(tier: string): number {
   if (tier.includes('1')) return 0xFFD700;
@@ -162,7 +166,7 @@ function getRankChange(previous: string, earned: string): { emoji: string; label
 }
 
 function buildRoleName(mode: string, tier: string): string {
-  return `${mode} ${tier}`;
+  return `${displayGameMode(mode)} ${tier}`;
 }
 
 // ─── Role Helpers ─────────────────────────────────────────────────────────────

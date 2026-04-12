@@ -35,6 +35,7 @@ const GAMEMODE_IMAGES: Record<string, string> = {
   "Axe-PvP":     "/Axe-PvP.png",
   "Mace-PvP":    "/Mace-PvP.png",
   "Crystal-PvP": "/Crystal-PvP.png",
+  cartpvp: "/Cart-PvP.png",
 };
 
 interface TierBadgeProps {
@@ -101,7 +102,7 @@ export function TierList({ tiers, retiredTiers = [], size = "md" }: TierListProp
     return <span className="text-muted-foreground text-xs italic">No tiers yet</span>;
   }
 
-  const ORDER = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP'];
+  const ORDER = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP', 'cartpvp'];
   const sorted = entries.sort(([a], [b]) => ORDER.indexOf(a) - ORDER.indexOf(b));
 
   return (

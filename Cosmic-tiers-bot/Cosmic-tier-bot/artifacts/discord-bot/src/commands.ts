@@ -53,6 +53,7 @@ export const resultCommand = new SlashCommandBuilder()
         { name: 'Axe PvP',      value: 'Axe-PvP' },
         { name: 'Mace PvP',     value: 'Mace-PvP' },
         { name: 'Crystal PvP',  value: 'Crystal-PvP' },
+        { name: 'Cart-PvP',     value: 'cartpvp' },
       )
   )
   .addStringOption(option =>

@@ -193,7 +193,11 @@ export const REG_INPUT_REGION  = 'reg_region';
 // ─── Tier / Role Constants ────────────────────────────────────────────────────
 
 const ALL_TIERS  = ['LT5','HT5','LT4','HT4','LT3','HT3','LT2','HT2','LT1','HT1'];
-const GAME_MODES = ['Sword-PvP','UHC','Pot-PvP','Nethpot','SMP-PvP','Axe-PvP','Mace-PvP','Crystal-PvP'];
+const GAME_MODES = ['Sword-PvP','UHC','Pot-PvP','Nethpot','SMP-PvP','Axe-PvP','Mace-PvP','Crystal-PvP','cartpvp'];
+
+function displayGameMode(gameMode: string): string {
+  return gameMode === 'cartpvp' ? 'Cart-PvP' : gameMode;
+}
 
 function getTierColor(tier: string): number {
   if (tier.includes('1')) return 0xFFD700;
@@ -213,7 +217,7 @@ function getRankChange(previous: string, earned: string): { emoji: string; label
 }
 
 function buildRoleName(mode: string, tier: string): string {
-  return `${mode} ${tier}`;
+  return `${displayGameMode(mode)} ${tier}`;
 }
 
 // ─── Trend Arrow Helpers ─────────────────────────────────────────────────────
@@ -285,7 +289,7 @@ async function removeOldTierRoles(member: GuildMember, mode: string): Promise<st
       await member.roles.remove(role, 'Replacing old tier role');
       removed.push(roleName);
     }
-    const retiredRoleName = `${mode} R${tier}`;
+    const retiredRoleName = `${displayGameMode(mode)} R${tier}`;
     const retiredRole = member.guild.roles.cache.find(r => r.name === retiredRoleName);
     if (retiredRole && member.roles.cache.has(retiredRole.id)) {
       await member.roles.remove(retiredRole, 'Replacing retired tier role');
@@ -305,7 +309,7 @@ async function removeAllTierRoles(member: GuildMember): Promise<string[]> {
         await member.roles.remove(role, 'Cleared by /clear-user');
         removed.push(roleName);
       }
-      const retiredRoleName = `${mode} R${tier}`;
+      const retiredRoleName = `${displayGameMode(mode)} R${tier}`;
       const retiredRole = member.guild.roles.cache.find(r => r.name === retiredRoleName);
       if (retiredRole && member.roles.cache.has(retiredRole.id)) {
         await member.roles.remove(retiredRole, 'Cleared by /clear-user');
@@ -327,7 +331,7 @@ async function getMemberCurrentTier(member: GuildMember, mode: string): Promise<
     if (role && member.roles.cache.has(role.id)) return tier;
   }
   for (const tier of ALL_TIERS) {
-    const retiredRoleName = `${mode} R${tier}`;
+    const retiredRoleName = `${displayGameMode(mode)} R${tier}`;
     const retiredRole = member.guild.roles.cache.find(r => r.name === retiredRoleName);
     if (retiredRole && member.roles.cache.has(retiredRole.id)) return `R${tier}`;
   }
@@ -858,7 +862,7 @@ async function handleProfile(interaction: ChatInputCommandInteraction) {
       const tier = parts[parts.length - 1];
       const mode = parts.slice(0, -1).join(' ');
       const isRetired = tier.startsWith('R') && ALL_TIERS.includes(tier.slice(1));
-      return GAME_MODES.includes(mode) && (ALL_TIERS.includes(tier) || isRetired);
+      return GAME_MODES.map(displayGameMode).includes(mode) && (ALL_TIERS.includes(tier) || isRetired);
     })
     .map(r => r.name)
     .sort();
@@ -979,7 +983,7 @@ async function handleDeleteUser(interaction: ChatInputCommandInteraction) {
 
     // Remove all game-mode-specific tester roles (e.g. "Sword-PvP Tester", "Nethpot Tester")
     for (const mode of GAME_MODES) {
-      const gmRoleName = `${mode} Tester`;
+      const gmRoleName = `${displayGameMode(mode)} Tester`;
       const gmRole = guild.roles.cache.find(r => r.name === gmRoleName);
       if (gmRole && member.roles.cache.has(gmRole.id)) {
         try {
@@ -1239,7 +1243,7 @@ async function handleAddTester(interaction: ChatInputCommandInteraction) {
     }
 
     // ── Find or create game-mode-specific tester role ─────────────────────────
-    const gmRoleName = `${gameMode} Tester`;
+    const gmRoleName = `${displayGameMode(gameMode)} Tester`;
     let gmRole = guild.roles.cache.find(r => r.name === gmRoleName);
     if (!gmRole) {
       gmRole = await guild.roles.create({
@@ -1609,7 +1613,8 @@ async function handleDone(interaction: ChatInputCommandInteraction) {
   }
 
   const testerReg = getRegistrationByDiscordId(interaction.user.id);
-  const modeEmoji = (() => { const e = getGameModeEmoji(gameMode); return e ? `${e} ${gameMode}` : gameMode; })();
+  const modeDisplay = displayGameMode(gameMode);
+  const modeEmoji = (() => { const e = getGameModeEmoji(gameMode); return e ? `${e} ${modeDisplay}` : modeDisplay; })();
   const staffMention = config.staffRoleId ? `<@&${config.staffRoleId}>` : '@staff';
 
   const embed = new EmbedBuilder()
@@ -1701,7 +1706,7 @@ async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
 
   // Remove all game-mode-specific tester roles
   for (const mode of GAME_MODES) {
-    const gmRoleName = `${mode} Tester`;
+    const gmRoleName = `${displayGameMode(mode)} Tester`;
     const gmRole = guild.roles.cache.find(r => r.name === gmRoleName);
     if (gmRole && member.roles.cache.has(gmRole.id)) {
       try {
@@ -1936,7 +1941,7 @@ async function handleHelpInfo(interaction: ChatInputCommandInteraction) {
       },
       {
         name: '🎮 Available Game Modes',
-        value: '`Sword-PvP` · `UHC` · `Pot-PvP` · `Nethpot` · `SMP-PvP` · `Axe-PvP` · `Mace-PvP` · `Crystal-PvP`',
+        value: '`Sword-PvP` · `UHC` · `Pot-PvP` · `Nethpot` · `SMP-PvP` · `Axe-PvP` · `Mace-PvP` · `Crystal-PvP` · `Cart-PvP`',
       },
       {
         name: '📊 Tier Rankings (Highest → Lowest)',
@@ -2356,7 +2361,7 @@ async function handleLeaderboardPage(interaction: ButtonInteraction, newPage: nu
 
 // ─── /upload Command ──────────────────────────────────────────────────────────
 
-const EMOJIS_DIR = join(__dir, '..', 'Cosmic-tiers-bot', 'Cosmic-tier-bot', 'artifacts', 'discord-bot', 'emojis');
+const EMOJIS_DIR = join(__dir, 'emojis');
 const IMAGE_EXTS = /\.(png|gif|jpg|jpeg|webp)$/i;
 
 async function handleUploadEmoji(interaction: ChatInputCommandInteraction) {
@@ -2500,19 +2505,19 @@ async function handleRetired(interaction: ChatInputCommandInteraction) {
   const currentTier = await getMemberCurrentTier(playerMember, gameMode);
   if (currentTier === 'Unranked') {
     await interaction.editReply(
-      `❌ **\`${mcUsername}\`** has no active tier in **${gameMode}** to retire.`,
+      `❌ **\`${mcUsername}\`** has no active tier in **${displayGameMode(gameMode)}** to retire.`,
     );
     return;
   }
 
   try {
-    const tierRoleName = `${gameMode} ${currentTier}`;
+    const tierRoleName = `${displayGameMode(gameMode)} ${currentTier}`;
     const tierRole = guild.roles.cache.find(r => r.name === tierRoleName);
     if (tierRole) {
-      await playerMember.roles.remove(tierRole, `Retired from ${gameMode} by ${interaction.user.username}`);
+      await playerMember.roles.remove(tierRole, `Retired from ${displayGameMode(gameMode)} by ${interaction.user.username}`);
     }
 
-    const retiredRoleName = `${gameMode} R${currentTier}`;
+    const retiredRoleName = `${displayGameMode(gameMode)} R${currentTier}`;
     let retiredRole = guild.roles.cache.find(r => r.name === retiredRoleName);
     if (!retiredRole) {
       retiredRole = await guild.roles.create({
@@ -2521,7 +2526,7 @@ async function handleRetired(interaction: ChatInputCommandInteraction) {
         reason: 'Auto-created retired tier role',
       });
     }
-    await playerMember.roles.add(retiredRole, `Retired from ${gameMode} by ${interaction.user.username}`);
+    await playerMember.roles.add(retiredRole, `Retired from ${displayGameMode(gameMode)} by ${interaction.user.username}`);
   } catch (err) {
     console.error('[retired] Role error:', err);
     await interaction.editReply('⚠️ Retired tier marked in DB, but there was an issue updating roles.');
@@ -2540,8 +2545,8 @@ async function handleRetired(interaction: ChatInputCommandInteraction) {
   scheduleLeaderboardRefresh(client);
 
   await interaction.editReply(
-    `✅ **\`${mcUsername}\`** has been retired from **${gameMode}** (**${currentTier}** → **R${currentTier}**).\n` +
-    `Their points remain unchanged and they no longer appear in the Top section for ${gameMode}.`,
+    `✅ **\`${mcUsername}\`** has been retired from **${displayGameMode(gameMode)}** (**${currentTier}** → **R${currentTier}**).\n` +
+    `Their points remain unchanged and they no longer appear in the Top section for ${displayGameMode(gameMode)}.`,
   );
 }
 
@@ -2586,22 +2591,22 @@ async function handleUnretired(interaction: ChatInputCommandInteraction) {
 
   let retiredTier: string | null = null;
   for (const tier of ALL_TIERS) {
-    const retiredRoleName = `${gameMode} R${tier}`;
+    const retiredRoleName = `${displayGameMode(gameMode)} R${tier}`;
     const retiredRole = guild.roles.cache.find(r => r.name === retiredRoleName);
     if (retiredRole && playerMember.roles.cache.has(retiredRole.id)) {
       retiredTier = tier;
-      await playerMember.roles.remove(retiredRole, `Unretired from ${gameMode} by ${interaction.user.username}`);
+      await playerMember.roles.remove(retiredRole, `Unretired from ${displayGameMode(gameMode)} by ${interaction.user.username}`);
       break;
     }
   }
 
   if (!retiredTier) {
-    await interaction.editReply(`❌ **\`${mcUsername}\`** has no retired tier in **${gameMode}**.`);
+    await interaction.editReply(`❌ **\`${mcUsername}\`** has no retired tier in **${displayGameMode(gameMode)}**.`);
     return;
   }
 
   const color = getTierColor(retiredTier);
-  const regularRoleName = `${gameMode} ${retiredTier}`;
+  const regularRoleName = `${displayGameMode(gameMode)} ${retiredTier}`;
   let regularRole = guild.roles.cache.find(r => r.name === regularRoleName);
   if (!regularRole) {
     regularRole = await guild.roles.create({
@@ -2616,7 +2621,7 @@ async function handleUnretired(interaction: ChatInputCommandInteraction) {
   scheduleLeaderboardRefresh(client);
 
   await interaction.editReply(
-    `✅ **\`${mcUsername}\`** has been unretired from **${gameMode}** (**R${retiredTier}** → **${retiredTier}**).\n` +
+    `✅ **\`${mcUsername}\`** has been unretired from **${displayGameMode(gameMode)}** (**R${retiredTier}** → **${retiredTier}**).\n` +
     `Their tier has been restored to normal.`,
   );
 }

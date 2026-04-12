@@ -30,7 +30,11 @@ export const SELECT_GM_PREFIX    = 'select_gm';
 
 export const INPUT_GAMEMODE = 'game_mode';
 
-const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP'];
+const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP', 'cartpvp'];
+
+function displayGameMode(gameMode: string): string {
+  return gameMode === 'cartpvp' ? 'Cart-PvP' : gameMode;
+}
 
 // ─── Panel Refresh ────────────────────────────────────────────────────────────
 let _refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -93,7 +97,7 @@ async function buildPanelEmbed(guild: Guild): Promise<EmbedBuilder> {
       { name: '🌍 Supported Regions', value: '`AS` · `AF` · `EU` · `NA` · `SA` · `OC` · `AN`' },
       {
         name: '🎮 Available Game Modes',
-        value: 'Sword-PvP · UHC · Pot-PvP · Nethpot · SMP-PvP · Axe-PvP · Mace-PvP · Crystal-PvP',
+        value: 'Sword-PvP · UHC · Pot-PvP · Nethpot · SMP-PvP · Axe-PvP · Mace-PvP · Crystal-PvP · Cart-PvP',
       },
       { name: '👥 Tier Testers', value: testerLine },
     )
@@ -273,6 +277,7 @@ function buildGameModeRows(): ActionRowBuilder<ButtonBuilder>[] {
     makeGameModeButton('Axe-PvP',     '🪓',  'Axe PvP'),
     makeGameModeButton('Mace-PvP',    '🔨',  'Mace PvP'),
     makeGameModeButton('Crystal-PvP', '💎',  'Crystal PvP'),
+    makeGameModeButton('cartpvp',     '🛒',  'Cart-PvP'),
   );
   return [row1, row2];
 }
@@ -352,7 +357,7 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
   }
 
   // Find game-mode-specific tester role (e.g. "Nethpot Tester")
-  const gameModeRoleName = `${gameMode} Tester`;
+  const gameModeRoleName = `${displayGameMode(gameMode)} Tester`;
   const gameModeRole = guild.roles.cache.find(r => r.name === gameModeRoleName);
 
   const overwrites: Parameters<typeof guild.channels.create>[0]['permissionOverwrites'] = [
@@ -382,7 +387,7 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
       type: ChannelType.GuildText,
       permissionOverwrites: overwrites,
       reason: `Tier test ticket for ${interaction.user.username}`,
-      topic: `Tier test ticket — ${interaction.user.id} (${mcUsername}) · Region: ${region} · Mode: ${gameMode}`,
+      topic: `Tier test ticket — ${interaction.user.id} (${mcUsername}) · Region: ${region} · Mode: ${displayGameMode(gameMode)}`,
     }) as TextChannel;
   } catch (err) {
     console.error('Failed to create ticket channel:', err);
@@ -421,7 +426,7 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
   const staffMention         = config.staffRoleId ? ` <@&${config.staffRoleId}>` : '';
 
   await ticketChannel.send({
-    content: `${generalTesterMention}${gmTesterMention}${staffMention} — a new **${gameMode}** tier test request has arrived!`,
+    content: `${generalTesterMention}${gmTesterMention}${staffMention} — a new **${displayGameMode(gameMode)}** tier test request has arrived!`,
     embeds: [ticketEmbed],
     components: [buildTicketActionRow()],
   });
