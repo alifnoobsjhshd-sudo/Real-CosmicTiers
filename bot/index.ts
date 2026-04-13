@@ -62,7 +62,7 @@ import {
   editProfileCommand,
   editProfileOtherCommand,
 } from './commands.js';
-import { getConfig, setConfig, incrementTesterStat, clearTesterStat } from './config.js';
+import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
   BUTTON_ID,
   PANEL_REGISTER_ID,
@@ -113,6 +113,7 @@ import {
   updateRegion,
   getAllRegistrations,
   deleteRegistration,
+  loadRegistrationsFromApi,
 } from './registration.js';
 import { sanitizeToEmojiName, getGameModeEmoji, getEmojiString } from './emojis.js';
 import { renderMinecraftSkin } from './skinrender.js';
@@ -134,6 +135,7 @@ if (!TOKEN) throw new Error('DISCORD_BOT_TOKEN is not set');
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 
 const _cooldowns = new Map<string, number>();
+const USERNAME_CHANGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 function checkCooldown(userId: string, cmd: string, ms: number): number {
   const key = `${userId}:${cmd}`;
@@ -142,6 +144,30 @@ function checkCooldown(userId: string, cmd: string, ms: number): number {
   if (remaining > 0) return Math.ceil(remaining / 1000);
   _cooldowns.set(key, Date.now());
   return 0;
+}
+
+function getUsernameChangeRemainingMs(discordId: string): number {
+  const lastChangedAt = getConfig().usernameChangeTimestamps?.[discordId] ?? 0;
+  return Math.max(0, lastChangedAt + USERNAME_CHANGE_COOLDOWN_MS - Date.now());
+}
+
+function markUsernameChanged(discordId: string): void {
+  const config = getConfig();
+  setConfig({
+    usernameChangeTimestamps: {
+      ...(config.usernameChangeTimestamps ?? {}),
+      [discordId]: Date.now(),
+    },
+  });
+}
+
+function formatDuration(ms: number): string {
+  const totalHours = Math.ceil(ms / (60 * 60 * 1000));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  if (days > 0 && hours > 0) return `${days} day${days === 1 ? '' : 's'} ${hours} hour${hours === 1 ? '' : 's'}`;
+  if (days > 0) return `${days} day${days === 1 ? '' : 's'}`;
+  return `${hours} hour${hours === 1 ? '' : 's'}`;
 }
 
 const client = new Client({
@@ -553,7 +579,7 @@ async function handleRegisterModal(interaction: ModalSubmitInteraction) {
     `Use \`/skin-change\` and attach your Minecraft skin PNG file to set a custom skin.\n` +
     `You're currently using the default Steve skin.\n\n` +
     `✏️ **Edit your profile:**\n` +
-    `Use \`/edit-profile\` to update your Minecraft username, region, or skin at any time.`,
+    `Use \`/edit-profile\` to update your region or skin at any time. Minecraft username changes are limited to once every 7 days.`,
   );
 }
 
@@ -1405,6 +1431,8 @@ async function applyProfileEdits(
   newMcUsername: string | null,
   newRegion: string | null,
   skinAttachment: ReturnType<typeof interaction.options.getAttachment> | null,
+  resetSkin: boolean,
+  enforceUsernameCooldown: boolean,
 ): Promise<string> {
   const changes: string[] = [];
 
@@ -1414,6 +1442,12 @@ async function applyProfileEdits(
       return '❌ Invalid Minecraft username. Must be 3–16 characters, letters/numbers/underscores only, no spaces.';
     }
     if (newMcUsername.toLowerCase() !== reg.mcUsername.toLowerCase()) {
+      if (enforceUsernameCooldown) {
+        const remaining = getUsernameChangeRemainingMs(discordId);
+        if (remaining > 0) {
+          return `❌ You can change your Minecraft username again in **${formatDuration(remaining)}**. Username changes are limited to once every 7 days.`;
+        }
+      }
       const taken = getRegistrationByMcUsername(newMcUsername);
       if (taken && taken.discordId !== discordId) {
         return `❌ The Minecraft username **\`${newMcUsername}\`** is already taken by another registered player.`;
@@ -1440,6 +1474,7 @@ async function applyProfileEdits(
       }
       // Sync to website DB
       await callApi('/api/bot/update-profile', { discordId, mcUsername: newMcUsername });
+      if (enforceUsernameCooldown) markUsernameChanged(discordId);
       changes.push(`**Minecraft Username:** \`${oldUsername.oldUsername}\` → \`${newMcUsername}\``);
     }
   }
@@ -1454,6 +1489,16 @@ async function applyProfileEdits(
   }
 
   // ── Skin change ──────────────────────────────────────────────────────────
+  if (skinAttachment && resetSkin) {
+    return '❌ Please choose either a skin upload or `reset_skin`, not both.';
+  }
+
+  if (resetSkin) {
+    updateSkin(discordId, null);
+    await renderAndUploadSkin(discordId, null);
+    changes.push('**Skin:** Reset to default Steve skin');
+  }
+
   if (skinAttachment) {
     if (skinAttachment.contentType !== 'image/png') {
       return '❌ The attached skin file must be a **PNG** image. Please try again with a `.png` file.';
@@ -1461,8 +1506,9 @@ async function applyProfileEdits(
     if (skinAttachment.size > 20 * 1024) {
       return '❌ Skin file is too large. Please upload a PNG under **20 KB**.';
     }
-    updateSkin(discordId, skinAttachment.url);
-    void renderAndUploadSkin(discordId, skinAttachment.url).catch(err => console.error('[edit-profile] Skin render error:', err));
+    const skinUrl = skinAttachment.proxyURL || skinAttachment.url;
+    updateSkin(discordId, skinUrl);
+    await renderAndUploadSkin(discordId, skinUrl);
     changes.push('**Skin:** Updated to uploaded image');
   }
 
@@ -1487,12 +1533,13 @@ async function handleEditProfile(interaction: ChatInputCommandInteraction) {
   }
 
   const newMcUsername  = interaction.options.getString('mc_username', false)?.trim() ?? null;
-  const newRegion      = interaction.options.getString('region', false) ?? null;
+  const newRegion      = interaction.options.getString('region', false)?.trim().toUpperCase() ?? null;
   const skinAttachment = interaction.options.getAttachment('skin', false);
+  const resetSkin      = interaction.options.getString('reset_skin', false) === 'yes';
 
-  if (!newMcUsername && !newRegion && !skinAttachment) {
+  if (!newMcUsername && !newRegion && !skinAttachment && !resetSkin) {
     await interaction.editReply(
-      '❌ Please provide at least one option to change: `mc_username`, `region`, or `skin`.',
+      '❌ Please provide at least one option to change: `mc_username`, `region`, `skin`, or `reset_skin`.',
     );
     return;
   }
@@ -1505,12 +1552,14 @@ async function handleEditProfile(interaction: ChatInputCommandInteraction) {
     newMcUsername,
     newRegion,
     skinAttachment,
+    resetSkin,
+    true,
   );
 
   await interaction.editReply(result);
 }
 
-// ─── /edit-profile-other Command (staff only) ────────────────────────────────
+// ─── /edit-profile-others Command (staff only) ───────────────────────────────
 
 async function handleEditProfileOther(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
@@ -1518,12 +1567,14 @@ async function handleEditProfileOther(interaction: ChatInputCommandInteraction) 
   const config = getConfig();
   const caller = interaction.member as GuildMember;
 
-  const hasStaff = config.staffRoleId ? caller.roles.cache.has(config.staffRoleId) : false;
-  const hasMod   = config.modRoleId   ? caller.roles.cache.has(config.modRoleId)   : false;
-  const isAdmin  = caller.permissions.has(PermissionFlagsBits.Administrator);
+  if (!config.staffRoleId) {
+    await interaction.editReply('❌ No staff role is configured. Ask an admin to use `/set-staff-role` first.');
+    return;
+  }
 
-  if (!hasStaff && !hasMod && !isAdmin) {
-    await interaction.editReply('❌ Only staff members can use `/edit-profile-other`.');
+  const hasStaff = caller.roles.cache.has(config.staffRoleId);
+  if (!hasStaff) {
+    await interaction.editReply('❌ Only staff members can use `/edit-profile-others`.');
     return;
   }
 
@@ -1537,12 +1588,13 @@ async function handleEditProfileOther(interaction: ChatInputCommandInteraction) 
   }
 
   const newMcUsername  = interaction.options.getString('mc_username', false)?.trim() ?? null;
-  const newRegion      = interaction.options.getString('region', false) ?? null;
+  const newRegion      = interaction.options.getString('region', false)?.trim().toUpperCase() ?? null;
   const skinAttachment = interaction.options.getAttachment('skin', false);
+  const resetSkin      = interaction.options.getString('reset_skin', false) === 'yes';
 
-  if (!newMcUsername && !newRegion && !skinAttachment) {
+  if (!newMcUsername && !newRegion && !skinAttachment && !resetSkin) {
     await interaction.editReply(
-      '❌ Please provide at least one option to change: `mc_username`, `region`, or `skin`.',
+      '❌ Please provide at least one option to change: `mc_username`, `region`, `skin`, or `reset_skin`.',
     );
     return;
   }
@@ -1555,6 +1607,8 @@ async function handleEditProfileOther(interaction: ChatInputCommandInteraction) 
     newMcUsername,
     newRegion,
     skinAttachment,
+    resetSkin,
+    false,
   );
 
   // Prefix with who was edited for clarity
@@ -2035,6 +2089,7 @@ async function handleHelpStaff(interaction: ChatInputCommandInteraction) {
         value:
           '`/register-other <user> <mc_username> <region>` — Register another user\n' +
           '`/skin-change-other <user> [skin]` — Change another user\'s skin\n' +
+          '`/edit-profile-others <user> [mc_username] [region] [skin] [reset_skin]` — Edit another registered user\n' +
           '`/set-tiertest-channel <channel>` — Set the tier test channel\n' +
           '`/set-results-channel <channel>` — Set where results are posted\n' +
           '`/set-staff-channel <channel>` — Set where `/done` reports go\n' +
@@ -2700,6 +2755,8 @@ async function registerCommands(clientId: string) {
 
 client.once('clientReady', async () => {
   console.log(`[Bot] Logged in as ${client.user!.tag}`);
+  await loadConfigFromApi();
+  await loadRegistrationsFromApi();
   await registerCommands(client.user!.id);
   setInterval(() => refreshTierTestPanel(client),    10 * 60 * 1000);
   setInterval(() => refreshTesterListPanel(client),  10 * 60 * 1000);
@@ -2942,6 +2999,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'unretired')                  return await handleUnretired(interaction);
       if (interaction.commandName === 'set-mod-role')               return await handleSetModRole(interaction);
       if (interaction.commandName === 'edit-profile')               return await handleEditProfile(interaction);
+      if (interaction.commandName === 'edit-profile-others')        return await handleEditProfileOther(interaction);
       if (interaction.commandName === 'edit-profile-other')         return await handleEditProfileOther(interaction);
       return;
     }

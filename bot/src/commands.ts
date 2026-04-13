@@ -76,7 +76,15 @@ export const skinChangeOtherCommand = new SlashCommandBuilder()
 
 export const editProfileCommand = new SlashCommandBuilder()
   .setName('edit-profile')
-  .setDescription('Edit your registered profile (region and/or skin)')
+  .setDescription('Edit your profile — update username, region, or skin')
+  .addStringOption(option =>
+    option
+      .setName('mc_username')
+      .setDescription('New Minecraft username (3–16 chars, once every 7 days)')
+      .setRequired(false)
+      .setMinLength(3)
+      .setMaxLength(16)
+  )
   .addStringOption(option =>
     option
       .setName('region')
@@ -102,6 +110,49 @@ export const editProfileCommand = new SlashCommandBuilder()
     option
       .setName('reset_skin')
       .setDescription('Reset your skin back to the default Steve skin')
+      .addChoices({ name: 'Yes — reset to default', value: 'yes' })
+      .setRequired(false)
+  );
+
+export const editProfileOtherCommand = new SlashCommandBuilder()
+  .setName('edit-profile-others')
+  .setDescription('Edit another registered player\'s profile (staff only)')
+  .addUserOption(option =>
+    option.setName('user').setDescription('The registered Discord user to edit').setRequired(true)
+  )
+  .addStringOption(option =>
+    option
+      .setName('mc_username')
+      .setDescription('New Minecraft username (3–16 chars)')
+      .setRequired(false)
+      .setMinLength(3)
+      .setMaxLength(16)
+  )
+  .addStringOption(option =>
+    option
+      .setName('region')
+      .setDescription('Their region')
+      .setRequired(false)
+      .addChoices(
+        { name: 'AS — Asia',          value: 'AS' },
+        { name: 'EU — Europe',        value: 'EU' },
+        { name: 'NA — North America', value: 'NA' },
+        { name: 'SA — South America', value: 'SA' },
+        { name: 'AF — Africa',        value: 'AF' },
+        { name: 'OC — Oceania',       value: 'OC' },
+        { name: 'AN — Antarctica',    value: 'AN' },
+      )
+  )
+  .addAttachmentOption(option =>
+    option
+      .setName('skin')
+      .setDescription('Their Minecraft skin PNG file (max 20 KB)')
+      .setRequired(false)
+  )
+  .addStringOption(option =>
+    option
+      .setName('reset_skin')
+      .setDescription('Reset their skin back to the default Steve skin')
       .addChoices({ name: 'Yes — reset to default', value: 'yes' })
       .setRequired(false)
   );

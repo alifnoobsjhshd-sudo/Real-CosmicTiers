@@ -532,10 +532,17 @@ export const editProfileCommand = new SlashCommandBuilder()
       .setName('skin')
       .setDescription('Your Minecraft skin PNG file')
       .setRequired(false)
+  )
+  .addStringOption(option =>
+    option
+      .setName('reset_skin')
+      .setDescription('Reset your skin back to the default Steve skin')
+      .addChoices({ name: 'Yes — reset to default', value: 'yes' })
+      .setRequired(false)
   );
 
 export const editProfileOtherCommand = new SlashCommandBuilder()
-  .setName('edit-profile-other')
+  .setName('edit-profile-others')
   .setDescription('Edit another registered player\'s profile (staff only)')
   .addUserOption(option =>
     option.setName('user').setDescription('The registered Discord user to edit').setRequired(true)
@@ -567,5 +574,12 @@ export const editProfileOtherCommand = new SlashCommandBuilder()
     option
       .setName('skin')
       .setDescription('Their Minecraft skin PNG file')
+      .setRequired(false)
+  )
+  .addStringOption(option =>
+    option
+      .setName('reset_skin')
+      .setDescription('Reset their skin back to the default Steve skin')
+      .addChoices({ name: 'Yes — reset to default', value: 'yes' })
       .setRequired(false)
   );

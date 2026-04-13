@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REGISTRATIONS_PATH = join(__dir, '..', 'bot-registrations.json');
+const WEBSITE_API_URL = process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000';
+const INTERNAL_API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
 export const DEFAULT_SKIN_PATH = join(__dir, '..', 'default-skin.png');
 
@@ -100,4 +102,39 @@ export function deleteRegistration(discordId: string): Registration | undefined 
   delete store.byMcUsername[reg.mcUsername.toLowerCase()];
   saveStore(store);
   return reg;
+}
+
+export async function loadRegistrationsFromApi(): Promise<void> {
+  try {
+    const res = await fetch(`${WEBSITE_API_URL.replace(/\/$/, '')}/api/bot/players`, {
+      headers: { 'x-internal-api-key': INTERNAL_API_KEY },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      console.error('[registration] Failed to load from API:', res.status);
+      return;
+    }
+
+    const data = await res.json();
+    const players: Array<{ discordId: string; mcUsername: string; region: string; skinUrl: string | null; registeredAt: number }> = data.players ?? [];
+    const store = loadStore();
+
+    for (const p of players) {
+      const previous = store.byDiscordId[p.discordId];
+      if (previous) delete store.byMcUsername[previous.mcUsername.toLowerCase()];
+      store.byDiscordId[p.discordId] = {
+        discordId: p.discordId,
+        mcUsername: p.mcUsername,
+        region: p.region,
+        skinUrl: p.skinUrl,
+        registeredAt: p.registeredAt,
+      };
+      store.byMcUsername[p.mcUsername.toLowerCase()] = p.discordId;
+    }
+
+    saveStore(store);
+    console.log(`[registration] Synced ${players.length} players from API`);
+  } catch (err) {
+    console.error('[registration] Failed to load registrations from API:', err);
+  }
 }

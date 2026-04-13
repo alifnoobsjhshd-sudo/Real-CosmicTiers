@@ -63,6 +63,12 @@ The `backend/` folder is the standalone deployable backend.
 - Public backend responses expose `skinUrl` for leaderboard players, tier testers, top players, and tester profiles, plus `playerSkinUrl` for result entries.
 - The website renders `player.skinUrl`/`result.playerSkinUrl` through `PlayerSkin` and no longer uses Mojang or mc-heads avatar URLs.
 
+## Discord Profile Editing
+
+- `/edit-profile` lets registered users update their own Minecraft username, region, skin upload, or reset skin option; username changes are limited to once every 7 days per user.
+- `/edit-profile-others` lets members with the configured Staff role update any registered user's Minecraft username, region, skin upload, or reset skin option with no 7-day username cooldown.
+- Staff role configuration and username-change timestamps are stored in the backend guild config so they can survive service redeploys.
+
 ## Key Files
 
 ### Bot (`bot/`)
