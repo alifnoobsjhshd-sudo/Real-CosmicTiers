@@ -394,17 +394,6 @@ async function assignTierRole(
 
 // ─── Registration Helpers ─────────────────────────────────────────────────────
 
-async function getOrCreateMcUsernameRole(guild: Guild, mcUsername: string): Promise<Role> {
-  await guild.roles.fetch();
-  const existing = guild.roles.cache.find(r => r.name === mcUsername);
-  if (existing) return existing;
-  return guild.roles.create({
-    name: mcUsername,
-    color: 0x5865F2,
-    reason: `MC username role for registered player ${mcUsername}`,
-  });
-}
-
 async function renderAndUploadSkin(discordId: string, skinUrl: string | null): Promise<Buffer | null> {
   try {
     let skinBuffer: Buffer | null = null;
@@ -455,13 +444,9 @@ async function completeRegistration(
   }
 
   const registeredRole = await getOrCreateRegisteredRole(guild);
-  const mcRole         = await getOrCreateMcUsernameRole(guild, mcUsername);
 
   if (!member.roles.cache.has(registeredRole.id)) {
     await member.roles.add(registeredRole, 'Player registered');
-  }
-  if (!member.roles.cache.has(mcRole.id)) {
-    await member.roles.add(mcRole, `MC username: ${mcUsername}`);
   }
 }
 
@@ -574,7 +559,7 @@ async function handleRegisterModal(interaction: ModalSubmitInteraction) {
     `✅ **Registration complete!**\n` +
     `**Minecraft Username:** \`${mcUsername}\`\n` +
     `**Region:** \`${region}\`\n\n` +
-    `You've been given the **Registered** role and a role named after your MC username.\n\n` +
+    `You've been given the **Registered** role.\n\n` +
     `📸 **Change your skin:**\n` +
     `Use \`/skin-change\` and attach your Minecraft skin PNG file to set a custom skin.\n` +
     `You're currently using the default Steve skin.\n\n` +
@@ -1456,17 +1441,13 @@ async function applyProfileEdits(
       if (!oldUsername) {
         return '❌ Could not update Minecraft username — registration not found.';
       }
-      // Update Discord roles: remove old MC username role, add new one
+      // Clean up any legacy MC username role from the old username-role system
       if (guild) {
         try {
           const member = await guild.members.fetch(discordId);
           const oldRole = guild.roles.cache.find(r => r.name === oldUsername.oldUsername);
           if (oldRole && member.roles.cache.has(oldRole.id)) {
             await member.roles.remove(oldRole, `MC username changed from ${oldUsername.oldUsername} to ${newMcUsername}`);
-          }
-          const newRole = await getOrCreateMcUsernameRole(guild, newMcUsername);
-          if (!member.roles.cache.has(newRole.id)) {
-            await member.roles.add(newRole, `MC username role: ${newMcUsername}`);
           }
         } catch (err) {
           console.error('[edit-profile] Role update error:', err);

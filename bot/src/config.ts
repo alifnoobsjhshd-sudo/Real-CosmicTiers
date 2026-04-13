@@ -1,5 +1,5 @@
-const GUILD_ID        = process.env['SERVER_ID']        ?? '';
-const WEBSITE_API_URL = process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000';
+const GUILD_ID = process.env['SERVER_ID'] ?? '';
+const API_BASE = (process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000').replace(/\/$/, '');
 const INTERNAL_API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
 export interface BotConfig {
@@ -24,6 +24,10 @@ export interface BotConfig {
 
 let _memConfig: BotConfig = {};
 
+function isConfigLike(value: unknown): value is BotConfig {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function getConfig(): BotConfig {
   return _memConfig;
 }
@@ -35,14 +39,14 @@ export function setConfig(updates: Partial<BotConfig>): BotConfig {
 }
 
 export function incrementTesterStat(userId: string): number {
-  const stats = _memConfig.testerStats ?? {};
+  const stats = { ...(_memConfig.testerStats ?? {}) };
   stats[userId] = (stats[userId] ?? 0) + 1;
   setConfig({ testerStats: stats });
   return stats[userId];
 }
 
 export function clearTesterStat(userId: string): void {
-  const stats = _memConfig.testerStats ?? {};
+  const stats = { ...(_memConfig.testerStats ?? {}) };
   delete stats[userId];
   setConfig({ testerStats: stats });
 }
@@ -50,7 +54,7 @@ export function clearTesterStat(userId: string): void {
 async function persistConfigToApi(config: BotConfig): Promise<void> {
   if (!GUILD_ID) return;
   try {
-    await fetch(`${WEBSITE_API_URL}/api/bot/config`, {
+    const res = await fetch(`${API_BASE}/api/bot/config`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -59,6 +63,9 @@ async function persistConfigToApi(config: BotConfig): Promise<void> {
       body: JSON.stringify({ guildId: GUILD_ID, config }),
       signal: AbortSignal.timeout(8_000),
     });
+    if (!res.ok) {
+      console.error('[config] Failed to persist config to API:', res.status);
+    }
   } catch (err) {
     console.error('[config] Failed to persist config to API:', err);
   }
@@ -67,13 +74,16 @@ async function persistConfigToApi(config: BotConfig): Promise<void> {
 export async function loadConfigFromApi(): Promise<void> {
   if (!GUILD_ID) return;
   try {
-    const res = await fetch(`${WEBSITE_API_URL}/api/bot/config/${GUILD_ID}`, {
+    const res = await fetch(`${API_BASE}/api/bot/config/${encodeURIComponent(GUILD_ID)}`, {
       headers: { 'x-internal-api-key': INTERNAL_API_KEY },
       signal: AbortSignal.timeout(8_000),
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error('[config] Failed to load config from API:', res.status);
+      return;
+    }
     const data = await res.json();
-    if (data.config && typeof data.config === 'object') {
+    if (isConfigLike(data.config)) {
       _memConfig = { ..._memConfig, ...data.config };
       console.log('[config] Loaded from API successfully');
     }

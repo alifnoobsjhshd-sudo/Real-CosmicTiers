@@ -74,8 +74,8 @@ The `backend/` folder is the standalone deployable backend.
 ### Bot (`bot/`)
 - `bot/index.ts` — Main bot entry point (all commands, events, API calls to website)
 - `bot/commands.ts` — Slash command definitions
-- `bot/config.ts` — Local bot config (JSON file-based)
-- `bot/registration.ts` — Player registration storage (JSON file-based)
+- `bot/config.ts` — In-memory bot config cache hydrated from/saved to PostgreSQL through the internal API
+- `bot/registration.ts` — In-memory player registration cache hydrated from PostgreSQL through the internal API
 - `bot/emojis.ts` — Emoji string helpers
 - `bot/skinrender.ts` — Minecraft skin rendering with Jimp
 - `bot/tiertest.ts` — Tier test panel, ticket creation handlers
@@ -99,11 +99,13 @@ The `backend/` folder is the standalone deployable backend.
 - `components/RankBadge.tsx` — Gold/silver/bronze rank badges
 - `components/Navbar.tsx` — Sticky navbar with search and Discord link
 
-## Data Files (Runtime)
+## Runtime Persistence
 
-- `bot-config.json` — Bot config (results channel ID, role IDs, etc.)
-- `bot-registrations.json` — Player registrations (Discord ID, MC username, region, skin)
-- `rendered-skins/` — Pre-rendered Minecraft bust images (PNG)
+- Bot config is stored in PostgreSQL table `guild_config`.
+- Player registrations are stored in PostgreSQL table `players`; the bot hydrates its in-memory cache from `GET /api/bot/players` on startup.
+- Registration only assigns the shared Registered role. The bot must not create or assign Discord roles named after Minecraft usernames because Discord servers have a 250-role limit.
+- Uploaded Minecraft skin renders are stored in PostgreSQL as base64 PNG data.
+- Special title icons are stored in `special_titles.icon_url` as data URLs.
 - `default-skin.png` — Default Steve skin fallback
 - `bot/emojis/` — Game mode emoji images (uploaded via /upload command)
 
@@ -116,6 +118,9 @@ The `backend/` folder is the standalone deployable backend.
 - `GET /api/skin/:discordId` — Served rendered skin PNG or default
 
 ### Internal (Bot → Website, requires `x-internal-api-key`)
+- `GET /api/bot/players` — Load all registered players for bot startup hydration
+- `GET /api/bot/config/:guildId` — Load persisted bot guild config
+- `POST /api/bot/config` — Persist bot guild config
 - `POST /api/bot/register` — Register a new player
 - `POST /api/bot/result` — Save tier test result
 - `POST /api/bot/skin` — Update player skin path
@@ -126,8 +131,7 @@ The `backend/` folder is the standalone deployable backend.
 - `POST /api/bot/delete-player` — Fully delete a player from the database
 - `POST /api/bot/create-title` — Create a styled special title (name, roleId, textColor, backgroundColor, outline, iconUrl)
 - `POST /api/bot/remove-title` — Remove a special title by name
-- `POST /api/bot/upload-title-icon` — Upload base64-encoded icon for a title; saved to `title-icons/`
-- `GET  /api/title-icon/:filename` — Serve a title icon image
+- `POST /api/bot/upload-title-icon` — Accept a base64-encoded icon and return a data URL for storage in PostgreSQL
 
 ## Phase 3 Feature Summary (Implemented)
 
