@@ -36,19 +36,20 @@ function testerAsProfile(t: TierTester): PlayerProfile {
   return {
     discordId: t.discordId,
     mcUsername: t.mcUsername ?? "",
-    title: { name: "Tier Tester", color: "hsl(45 90% 55%)", points: 0, requiredPoints: 0 },
-    specialTitle: t.specialTitle ?? null,
-    region: t.region ?? null,
-    rank: 0,
-    totalPoints: 0,
-    tiers: {},
-    retiredTiers: [],
+    title: t.title,
+    specialTitle: null,
+    region: t.region ?? "",
+    rank: t.rank,
+    totalPoints: t.totalPoints,
+    tiers: t.tiers ?? {},
+    retiredTiers: t.retiredTiers ?? [],
     isTester: true,
     testerGameModes: t.gameModes ?? [],
-    skinUrl: t.skinUrl ?? null,
+    skinUrl: t.skinUrl ?? "",
     renderedSkinPath: t.renderedSkinPath ?? null,
-    registeredAt: t.registeredAt,
-  } as PlayerProfile;
+    trend: t.trend,
+    registeredAt: 0,
+  };
 }
 
 export default function UserPage() {
