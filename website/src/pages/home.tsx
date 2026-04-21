@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useState, useMemo, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Users, Info, RefreshCw, ChevronDown, ChevronUp, Star, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ClipboardList, Crown } from "lucide-react";
@@ -60,8 +60,16 @@ function testerAsProfile(t: TierTester): PlayerProfile {
   };
 }
 
+const VALID_TABS: Tab[] = ["leaderboard", "testers", "results", "top", "information"];
+
 export default function Home() {
-  const [tab, setTab] = useState<Tab>("leaderboard");
+  const search = useSearch();
+  const initialTab = useMemo<Tab>(() => {
+    const t = new URLSearchParams(search).get("tab");
+    return VALID_TABS.includes(t as Tab) ? (t as Tab) : "leaderboard";
+  }, []);
+
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [infoTab, setInfoTab] = useState<InfoTab>("titles");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTesters, setExpandedTesters] = useState<Set<string>>(new Set());
@@ -76,7 +84,7 @@ export default function Home() {
     setTab(newTab);
   };
   const selectPlayer = (p: PlayerProfile) => {
-    if (p?.mcUsername) navigate(`/user/${encodeURIComponent(p.mcUsername)}`);
+    if (p?.mcUsername) navigate(`/user/${encodeURIComponent(p.mcUsername)}?from=${tab}`);
   };
 
   const { data: leaderboardData, isLoading: lbLoading } = useQuery<LeaderboardResponse>({
