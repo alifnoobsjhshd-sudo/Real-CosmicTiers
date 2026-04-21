@@ -393,6 +393,22 @@
   animation: mc-shimmer 4s linear infinite;
 }
 
+.mc-shimmer-text-purple {
+  background: linear-gradient(
+    90deg,
+    hsl(270 80% 58%) 0%,
+    hsl(285 90% 72%) 35%,
+    hsl(275 100% 78%) 50%,
+    hsl(285 90% 72%) 65%,
+    hsl(270 80% 58%) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: mc-shimmer 3s linear infinite;
+}
+
 /* Android TV / large-screen responsive helpers */
 @media (min-width: 1920px) {
   .mc-tv-text { font-size: 1.05rem; line-height: 1.6; }

@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { LoadingScreen } from "@/components/loading-screen";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Users, Info, RefreshCw, ChevronDown, ChevronUp, Star, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ClipboardList, Crown } from "lucide-react";
 import { SiDiscord } from "react-icons/si";
@@ -66,12 +67,18 @@ export default function Home() {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerProfile | null>(null);
   const [expandedTesters, setExpandedTesters] = useState<Set<string>>(new Set());
   const [topGameMode, setTopGameMode] = useState<string>(GAME_MODES[0]);
-  const [pageLoaded, setPageLoaded] = useState(false);
+  const [loadingVisible, setLoadingVisible] = useState(true);
+  const [loadingKey, setLoadingKey] = useState(0);
+  const [loadingDuration, setLoadingDuration] = useState(1800);
+  const [loadingTab, setLoadingTab] = useState('');
 
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setPageLoaded(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
+  const switchTab = (newTab: Tab) => {
+    setTab(newTab);
+    setLoadingTab(newTab);
+    setLoadingDuration(700);
+    setLoadingKey(k => k + 1);
+    setLoadingVisible(true);
+  };
 
   const { data: leaderboardData, isLoading: lbLoading } = useQuery<LeaderboardResponse>({
     queryKey: ["/api/leaderboard"],
@@ -139,43 +146,50 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {loadingVisible && (
+        <LoadingScreen
+          key={loadingKey}
+          duration={loadingDuration}
+          tabName={loadingTab}
+          onHide={() => setLoadingVisible(false)}
+        />
+      )}
       <Navbar onSearch={setSearchQuery} discordLink={discordLink} />
 
       <div className="max-w-5xl 2xl:max-w-7xl mx-auto px-4 py-6">
-        <HeroSection loaded={pageLoaded} />
         {/* Tab Navigation */}
-        <div className="mc-animate-fade-up mc-delay-2 flex flex-wrap items-center gap-2 mb-5">
+        <div className="flex flex-wrap items-center gap-2 mb-5">
           <TabButton
             active={tab === "leaderboard"}
-            onClick={() => setTab("leaderboard")}
+            onClick={() => switchTab("leaderboard")}
             icon={<Trophy className="h-4 w-4" />}
             label="Leaderboard"
             testId="tab-leaderboard"
           />
           <TabButton
             active={tab === "testers"}
-            onClick={() => setTab("testers")}
+            onClick={() => switchTab("testers")}
             icon={<Users className="h-4 w-4" />}
             label="Tier Testers"
             testId="tab-testers"
           />
           <TabButton
             active={tab === "results"}
-            onClick={() => setTab("results")}
+            onClick={() => switchTab("results")}
             icon={<ClipboardList className="h-4 w-4" />}
             label="Results"
             testId="tab-results"
           />
           <TabButton
             active={tab === "top"}
-            onClick={() => setTab("top")}
+            onClick={() => switchTab("top")}
             icon={<Crown className="h-4 w-4" />}
             label="Top"
             testId="tab-top"
           />
           <TabButton
             active={tab === "information"}
-            onClick={() => setTab("information")}
+            onClick={() => switchTab("information")}
             icon={<Info className="h-4 w-4" />}
             label="Information"
             testId="tab-information"
@@ -280,133 +294,6 @@ export default function Home() {
         <h3>How Rankings Work</h3>
         <p>Players register through the Discord bot, then request tier tests in their chosen game modes. Certified Tier Testers evaluate each player and assign a tier from HT1 to LT5. Results are recorded in real time and reflected on the public leaderboard. Players earn titles like Rookie, Combat Initiate, Combat Novice, Combat Cadet, Combat Specialist, Combat Ace, Combat Master, and Combat Grandmaster based on their total accumulated points.</p>
       </section>
-    </div>
-  );
-}
-
-/* ─── Minecraft Hero Banner ──────────────────────────────────────────────── */
-
-const HERO_BLOCKS = [
-  { emoji: '🌿', left: '7%',  top: '18%', dur: '4.2s', delay: '0.0s', size: '1.5rem', opacity: 0.65 },
-  { emoji: '💎', left: '17%', top: '58%', dur: '3.8s', delay: '0.6s', size: '1.2rem', opacity: 0.60 },
-  { emoji: '⚔️', left: '80%', top: '22%', dur: '5.1s', delay: '1.2s', size: '1.8rem', opacity: 0.60 },
-  { emoji: '🧱', left: '88%', top: '62%', dur: '4.5s', delay: '0.9s', size: '1.3rem', opacity: 0.50 },
-  { emoji: '🍎', left: '54%', top: '12%', dur: '3.5s', delay: '2.0s', size: '1.0rem', opacity: 0.45 },
-  { emoji: '🔥', left: '67%', top: '68%', dur: '4.8s', delay: '1.5s', size: '1.1rem', opacity: 0.55 },
-  { emoji: '🌟', left: '34%', top: '78%', dur: '5.5s', delay: '0.3s', size: '0.9rem', opacity: 0.40 },
-  { emoji: '🪓', left: '3%',  top: '72%', dur: '4.0s', delay: '1.8s', size: '1.2rem', opacity: 0.50 },
-  { emoji: '🏹', left: '44%', top: '85%', dur: '3.2s', delay: '0.7s', size: '1.0rem', opacity: 0.40 },
-  { emoji: '🎮', left: '92%', top: '38%', dur: '4.6s', delay: '2.3s', size: '1.1rem', opacity: 0.45 },
-];
-
-const HERO_STRIP_ITEMS = ['🌿','💎','⚔️','🔥','🏆','⚡','🧱','🎮','🌙','🛡️'];
-
-function HeroSection({ loaded }: { loaded: boolean }) {
-  return (
-    <div
-      className={`mc-hero mb-6 px-6 py-8 sm:py-10 text-center transition-all duration-700 ease-out ${
-        loaded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3'
-      }`}
-      data-testid="hero-banner"
-    >
-      <div className="mc-hero-scanline" aria-hidden="true" />
-
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        {HERO_BLOCKS.map((b, i) => (
-          <span
-            key={i}
-            className="absolute select-none"
-            style={{
-              left: b.left, top: b.top,
-              fontSize: b.size,
-              opacity: b.opacity,
-              animation: `mc-float ${b.dur} ease-in-out infinite`,
-              animationDelay: b.delay,
-              zIndex: 0,
-            }}
-          >
-            {b.emoji}
-          </span>
-        ))}
-      </div>
-
-      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        {Array.from({ length: 22 }).map((_, i) => (
-          <div
-            key={`star-${i}`}
-            className="absolute rounded-full"
-            style={{
-              width:  i % 4 === 0 ? '3px' : '2px',
-              height: i % 4 === 0 ? '3px' : '2px',
-              backgroundColor: i % 5 === 0
-                ? 'rgba(255,191,0,0.65)'
-                : i % 3 === 0
-                  ? 'rgba(120,170,255,0.45)'
-                  : 'rgba(255,255,255,0.35)',
-              left: `${(i * 4.7 + 2) % 97}%`,
-              top:  `${(i * 6.9 + 5) % 88}%`,
-              animation: `mc-twinkle ${2.2 + (i % 5) * 0.65}s ease-in-out infinite`,
-              animationDelay: `${(i * 0.28) % 3.5}s`,
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="relative z-10">
-        <div className="mc-animate-drop-in" style={{ animationDelay: '0s' }}>
-          <span
-            className="inline-block text-5xl sm:text-6xl xl:text-7xl"
-            style={{ animation: 'mc-float 3.2s ease-in-out infinite', animationDelay: '0.4s' }}
-            aria-hidden="true"
-          >
-            ⚔️
-          </span>
-        </div>
-
-        <h1
-          className="mt-3 text-2xl sm:text-3xl xl:text-4xl 2xl:text-5xl font-black tracking-tight mc-animate-fade-up"
-          style={{ animationDelay: '0.1s' }}
-        >
-          <span className="mc-shimmer-text">Cosmic</span>
-          <span className="text-foreground">Tiers</span>
-        </h1>
-
-        <p
-          className="mt-2 text-sm sm:text-base xl:text-lg text-muted-foreground max-w-sm xl:max-w-lg mx-auto mc-animate-fade-up"
-          style={{ animationDelay: '0.2s' }}
-        >
-          Minecraft PvP · Ranked · Cracked · Free
-        </p>
-
-        <div
-          className="mt-4 mx-auto h-px max-w-xs sm:max-w-sm mc-animate-fade-up"
-          style={{
-            animationDelay: '0.28s',
-            background: 'linear-gradient(90deg, transparent, rgba(255,191,0,0.5), rgba(255,191,0,0.8), rgba(255,191,0,0.5), transparent)',
-          }}
-          aria-hidden="true"
-        />
-
-        <div
-          className="mt-4 flex items-center justify-center gap-2 sm:gap-3 mc-animate-fade-up"
-          style={{ animationDelay: '0.35s' }}
-          aria-hidden="true"
-        >
-          {HERO_STRIP_ITEMS.map((em, i) => (
-            <span
-              key={i}
-              className="text-base sm:text-lg xl:text-xl select-none"
-              style={{
-                animation: `mc-float ${3.2 + i * 0.28}s ease-in-out infinite`,
-                animationDelay: `${i * 0.18}s`,
-                opacity: 0.75,
-              }}
-            >
-              {em}
-            </span>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
