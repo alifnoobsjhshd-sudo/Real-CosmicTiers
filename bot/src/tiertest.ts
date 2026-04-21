@@ -19,6 +19,8 @@ import { getGameModeEmoji, parseEmojiForButton } from './emojis.js';
 
 export const TIER_TEST_YELLOW = 0xFFBF00;
 
+const WEBSITE_API_URL = (process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000').replace(/\/$/, '');
+
 // ─── Button / Modal IDs ───────────────────────────────────────────────────────
 export const BUTTON_ID           = 'start_tier_test';
 export const PANEL_REGISTER_ID   = 'panel_register';
@@ -402,7 +404,7 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
   const ticketEmbed = new EmbedBuilder()
     .setTitle('🎫 New Tier Test Request')
     .setColor(TIER_TEST_YELLOW)
-    .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
+    .setThumbnail(`${WEBSITE_API_URL}/api/skin/${interaction.user.id}`)
     .addFields(
       { name: '👤 Discord',           value: `<@${interaction.user.id}>`, inline: true },
       { name: '🎮 Minecraft Username', value: `\`${mcUsername}\``,        inline: true },
@@ -494,7 +496,7 @@ export async function handleApplyTesterButton(interaction: ButtonInteraction): P
   const applyEmbed = new EmbedBuilder()
     .setTitle('📋 Tier Tester Application')
     .setColor(TIER_TEST_YELLOW)
-    .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
+    .setThumbnail(`${WEBSITE_API_URL}/api/skin/${interaction.user.id}`)
     .addFields(
       { name: '👤 Applicant', value: `<@${interaction.user.id}>`, inline: true },
       { name: '📅 Applied', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true },

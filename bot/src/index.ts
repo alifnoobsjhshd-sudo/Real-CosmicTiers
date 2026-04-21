@@ -536,8 +536,8 @@ async function handleRegisterModal(interaction: ModalSubmitInteraction) {
     `**Minecraft Username:** \`${mcUsername}\`\n` +
     `**Region:** \`${region}\`\n\n` +
     `You've been given the **Registered** role.\n\n` +
-    `📸 **Set your skin:** Use \`/skin-change\` and attach your Minecraft skin **PNG** file (max 20 KB).\n` +
-    `✏️ **Edit your profile:** Use \`/edit-profile\` to change your region or skin at any time. Minecraft username changes are limited to once every 7 days.\n` +
+    `📸 **Set your skin:** Use \`/skin-change\` in <#1487116864562925578> and attach your Minecraft skin **PNG** file (max 20 KB).\n` +
+    `✏️ **Edit your profile:** Use \`/edit-profile\` in <#1487116864562925578> to change your region or skin at any time. Minecraft username changes are limited to once every 7 days.\n` +
     `You're currently using the default Steve skin.`,
   );
 }

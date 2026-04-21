@@ -272,3 +272,115 @@
     inset: -1px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   COSMICTIERS — MINECRAFT-THEMED PAGE ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes mc-float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  30%       { transform: translateY(-14px) rotate(6deg); }
+  70%       { transform: translateY(-7px) rotate(-4deg); }
+}
+
+@keyframes mc-fade-up {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes mc-drop-in {
+  0%   { opacity: 0; transform: translateY(-30px) scale(0.82); }
+  65%  { transform: translateY(5px) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes mc-enchant-glow {
+  0%, 100% { text-shadow: 0 0 8px rgba(255,191,0,0.4),  0 0 22px rgba(255,191,0,0.15); }
+  50%       { text-shadow: 0 0 20px rgba(255,191,0,0.8), 0 0 50px rgba(255,191,0,0.35), 0 0 80px rgba(255,191,0,0.1); }
+}
+
+@keyframes mc-twinkle {
+  0%, 100% { opacity: 0.08; transform: scale(0.7); }
+  50%       { opacity: 0.6;  transform: scale(1.4); }
+}
+
+@keyframes mc-shimmer {
+  0%   { background-position: -300% center; }
+  100% { background-position: 300% center; }
+}
+
+@keyframes mc-scan {
+  from { top: -2px; opacity: 0.4; }
+  to   { top: 100%; opacity: 0; }
+}
+
+.mc-animate-fade-up { animation: mc-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.mc-animate-drop-in { animation: mc-drop-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.mc-float           { animation: mc-float 4.2s ease-in-out infinite; }
+.mc-enchant         { animation: mc-enchant-glow 3s ease-in-out infinite; }
+
+.mc-delay-1 { animation-delay: 0.06s; }
+.mc-delay-2 { animation-delay: 0.14s; }
+.mc-delay-3 { animation-delay: 0.22s; }
+.mc-delay-4 { animation-delay: 0.30s; }
+.mc-delay-5 { animation-delay: 0.38s; }
+.mc-delay-6 { animation-delay: 0.46s; }
+.mc-delay-7 { animation-delay: 0.54s; }
+.mc-delay-8 { animation-delay: 0.62s; }
+
+.mc-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    hsl(213 30% 7%)  0%,
+    hsl(213 25% 10%) 40%,
+    hsl(45  25% 9%)  75%,
+    hsl(213 30% 7%)  100%
+  );
+  border: 1px solid hsl(213 22% 18%);
+  border-radius: 0.75rem;
+}
+
+.mc-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(hsl(213 30% 20% / 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(213 30% 20% / 0.12) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mc-hero-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,191,0,0.3), rgba(255,191,0,0.8), rgba(255,191,0,0.3), transparent);
+  pointer-events: none;
+  z-index: 1;
+  animation: mc-scan 1.8s ease-out 0.3s 1 both;
+}
+
+.mc-shimmer-text {
+  background: linear-gradient(
+    90deg,
+    hsl(45 90% 55%) 0%,
+    hsl(45 100% 75%) 40%,
+    hsl(45 90% 55%) 60%,
+    hsl(45 70% 45%) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: mc-shimmer 4s linear infinite;
+}
+
+@media (min-width: 1920px) {
+  .mc-tv-text { font-size: 1.05rem; line-height: 1.6; }
+  .mc-tv-card-pad { padding: 1.25rem 1.5rem; }
+}
