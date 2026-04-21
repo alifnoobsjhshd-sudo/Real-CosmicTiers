@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Users, Info, RefreshCw, ChevronDown, ChevronUp, Star, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ClipboardList, Crown } from "lucide-react";
@@ -10,7 +11,6 @@ import { PlayerSkin } from "@/components/PlayerSkin";
 import { TierList } from "@/components/TierBadge";
 import { TitleBadge } from "@/components/TitleBadge";
 import { RankBadge } from "@/components/RankBadge";
-import { PlayerModal } from "@/components/PlayerModal";
 
 type Tab = "leaderboard" | "testers" | "results" | "top" | "information";
 type InfoTab = "titles" | "points";
@@ -64,7 +64,6 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("leaderboard");
   const [infoTab, setInfoTab] = useState<InfoTab>("titles");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerProfile | null>(null);
   const [expandedTesters, setExpandedTesters] = useState<Set<string>>(new Set());
   const [topGameMode, setTopGameMode] = useState<string>(GAME_MODES[0]);
   const [loadingVisible, setLoadingVisible] = useState(true);
@@ -72,12 +71,12 @@ export default function Home() {
   const [loadingDuration, setLoadingDuration] = useState(1800);
   const [loadingTab, setLoadingTab] = useState('');
 
+  const [, navigate] = useLocation();
   const switchTab = (newTab: Tab) => {
     setTab(newTab);
-    setLoadingTab(newTab);
-    setLoadingDuration(700);
-    setLoadingKey(k => k + 1);
-    setLoadingVisible(true);
+  };
+  const selectPlayer = (p: PlayerProfile) => {
+    if (p?.mcUsername) navigate(`/user/${encodeURIComponent(p.mcUsername)}`);
   };
 
   const { data: leaderboardData, isLoading: lbLoading } = useQuery<LeaderboardResponse>({
@@ -216,7 +215,7 @@ export default function Home() {
             <LeaderboardSection
               players={filteredPlayers}
               loading={lbLoading}
-              onSelectPlayer={setSelectedPlayer}
+              onSelectPlayer={selectPlayer}
               lastUpdated={leaderboardData?.lastUpdated}
             />
           </div>
@@ -231,7 +230,7 @@ export default function Home() {
               expandedTesters={expandedTesters}
               toggleExpand={toggleTesterExpand}
               lastUpdated={testersData?.lastUpdated}
-              onSelectPlayer={setSelectedPlayer}
+              onSelectPlayer={selectPlayer}
             />
           </div>
         )}
@@ -244,7 +243,7 @@ export default function Home() {
               loading={resultsLoading}
               lastUpdated={resultsData?.lastUpdated}
               players={leaderboardData?.players ?? []}
-              onSelectPlayer={setSelectedPlayer}
+              onSelectPlayer={selectPlayer}
             />
           </div>
         )}
@@ -258,7 +257,7 @@ export default function Home() {
               activeGameMode={topGameMode}
               setActiveGameMode={setTopGameMode}
               players={leaderboardData?.players ?? []}
-              onSelectPlayer={setSelectedPlayer}
+              onSelectPlayer={selectPlayer}
             />
           </div>
         )}
@@ -275,12 +274,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
-      <PlayerModal
-        player={selectedPlayer}
-        open={!!selectedPlayer}
-        onClose={() => setSelectedPlayer(null)}
-      />
 
       <section aria-label="About CosmicTiers" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
         <h2>CosmicTiers — Minecraft PvP Tier List &amp; Rankings</h2>
