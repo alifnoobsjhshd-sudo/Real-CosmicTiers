@@ -69,6 +69,7 @@ export interface PlayerProfile {
   isTester: boolean;
   testerGameModes: string[];
   specialTitle: SpecialTitle | null;
+  usernameChangedAt?: string | null;
 }
 
 export interface TierTester {
@@ -123,4 +124,12 @@ export interface ResultsResponse {
 export interface InfoResponse {
   discordLink: string;
   websiteLink: string;
+}
+
+export interface AuthUser {
+  discordId: string;
+  discordUsername: string | null;
+  discordAvatar: string | null;
+  isTemp: boolean;
+  player: PlayerProfile | null;
 }

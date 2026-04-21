@@ -1,15 +1,22 @@
 import { useState } from "react";
 import { Search, Menu, X } from "lucide-react";
 import { SiDiscord } from "react-icons/si";
+import { useAuth } from "./AuthContext";
+import UserMenu from "./UserMenu";
 
 interface NavbarProps {
   onSearch: (q: string) => void;
   discordLink: string;
+  onTabChange?: (tab: string) => void;
 }
 
-export function Navbar({ onSearch, discordLink }: NavbarProps) {
+export function Navbar({ onSearch, discordLink, onTabChange }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const { user, isLoading } = useAuth();
+
+  const apiBase = (import.meta.env.VITE_API_URL as string) ?? "";
+  const loginUrl = `${apiBase}/api/auth/discord`;
 
   function handleSearch(val: string) {
     setSearchVal(val);
@@ -70,6 +77,21 @@ export function Navbar({ onSearch, discordLink }: NavbarProps) {
           <span>Discord</span>
         </a>
 
+        {!isLoading && (
+          user
+            ? <UserMenu onTabChange={onTabChange} />
+            : (
+              <a
+                href={loginUrl}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-all hover:opacity-90 hover:scale-105"
+                style={{ background: "linear-gradient(135deg, #9B59B6, #7D3C98)", color: "white" }}
+                data-testid="link-register"
+              >
+                Register
+              </a>
+            )
+        )}
+
         <button
           className="sm:hidden text-muted-foreground hover:text-foreground transition-colors"
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -103,6 +125,16 @@ export function Navbar({ onSearch, discordLink }: NavbarProps) {
             <SiDiscord className="h-4 w-4" />
             <span>Join Discord Server</span>
           </a>
+          {!isLoading && !user && (
+            <a
+              href={loginUrl}
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium"
+              style={{ background: "linear-gradient(135deg, #9B59B6, #7D3C98)", color: "white" }}
+              data-testid="link-register-mobile"
+            >
+              Register
+            </a>
+          )}
         </div>
       )}
     </nav>

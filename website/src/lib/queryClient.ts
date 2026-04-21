@@ -2,6 +2,23 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
+export function getAuthToken(): string | null {
+  return localStorage.getItem("ct_auth_token");
+}
+
+export function setAuthToken(token: string): void {
+  localStorage.setItem("ct_auth_token", token);
+}
+
+export function clearAuthToken(): void {
+  localStorage.removeItem("ct_auth_token");
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -14,9 +31,12 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const headers: Record<string, string> = { ...getAuthHeaders() };
+  if (data) headers["Content-Type"] = "application/json";
+
   const res = await fetch(API_BASE + url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
   });
 

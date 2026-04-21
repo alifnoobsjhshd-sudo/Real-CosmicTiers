@@ -12,7 +12,7 @@ import { TierList } from "@/components/TierBadge";
 import { TitleBadge } from "@/components/TitleBadge";
 import { RankBadge } from "@/components/RankBadge";
 
-type Tab = "leaderboard" | "testers" | "results" | "top" | "information";
+type Tab = "leaderboard" | "testers" | "results" | "top" | "information" | "tier-test" | "apply-tester" | "contact";
 type InfoTab = "titles" | "points";
 
 const REGION_FLAGS: Record<string, string> = {
@@ -60,7 +60,7 @@ function testerAsProfile(t: TierTester): PlayerProfile {
   };
 }
 
-const VALID_TABS: Tab[] = ["leaderboard", "testers", "results", "top", "information"];
+const VALID_TABS: Tab[] = ["leaderboard", "testers", "results", "top", "information", "tier-test", "apply-tester", "contact"];
 
 export default function Home() {
   const search = useSearch();
@@ -80,8 +80,8 @@ export default function Home() {
   const [loadingTab, setLoadingTab] = useState('');
 
   const [, navigate] = useLocation();
-  const switchTab = (newTab: Tab) => {
-    setTab(newTab);
+  const switchTab = (newTab: string) => {
+    if (VALID_TABS.includes(newTab as Tab)) setTab(newTab as Tab);
   };
   const selectPlayer = (p: PlayerProfile) => {
     if (p?.mcUsername) navigate(`/user/${encodeURIComponent(p.mcUsername)}?from=${tab}`);
@@ -161,7 +161,7 @@ export default function Home() {
           onHide={() => setLoadingVisible(false)}
         />
       )}
-      <Navbar onSearch={setSearchQuery} discordLink={discordLink} />
+      <Navbar onSearch={setSearchQuery} discordLink={discordLink} onTabChange={switchTab} />
 
       <div className="max-w-5xl 2xl:max-w-7xl mx-auto px-4 py-6">
         {/* Tab Navigation */}
@@ -200,6 +200,27 @@ export default function Home() {
             icon={<Info className="h-4 w-4" />}
             label="Information"
             testId="tab-information"
+          />
+          <TabButton
+            active={tab === "tier-test"}
+            onClick={() => switchTab("tier-test")}
+            icon={<span className="text-base">⚔️</span>}
+            label="Tier Test"
+            testId="tab-tier-test"
+          />
+          <TabButton
+            active={tab === "apply-tester"}
+            onClick={() => switchTab("apply-tester")}
+            icon={<span className="text-base">🎮</span>}
+            label="Apply Tester"
+            testId="tab-apply-tester"
+          />
+          <TabButton
+            active={tab === "contact"}
+            onClick={() => switchTab("contact")}
+            icon={<span className="text-base">✉️</span>}
+            label="Contact"
+            testId="tab-contact"
           />
 
           <div className="ml-auto flex items-center gap-2">
@@ -279,6 +300,27 @@ export default function Home() {
               discordLink={discordLink}
               websiteLink={websiteLink}
             />
+          </div>
+        )}
+
+        {/* Start Tier Test Tab */}
+        {tab === "tier-test" && (
+          <div className="mc-animate-fade-up mc-delay-3">
+            <TierTestSection discordLink={discordLink} />
+          </div>
+        )}
+
+        {/* Apply for Tester Tab */}
+        {tab === "apply-tester" && (
+          <div className="mc-animate-fade-up mc-delay-3">
+            <ApplyTesterSection discordLink={discordLink} />
+          </div>
+        )}
+
+        {/* Contact Tab */}
+        {tab === "contact" && (
+          <div className="mc-animate-fade-up mc-delay-3">
+            <ContactSection discordLink={discordLink} />
           </div>
         )}
       </div>
@@ -1200,6 +1242,243 @@ function PointsInfo() {
                 </div>
               ))}
             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tier Test Section ─────────────────────────────────────────────────────────
+
+function TierTestSection({ discordLink }: { discordLink: string }) {
+  const steps = [
+    {
+      n: 1,
+      title: "Join our Discord Server",
+      desc: "All tier tests are coordinated through our Discord. Join via the button below to get started.",
+      icon: "🔗",
+    },
+    {
+      n: 2,
+      title: "Register your Minecraft account",
+      desc: "Use the /register command in the #bot-commands channel (or register via the website). Link your Discord to your MC username.",
+      icon: "📝",
+    },
+    {
+      n: 3,
+      title: "Find an available Tester",
+      desc: "Browse the #current-testers channel to see which Tier Testers are currently available and which game modes they cover.",
+      icon: "👀",
+    },
+    {
+      n: 4,
+      title: "Request your tier test",
+      desc: "DM a tester who covers your game mode, or post a request in the #tier-test-requests channel. Mention your preferred game mode.",
+      icon: "✉️",
+    },
+    {
+      n: 5,
+      title: "Play your test games",
+      desc: "The tester will open a session. Play your best! Results are based on performance across multiple games.",
+      icon: "⚔️",
+    },
+    {
+      n: 6,
+      title: "Receive your tier",
+      desc: "The tester posts the result using the /result command. Your tier, rank, and title on the leaderboard update automatically.",
+      icon: "🏆",
+    },
+  ];
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-8 text-center">
+        <h2 className="text-2xl font-bold text-white mb-2">How to Start a Tier Test</h2>
+        <p className="text-white/60 text-sm">Follow these steps to get your tier evaluated by one of our certified Tier Testers.</p>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {steps.map(step => (
+          <div
+            key={step.n}
+            className="flex gap-4 p-4 rounded-lg border border-white/10"
+            style={{ backgroundColor: "hsl(213 27% 10%)" }}
+            data-testid={`card-tier-test-step-${step.n}`}
+          >
+            <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
+              style={{ background: "linear-gradient(135deg, #9B59B6, #7D3C98)", color: "white" }}>
+              {step.n}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-base">{step.icon}</span>
+                <span className="font-semibold text-white text-sm">{step.title}</span>
+              </div>
+              <p className="text-white/60 text-sm">{step.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+        <a
+          href={discordLink || "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 hover:scale-105"
+          style={{ backgroundColor: "#5865F2", color: "white" }}
+          data-testid="link-tier-test-discord"
+        >
+          <SiDiscord className="h-4 w-4" />
+          Join Discord to Get Started
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ─── Apply for Tester Section ──────────────────────────────────────────────────
+
+function ApplyTesterSection({ discordLink }: { discordLink: string }) {
+  const requirements = [
+    { icon: "🏅", label: "Minimum Tier", desc: "You must hold at least LT3 or higher in at least one game mode." },
+    { icon: "⏱️", label: "Activity", desc: "You must be active in the community and available to test regularly." },
+    { icon: "🤝", label: "Good Standing", desc: "No recent bans, mutes, or disputes. We expect professional conduct." },
+    { icon: "🎮", label: "Game Knowledge", desc: "Deep understanding of the game mode(s) you wish to test." },
+  ];
+
+  const steps = [
+    { n: 1, desc: "Join our Discord server and make sure you are registered and ranked." },
+    { n: 2, desc: "Head to the #apply-tester channel and open an application ticket." },
+    { n: 3, desc: "Fill out the application form with your game modes and availability." },
+    { n: 4, desc: "A staff member will review your application and get back to you." },
+  ];
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-8 text-center">
+        <h2 className="text-2xl font-bold text-white mb-2">Apply to Become a Tier Tester</h2>
+        <p className="text-white/60 text-sm">Tier Testers are trusted community members who evaluate and rank players.</p>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="font-bold text-white mb-3">Requirements</h3>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {requirements.map(req => (
+            <div
+              key={req.label}
+              className="flex gap-3 p-4 rounded-lg border border-white/10"
+              style={{ backgroundColor: "hsl(213 27% 10%)" }}
+              data-testid={`card-tester-req-${req.label.toLowerCase().replace(/\s/g, '-')}`}
+            >
+              <span className="text-2xl">{req.icon}</span>
+              <div>
+                <div className="font-semibold text-white text-sm">{req.label}</div>
+                <div className="text-white/60 text-sm">{req.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="font-bold text-white mb-3">Application Process</h3>
+        <div className="flex flex-col gap-3">
+          {steps.map(step => (
+            <div
+              key={step.n}
+              className="flex gap-3 p-3 rounded-lg border border-white/10 items-start"
+              style={{ backgroundColor: "hsl(213 27% 10%)" }}
+            >
+              <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold"
+                style={{ background: "linear-gradient(135deg, #9B59B6, #7D3C98)", color: "white" }}>
+                {step.n}
+              </div>
+              <p className="text-white/70 text-sm pt-0.5">{step.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-center">
+        <a
+          href={discordLink || "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 hover:scale-105"
+          style={{ backgroundColor: "#5865F2", color: "white" }}
+          data-testid="link-apply-tester-discord"
+        >
+          <SiDiscord className="h-4 w-4" />
+          Apply on Discord
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ─── Contact Section ───────────────────────────────────────────────────────────
+
+function ContactSection({ discordLink }: { discordLink: string }) {
+  const contacts = [
+    {
+      icon: "🎫",
+      title: "Open a Support Ticket",
+      desc: "The fastest way to get help. Use the /ticket command in our Discord or head to the #support channel to open a ticket with the staff team.",
+      action: "Go to Discord",
+      href: discordLink,
+      testId: "link-contact-ticket",
+    },
+    {
+      icon: "📢",
+      title: "General Questions",
+      desc: "For general questions about the tier system, game modes, or rankings, post in #general-chat or #questions on our Discord server.",
+      action: "Join Discord",
+      href: discordLink,
+      testId: "link-contact-general",
+    },
+    {
+      icon: "⚠️",
+      title: "Report an Issue",
+      desc: "If you notice a bug on the website or a problem with your tier/rank, open a ticket on Discord with details and a staff member will assist you.",
+      action: "Report on Discord",
+      href: discordLink,
+      testId: "link-contact-report",
+    },
+  ];
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-8 text-center">
+        <h2 className="text-2xl font-bold text-white mb-2">Contact Us</h2>
+        <p className="text-white/60 text-sm">We're here to help. Reach out through any of the channels below.</p>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {contacts.map(c => (
+          <div
+            key={c.title}
+            className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 rounded-lg border border-white/10"
+            style={{ backgroundColor: "hsl(213 27% 10%)" }}
+            data-testid={`card-contact-${c.title.toLowerCase().replace(/\s/g, '-')}`}
+          >
+            <div className="text-4xl">{c.icon}</div>
+            <div className="flex-1">
+              <div className="font-semibold text-white mb-1">{c.title}</div>
+              <p className="text-white/60 text-sm">{c.desc}</p>
+            </div>
+            <a
+              href={c.href || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90"
+              style={{ backgroundColor: "#5865F2", color: "white" }}
+              data-testid={c.testId}
+            >
+              <SiDiscord className="h-4 w-4" />
+              {c.action}
+            </a>
           </div>
         ))}
       </div>

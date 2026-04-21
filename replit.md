@@ -6,6 +6,18 @@ A full-stack Minecraft PvP tier test system consisting of:
 3. An Express API server (`server/`) with internal bot API and public website API
 4. A React website (`client/`) showing player leaderboards, tier testers, and profiles
 
+## Recently Added Features
+
+- **Discord OAuth registration**: Website Register button → Discord OAuth → JWT-like session token stored in `web_sessions` DB table
+- **Auth context**: `website/src/components/AuthContext.tsx` — provides `user`, `isLoading`, `refetch`, `logout` via React Context
+- **User menu**: 3-dot navbar menu when logged in (edit profile, my profile, tier test, apply tester, contact, logout)
+- **Edit profile modal**: Change MC username (30-day cooldown) + region via `POST /api/auth/update-profile`
+- **Auth callback page**: `website/src/pages/auth-callback.tsx` — reads `?token=` from URL, stores in localStorage
+- **3 new info tabs**: Tier Test (how-to guide), Apply for Tester (requirements + process), Contact Us (Discord ticket)
+- **Bot `/remove-tier`**: Staff command to remove a player's tier in a specific game mode (DB + Discord role)
+- **Bot `/remove-tester` `game_mode` option**: Optional — if provided, removes only that game mode. If omitted, removes all (original behavior)
+- **Role restoration on rejoin**: `guildMemberAdd` now restores all tiers, titles, and tester roles for returning registered members
+
 ## Architecture
 
 - **Frontend**: React + Vite + Wouter + TanStack Query + Shadcn UI

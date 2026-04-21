@@ -46,6 +46,7 @@ import {
   clearTierTestCommand,
   clearUserCommand,
   removeTesterCommand,
+  removeTierCommand,
   setLeaderboardChannelCommand,
   setStaffRoleCommand,
   addTesterCommand,
@@ -201,6 +202,21 @@ async function callApi(path: string, body: unknown): Promise<any> {
     return res.json();
   } catch (err) {
     console.error(`[API] Failed to call ${path}:`, err);
+    return null;
+  }
+}
+
+async function callApiGet(path: string): Promise<any> {
+  try {
+    const res = await fetch(`${WEBSITE_API_URL.replace(/\/$/, '')}${path}`, {
+      method: 'GET',
+      headers: { 'x-internal-api-key': INTERNAL_API_KEY },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) { console.warn(`[API] GET ${path} returned ${res.status}`); return null; }
+    return res.json();
+  } catch (err) {
+    console.error(`[API] Failed to GET ${path}:`, err);
     return null;
   }
 }
@@ -1704,8 +1720,9 @@ async function handleSetStaffChannel(interaction: ChatInputCommandInteraction) {
 async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
 
-  const config = getConfig();
-  const caller = interaction.member as GuildMember;
+  const config   = getConfig();
+  const caller   = interaction.member as GuildMember;
+  const gameMode = interaction.options.getString('game_mode', false);
 
   if (config.staffRoleId && !caller.roles.cache.has(config.staffRoleId)) {
     await interaction.editReply('❌ Only staff members can use `/remove-tester`.');
@@ -1730,6 +1747,37 @@ async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
   }
 
   const removedRoles: string[] = [];
+
+  if (gameMode) {
+    // ── Remove from a specific game mode only ────────────────────────────────
+    const gmRoleName = `${displayGameMode(gameMode)} Tester`;
+    const gmRole = guild.roles.cache.find(r => r.name === gmRoleName);
+    if (gmRole && member.roles.cache.has(gmRole.id)) {
+      try {
+        await member.roles.remove(gmRole.id, `Removed tester game mode by ${interaction.user.username}`);
+        removedRoles.push(gmRoleName);
+      } catch { /* ignored */ }
+    }
+
+    // Update API: remove this game mode from their tester game modes
+    await callApi('/api/bot/remove-tester-game-mode', { discordId: target.id, gameMode });
+
+    const embed = new EmbedBuilder()
+      .setColor(0xFF6B35)
+      .setTitle('🎮 Tester Game Mode Removed')
+      .setDescription(
+        `<@${target.id}> (\`${reg.mcUsername}\`) has been removed as a **${displayGameMode(gameMode)}** tester.\n\n` +
+        `**Role removed:** ${removedRoles.length > 0 ? removedRoles.map(r => `\`${r}\``).join(', ') : 'None found'}\n` +
+        `*(Other game mode tester roles are kept)*`,
+      );
+
+    scheduleTesterListRefresh(client);
+    schedulePanelRefresh(client);
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  // ── Remove from ALL game modes (original behavior) ─────────────────────────
 
   // Remove general Tier Tester role
   if (config.tierTesterRoleId && member.roles.cache.has(config.tierTesterRoleId)) {
@@ -1768,6 +1816,70 @@ async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
       `<@${target.id}> (\`${reg.mcUsername}\`) has been removed as a Tier Tester.\n\n` +
       `**Roles removed:** ${removedRoles.length > 0 ? removedRoles.map(r => `\`${r}\``).join(', ') : 'None found'}\n` +
       `**Test count:** Reset to 0`,
+    );
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+// ─── /remove-tier Command (staff only) ────────────────────────────────────────
+
+async function handleRemoveTierAutocomplete(interaction: AutocompleteInteraction) {
+  const focused = interaction.options.getFocused().toLowerCase();
+  const all     = getAllRegistrations();
+  const choices = all
+    .filter(r => r.mcUsername.toLowerCase().includes(focused))
+    .slice(0, 25)
+    .map(r => ({ name: r.mcUsername, value: r.mcUsername }));
+  await interaction.respond(choices);
+}
+
+async function handleRemoveTier(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const config = getConfig();
+  const caller = interaction.member as GuildMember;
+
+  if (config.staffRoleId && !caller.roles.cache.has(config.staffRoleId)) {
+    await interaction.editReply('❌ Only staff members can use `/remove-tier`.');
+    return;
+  }
+
+  const playerInput = interaction.options.getString('player', true);
+  const gameMode    = interaction.options.getString('game_mode', true);
+  const guild       = interaction.guild!;
+
+  const reg = getRegistrationByMcUsername(playerInput);
+  if (!reg) {
+    await interaction.editReply(`❌ No registered player found with Minecraft username \`${playerInput}\`.`);
+    return;
+  }
+
+  // Remove tier role from Discord member (if in server)
+  let removedRole: string | null = null;
+  try {
+    const member = await guild.members.fetch(reg.discordId);
+    for (const tier of ALL_TIERS) {
+      const roleName = buildRoleName(gameMode, tier);
+      const role = guild.roles.cache.find(r => r.name === roleName);
+      if (role && member.roles.cache.has(role.id)) {
+        try {
+          await member.roles.remove(role, `Tier removed by ${interaction.user.username}`);
+          removedRole = roleName;
+        } catch { /* ignored */ }
+        break;
+      }
+    }
+  } catch { /* user not in server — that's fine */ }
+
+  // Remove from database via API
+  await callApi('/api/bot/remove-tier', { discordId: reg.discordId, gameMode });
+
+  const embed = new EmbedBuilder()
+    .setColor(0xFF6B35)
+    .setTitle('🗑️ Tier Removed')
+    .setDescription(
+      `Removed **${displayGameMode(gameMode)}** tier from **${reg.mcUsername}** (<@${reg.discordId}>).\n` +
+      `**Discord role removed:** ${removedRole ? `\`${removedRole}\`` : 'None found (user may not be in server)'}`,
     );
 
   await interaction.editReply({ embeds: [embed] });
@@ -2709,6 +2821,7 @@ async function registerCommands(clientId: string) {
         clearTierTestCommand.toJSON(),
         clearUserCommand.toJSON(),
         removeTesterCommand.toJSON(),
+        removeTierCommand.toJSON(),
         setLeaderboardChannelCommand.toJSON(),
         setStaffRoleCommand.toJSON(),
         addTesterCommand.toJSON(),
@@ -2746,11 +2859,68 @@ client.once('clientReady', async () => {
 
 client.on('guildMemberAdd', async member => {
   try {
-    const unrankedRole = await getOrCreateUnrankedRole(member.guild);
-    await member.roles.add(unrankedRole, 'New member — assigned Unranked role');
-    await assignTitleRole(member.guild, member);
+    const config = getConfig();
+    const guild  = member.guild;
+    const reg    = getRegistrationByDiscordId(member.id);
+
+    if (reg) {
+      // ── Returning registered member — restore all roles ───────────────────
+      if (config.registeredRoleId) {
+        try { await member.roles.add(config.registeredRoleId, 'Returned registered player — restoring roles'); } catch {}
+      }
+
+      const profileData = await callApiGet(`/api/bot/player/${member.id}`);
+      const player = profileData?.player as {
+        tiers: Record<string, string>;
+        isTester: boolean;
+        testerGameModes: string[];
+        totalPoints: number;
+      } | null;
+
+      if (player) {
+        // Restore tier roles
+        for (const [mode, tier] of Object.entries(player.tiers ?? {})) {
+          const roleName = buildRoleName(mode, tier);
+          const role = guild.roles.cache.find(r => r.name === roleName);
+          if (role) {
+            try { await member.roles.add(role, 'Restoring tier roles for returning member'); } catch {}
+          }
+        }
+
+        // Give unranked if no tiers
+        if (Object.keys(player.tiers ?? {}).length === 0) {
+          const unrankedRole = await getOrCreateUnrankedRole(guild);
+          try { await member.roles.add(unrankedRole, 'Returning member with no tiers'); } catch {}
+        }
+
+        // Restore title role
+        await assignTitleRole(guild, member);
+
+        // Restore tester roles
+        if (player.isTester && config.tierTesterRoleId) {
+          try { await member.roles.add(config.tierTesterRoleId, 'Restoring tester role'); } catch {}
+          for (const mode of (player.testerGameModes ?? [])) {
+            const gmRoleName = `${displayGameMode(mode)} Tester`;
+            const gmRole = guild.roles.cache.find(r => r.name === gmRoleName);
+            if (gmRole) {
+              try { await member.roles.add(gmRole, 'Restoring game mode tester role'); } catch {}
+            }
+          }
+        }
+      } else {
+        // Registered locally but no API data — give unranked
+        const unrankedRole = await getOrCreateUnrankedRole(guild);
+        try { await member.roles.add(unrankedRole, 'Returning registered member (no API data)'); } catch {}
+        await assignTitleRole(guild, member);
+      }
+    } else {
+      // New member — assign Unranked role
+      const unrankedRole = await getOrCreateUnrankedRole(guild);
+      await member.roles.add(unrankedRole, 'New member — assigned Unranked role');
+      await assignTitleRole(guild, member);
+    }
   } catch (err) {
-    console.error('Failed to assign roles to new member:', err);
+    console.error('Failed to assign roles to new/returning member:', err);
   }
 });
 
@@ -2942,6 +3112,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'remove-title') return handleProfileAutocomplete(interaction);
       if (interaction.commandName === 'retired')      return handleRetiredAutocomplete(interaction);
       if (interaction.commandName === 'unretired')    return handleRetiredAutocomplete(interaction);
+      if (interaction.commandName === 'remove-tier')  return handleRemoveTierAutocomplete(interaction);
       return;
     }
 
@@ -2969,6 +3140,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'clear-tester')               return await handleClearTierTest(interaction);
       if (interaction.commandName === 'clear-user')                 return await handleClearUser(interaction);
       if (interaction.commandName === 'remove-tester')              return await handleRemoveTester(interaction);
+      if (interaction.commandName === 'remove-tier')               return await handleRemoveTier(interaction);
       if (interaction.commandName === 'help')                       return await handleHelpInfo(interaction);
       if (interaction.commandName === 'info')                       return await handleHelpInfo(interaction);
       if (interaction.commandName === 'help-staff')                 return await handleHelpStaff(interaction);
