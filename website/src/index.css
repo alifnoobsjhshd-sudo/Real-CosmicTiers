@@ -482,8 +482,6 @@ a,
 [role="tab"],
 input[type="button"],
 input[type="submit"],
-summary,
-label[for],
 section,
 article,
 .mc-interactive {
@@ -491,38 +489,49 @@ article,
   --mc-accent: 0 0% 100%; /* default = white */
   -webkit-tap-highlight-color: transparent;
   transition:
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 260ms ease,
-    filter 220ms ease,
-    background-color 220ms ease,
-    border-color 220ms ease,
-    color 220ms ease;
-  will-change: transform;
+    transform        420ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow       460ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter           420ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color     360ms cubic-bezier(0.22, 1, 0.36, 1),
+    color            360ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity          360ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, box-shadow, filter;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* OUTLINE ring — only buttons / links / clickable controls (NOT raw text) */
 button:hover:not(:disabled),
 a:hover,
 [role="button"]:hover:not(:disabled),
 [role="tab"]:hover,
 input[type="button"]:hover:not(:disabled),
 input[type="submit"]:hover:not(:disabled),
-summary:hover,
 .mc-interactive:hover {
   transform: scale(1.05);
   filter: brightness(1.10)
-          drop-shadow(0 0 10px hsl(var(--mc-accent) / 0.55));
+          drop-shadow(0 0 12px hsl(var(--mc-accent) / 0.55));
   box-shadow:
     0 0 0 1px hsl(var(--mc-accent) / 0.45),
-    0 0 18px 2px hsl(var(--mc-accent) / 0.30);
+    0 0 22px 3px hsl(var(--mc-accent) / 0.30);
   z-index: 5;
 }
 
-/* Section-level interactive hover — white outline */
+/* SECTION-level interactive — pure WHITE glow + outline + background halo */
+section,
+article {
+  --mc-accent: 0 0% 100%;
+  position: relative;
+}
+
 section:hover,
 article:hover {
   box-shadow:
-    0 0 0 1px hsl(0 0% 100% / 0.35),
-    0 0 24px 4px hsl(0 0% 100% / 0.18);
+    0 0 0 1px hsl(0 0% 100% / 0.40),                /* white outline */
+    0 0 28px 6px hsl(0 0% 100% / 0.18),             /* white glow */
+    inset 0 0 60px -10px hsl(0 0% 100% / 0.10);     /* white background glow */
+  filter: drop-shadow(0 0 10px hsl(0 0% 100% / 0.30));
 }
 
 button:active:not(:disabled),
@@ -691,10 +700,10 @@ button[aria-pressed="true"] {
   position: relative;
   isolation: isolate;
   transition:
-    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 380ms ease,
-    border-color 280ms ease,
-    filter 260ms ease !important;
+    transform    520ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow   560ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter       420ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
 [data-testid^="player-row-"]::before,
@@ -721,7 +730,9 @@ button[aria-pressed="true"] {
   -webkit-mask-composite: xor;
           mask-composite: exclude;
   opacity: 0;
-  transition: opacity 320ms ease, background-position 1.6s linear;
+  transition:
+    opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-position 2s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
   z-index: 1;
 }
@@ -833,9 +844,10 @@ button[aria-pressed="true"] {
 section,
 article {
   transition:
-    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 320ms ease,
-    border-color 280ms ease;
+    transform    480ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow   520ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter       420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 button.rounded-lg:hover,
