@@ -312,10 +312,10 @@ function TabButton({
     <button
       onClick={onClick}
       data-testid={testId}
-      className={`flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-semibold transition-all ${
+      className={`mc-button-outline flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold border ${
         active
-          ? "text-primary border-b-2 border-primary bg-primary/10"
-          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+          ? "is-active"
+          : "border-transparent text-muted-foreground hover:text-foreground"
       }`}
     >
       {icon}
@@ -374,7 +374,7 @@ function PlayerRow({ player, onClick }: { player: PlayerProfile; onClick: () => 
     <button
       onClick={onClick}
       data-testid={`player-row-${player.discordId}`}
-      className="w-full text-left rounded-lg border border-border hover:border-primary/30 transition-all hover:bg-primary/5 group"
+      className="mc-interactive w-full text-left rounded-lg border border-border group"
       style={{
         backgroundColor: isTop3
           ? player.rank === 1 ? "hsl(45 30% 12%)"
@@ -512,7 +512,7 @@ function TesterRow({ tester, expanded, onToggle, onSelectPlayer }: {
   return (
     <div
       data-testid={`tester-card-${tester.discordId}`}
-      className="rounded-lg border border-border overflow-hidden"
+      className="mc-interactive rounded-lg border border-border overflow-hidden"
       style={{ backgroundColor: "hsl(213 27% 11%)" }}
     >
       <div className="flex items-center gap-3 p-3">
@@ -680,7 +680,7 @@ function ResultCard({ result, players, onSelectPlayer }: {
 
   return (
     <div
-      className="rounded-lg border border-border overflow-hidden"
+      className="mc-interactive rounded-lg border border-border overflow-hidden"
       style={{ backgroundColor: "hsl(213 27% 11%)" }}
       data-testid={`result-card-${result.id}`}
     >
@@ -865,10 +865,10 @@ function InformationSection({
           <button
             onClick={() => setInfoTab("titles")}
             data-testid="tab-info-titles"
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+            className={`mc-button-outline flex-1 py-3 text-sm font-semibold border-b-2 ${
               infoTab === "titles"
-                ? "text-foreground bg-primary/10 border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "text-white border-white/70 bg-white/[0.06]"
+                : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
             Titles
@@ -876,10 +876,10 @@ function InformationSection({
           <button
             onClick={() => setInfoTab("points")}
             data-testid="tab-info-points"
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+            className={`mc-button-outline flex-1 py-3 text-sm font-semibold border-b-2 ${
               infoTab === "points"
-                ? "text-foreground bg-primary/10 border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "text-white border-white/70 bg-white/[0.06]"
+                : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
             Points
@@ -1017,10 +1017,10 @@ function TopSection({
             key={gm}
             onClick={() => setActiveGameMode(gm)}
             data-testid={`tab-top-${gm}`}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-semibold whitespace-nowrap flex-shrink-0 transition-all ${
+            className={`mc-button-outline flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold whitespace-nowrap flex-shrink-0 border ${
               activeGameMode === gm
-                ? "bg-primary/15 text-primary border border-primary/40"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/50 border border-transparent"
+                ? "is-active"
+                : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
             {GAME_MODE_IMAGES[gm] && (
