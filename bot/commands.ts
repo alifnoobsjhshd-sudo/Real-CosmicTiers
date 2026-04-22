@@ -298,56 +298,10 @@ export const clearUserCommand = new SlashCommandBuilder()
 
 export const removeTesterCommand = new SlashCommandBuilder()
   .setName('remove-tester')
-  .setDescription('Remove a user from being a tier tester — removes tester roles and test history (staff only)')
+  .setDescription('Remove a user from being a tier tester — removes all tester roles and test history (staff only)')
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
   .addUserOption(option =>
     option.setName('user').setDescription('The tier tester to remove').setRequired(true)
-  )
-  .addStringOption(option =>
-    option
-      .setName('game_mode')
-      .setDescription('Remove from a specific game mode only (leave empty to remove from all)')
-      .setRequired(false)
-      .addChoices(
-        { name: 'Sword PvP',   value: 'Sword-PvP'   },
-        { name: 'UHC',         value: 'UHC'          },
-        { name: 'Pot PvP',     value: 'Pot-PvP'      },
-        { name: 'Nethpot',     value: 'Nethpot'      },
-        { name: 'SMP PvP',     value: 'SMP-PvP'      },
-        { name: 'Axe PvP',     value: 'Axe-PvP'      },
-        { name: 'Mace PvP',    value: 'Mace-PvP'     },
-        { name: 'Crystal PvP', value: 'Crystal-PvP'  },
-        { name: 'Cart PvP',    value: 'cartpvp'      },
-      )
-  );
-
-export const removeTierCommand = new SlashCommandBuilder()
-  .setName('remove-tier')
-  .setDescription('Remove a player\'s tier in a specific game mode (staff only)')
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-  .addStringOption(option =>
-    option
-      .setName('player')
-      .setDescription('The registered player (Minecraft username)')
-      .setRequired(true)
-      .setAutocomplete(true)
-  )
-  .addStringOption(option =>
-    option
-      .setName('game_mode')
-      .setDescription('The game mode to remove the tier from')
-      .setRequired(true)
-      .addChoices(
-        { name: 'Sword PvP',   value: 'Sword-PvP'   },
-        { name: 'UHC',         value: 'UHC'          },
-        { name: 'Pot PvP',     value: 'Pot-PvP'      },
-        { name: 'Nethpot',     value: 'Nethpot'      },
-        { name: 'SMP PvP',     value: 'SMP-PvP'      },
-        { name: 'Axe PvP',     value: 'Axe-PvP'      },
-        { name: 'Mace PvP',    value: 'Mace-PvP'     },
-        { name: 'Crystal PvP', value: 'Crystal-PvP'  },
-        { name: 'Cart PvP',    value: 'cartpvp'      },
-      )
   );
 
 export const setLeaderboardChannelCommand = new SlashCommandBuilder()

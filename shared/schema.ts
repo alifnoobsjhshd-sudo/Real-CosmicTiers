@@ -30,15 +30,6 @@ export const players = pgTable("players", {
   previousPoints: integer("previous_points").default(0).notNull(),
   testerGameModes: text("tester_game_modes").array(),
   specialTitle: text("special_title"),
-  usernameChangedAt: bigint("username_changed_at", { mode: "number" }),
-});
-
-export const webSessions = pgTable("web_sessions", {
-  token: text("token").primaryKey(),
-  discordId: text("discord_id").notNull(),
-  discordAccessToken: text("discord_access_token").notNull(),
-  isTemp: boolean("is_temp").default(false).notNull(),
-  expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
 });
 
 export const specialTitles = pgTable("special_titles", {
@@ -150,7 +141,6 @@ export interface PlayerProfile {
   isTester: boolean;
   testerGameModes: string[];
   specialTitle: SpecialTitle | null;
-  usernameChangedAt?: number | null;
 }
 
 export interface TierTester {

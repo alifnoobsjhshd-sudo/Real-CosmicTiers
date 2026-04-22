@@ -5,7 +5,6 @@ import {
   retiredPlayerTiers as retiredPlayerTiersTable,
   resultEntries as resultEntriesTable,
   specialTitles as specialTitlesTable,
-  webSessions as webSessionsTable,
   TITLES,
   TIER_POINTS,
   type PlayerProfile,
@@ -94,15 +93,6 @@ export interface IStorage {
   giveSpecialTitle(discordId: string, titleName: string | null): Promise<void>;
   removeSpecialTitle(discordId: string): Promise<void>;
   getTopPlayers(): Promise<TopPlayersResponse>;
-
-  createWebSession(token: string, discordId: string, discordAccessToken: string, isTemp: boolean, expiresAt: number): Promise<void>;
-  getWebSession(token: string): Promise<{ token: string; discordId: string; discordAccessToken: string; isTemp: boolean; expiresAt: number } | null>;
-  upgradeWebSession(token: string): Promise<void>;
-  deleteWebSession(token: string): Promise<void>;
-  getPlayerByDiscordId(discordId: string): Promise<PlayerProfile | null>;
-  updatePlayerProfileWithCooldown(discordId: string, data: { mcUsername?: string; region?: string }): Promise<{ ok: boolean; cooldownRemaining?: number }>;
-  removePlayerTier(discordId: string, gameMode: string): Promise<void>;
-  removeTesterFromGameMode(discordId: string, gameMode: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -587,94 +577,6 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { gameModeData, lastUpdated: Date.now() };
-  }
-
-  async createWebSession(token: string, discordId: string, discordAccessToken: string, isTemp: boolean, expiresAt: number): Promise<void> {
-    await db
-      .insert(webSessionsTable)
-      .values({ token, discordId, discordAccessToken, isTemp, expiresAt })
-      .onConflictDoUpdate({ target: webSessionsTable.token, set: { discordId, discordAccessToken, isTemp, expiresAt } });
-  }
-
-  async getWebSession(token: string): Promise<{ token: string; discordId: string; discordAccessToken: string; isTemp: boolean; expiresAt: number } | null> {
-    const result = await db.select().from(webSessionsTable).where(eq(webSessionsTable.token, token)).limit(1);
-    if (!result[0]) return null;
-    if (result[0].expiresAt < Date.now()) {
-      await db.delete(webSessionsTable).where(eq(webSessionsTable.token, token));
-      return null;
-    }
-    return result[0];
-  }
-
-  async upgradeWebSession(token: string): Promise<void> {
-    await db.update(webSessionsTable).set({ isTemp: false }).where(eq(webSessionsTable.token, token));
-  }
-
-  async deleteWebSession(token: string): Promise<void> {
-    await db.delete(webSessionsTable).where(eq(webSessionsTable.token, token));
-  }
-
-  async getPlayerByDiscordId(discordId: string): Promise<PlayerProfile | null> {
-    const players = await db.select().from(playersTable).where(eq(playersTable.discordId, discordId)).limit(1);
-    if (!players[0]) return null;
-    const p = players[0];
-
-    const tiers = await db.select().from(playerTiersTable).where(eq(playerTiersTable.discordId, discordId));
-    const tiersMap: Record<string, string> = {};
-    for (const t of tiers) tiersMap[t.gameMode] = t.tier;
-
-    const retired = await db.select().from(retiredPlayerTiersTable).where(eq(retiredPlayerTiersTable.discordId, discordId));
-    const retiredSet = retired.map(r => r.gameMode);
-
-    const points = calcPoints(tiersMap);
-    const title = getTitleForPoints(points);
-
-    return {
-      discordId: p.discordId, mcUsername: p.mcUsername, region: p.region,
-      totalPoints: points, tiers: tiersMap, retiredTiers: retiredSet,
-      registeredAt: p.registeredAt, skinUrl: getPlayerSkinUrl(discordId),
-      renderedSkinPath: getPlayerSkinUrl(discordId), rank: 0, trend: null,
-      title, isTester: p.isTester, testerGameModes: p.testerGameModes ?? [], specialTitle: null,
-      usernameChangedAt: p.usernameChangedAt ?? null,
-    };
-  }
-
-  async updatePlayerProfileWithCooldown(discordId: string, data: { mcUsername?: string; region?: string }): Promise<{ ok: boolean; cooldownRemaining?: number }> {
-    const players = await db.select().from(playersTable).where(eq(playersTable.discordId, discordId)).limit(1);
-    if (!players[0]) return { ok: false };
-    const p = players[0];
-    const USERNAME_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
-    if (data.mcUsername && data.mcUsername !== p.mcUsername) {
-      if (p.usernameChangedAt != null) {
-        const remaining = p.usernameChangedAt + USERNAME_COOLDOWN_MS - Date.now();
-        if (remaining > 0) return { ok: false, cooldownRemaining: Math.ceil(remaining / 1000) };
-      }
-    }
-    const updates: Record<string, unknown> = {};
-    if (data.region) updates.region = data.region;
-    if (data.mcUsername && data.mcUsername !== p.mcUsername) {
-      updates.mcUsername = data.mcUsername;
-      updates.usernameChangedAt = Date.now();
-    }
-    if (Object.keys(updates).length > 0) {
-      await db.update(playersTable).set(updates as any).where(eq(playersTable.discordId, discordId));
-    }
-    return { ok: true };
-  }
-
-  async removePlayerTier(discordId: string, gameMode: string): Promise<void> {
-    await db.delete(playerTiersTable).where(and(eq(playerTiersTable.discordId, discordId), eq(playerTiersTable.gameMode, gameMode)));
-    await db.delete(retiredPlayerTiersTable).where(and(eq(retiredPlayerTiersTable.discordId, discordId), eq(retiredPlayerTiersTable.gameMode, gameMode)));
-  }
-
-  async removeTesterFromGameMode(discordId: string, gameMode: string): Promise<void> {
-    const players = await db.select().from(playersTable).where(eq(playersTable.discordId, discordId)).limit(1);
-    if (!players[0]) return;
-    const newModes = (players[0].testerGameModes ?? []).filter(m => m !== gameMode);
-    await db.update(playersTable).set({ testerGameModes: newModes }).where(eq(playersTable.discordId, discordId));
-    if (newModes.length === 0) {
-      await db.update(playersTable).set({ isTester: false }).where(eq(playersTable.discordId, discordId));
-    }
   }
 }
 
