@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { MoreVertical, LogOut, User, ChevronRight } from "lucide-react";
+import { MoreVertical, LogOut, User, ChevronRight, ExternalLink } from "lucide-react";
 import { useAuth } from "./AuthContext";
+import { useLocation } from "wouter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ interface UserMenuProps {
 
 export default function UserMenu({ onTabChange }: UserMenuProps) {
   const { user, logout } = useAuth();
+  const [, navigate] = useLocation();
   const [editOpen, setEditOpen] = useState(false);
 
   if (!user) return null;
@@ -62,14 +64,14 @@ export default function UserMenu({ onTabChange }: UserMenuProps) {
           {user.player && (
             <DropdownMenuItem
               className="cursor-pointer flex items-center justify-between hover:bg-white/10 focus:bg-white/10"
-              onClick={() => onTabChange?.("players")}
+              onClick={() => navigate(`/user/${encodeURIComponent(user.player!.mcUsername)}`)}
               data-testid="menu-item-profile"
             >
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-white/70" />
                 <span>My Profile</span>
               </div>
-              <ChevronRight className="w-3 h-3 text-white/40" />
+              <ExternalLink className="w-3 h-3 text-white/40" />
             </DropdownMenuItem>
           )}
 

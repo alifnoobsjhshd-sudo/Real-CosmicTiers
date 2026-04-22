@@ -11,6 +11,8 @@ import { PlayerSkin } from "@/components/PlayerSkin";
 import { TierList } from "@/components/TierBadge";
 import { TitleBadge } from "@/components/TitleBadge";
 import { RankBadge } from "@/components/RankBadge";
+import { useAuth } from "@/components/AuthContext";
+import RegistrationModal from "@/components/RegistrationModal";
 
 type Tab = "leaderboard" | "testers" | "results" | "top" | "information" | "tier-test" | "apply-tester" | "contact";
 type InfoTab = "titles" | "points";
@@ -78,6 +80,14 @@ export default function Home() {
   const [loadingKey, setLoadingKey] = useState(0);
   const [loadingDuration, setLoadingDuration] = useState(1800);
   const [loadingTab, setLoadingTab] = useState('');
+  const [regOpen, setRegOpen] = useState(() => new URLSearchParams(search).get("register") === "1");
+
+  const { user } = useAuth();
+
+  // Auto-open registration modal for temp (unregistered) users
+  useEffect(() => {
+    if (user?.isTemp) setRegOpen(true);
+  }, [user?.isTemp]);
 
   const [, navigate] = useLocation();
   const switchTab = (newTab: string) => {
@@ -324,6 +334,8 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <RegistrationModal open={regOpen} onClose={() => setRegOpen(false)} />
 
       <section aria-label="About CosmicTiers" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
         <h2>CosmicTiers — Minecraft PvP Tier List &amp; Rankings</h2>

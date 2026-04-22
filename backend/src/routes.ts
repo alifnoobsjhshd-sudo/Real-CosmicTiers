@@ -526,7 +526,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/auth/discord/callback", async (req, res) => {
     const { code, error } = req.query as Record<string, string>;
-    const websiteUrl = WEBSITE_URL || "http://localhost:5173";
+    const websiteUrl = WEBSITE_URL || `${req.protocol}://${req.get("host")}`;
 
     if (error || !code) {
       res.redirect(`${websiteUrl}/auth/callback?error=oauth_denied`);
@@ -607,9 +607,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         discordId: session.discordId,
         isTemp: session.isTemp,
         discordUsername: discordUser?.username ?? null,
-        discordAvatar: discordUser?.avatar
-          ? `https://cdn.discordapp.com/avatars/${session.discordId}/${discordUser.avatar}.png`
-          : `https://cdn.discordapp.com/embed/avatars/${parseInt(session.discordId) % 5}.png`,
+        discordAvatar: discordUser?.avatar ?? null,
         player: player ?? null,
       });
     } catch (err) {

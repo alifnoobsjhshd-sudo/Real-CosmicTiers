@@ -11,12 +11,31 @@ A full-stack Minecraft PvP tier test system consisting of:
 - **Discord OAuth registration**: Website Register button → Discord OAuth → JWT-like session token stored in `web_sessions` DB table
 - **Auth context**: `website/src/components/AuthContext.tsx` — provides `user`, `isLoading`, `refetch`, `logout` via React Context
 - **User menu**: 3-dot navbar menu when logged in (edit profile, my profile, tier test, apply tester, contact, logout)
-- **Edit profile modal**: Change MC username (30-day cooldown) + region via `POST /api/auth/update-profile`
-- **Auth callback page**: `website/src/pages/auth-callback.tsx` — reads `?token=` from URL, stores in localStorage
+- **Registration modal**: Shown automatically when a user logs in with Discord but has no MC account linked yet
+- **Edit profile modal**: Change MC username (7-day cooldown) + region via `POST /api/auth/update-profile`
+- **Auth callback page**: `website/src/pages/auth-callback.tsx` — reads `?token=` from URL, stores in localStorage, shows errors if OAuth fails
 - **3 new info tabs**: Tier Test (how-to guide), Apply for Tester (requirements + process), Contact Us (Discord ticket)
 - **Bot `/remove-tier`**: Staff command to remove a player's tier in a specific game mode (DB + Discord role)
 - **Bot `/remove-tester` `game_mode` option**: Optional — if provided, removes only that game mode. If omitted, removes all (original behavior)
 - **Role restoration on rejoin**: `guildMemberAdd` now restores all tiers, titles, and tester roles for returning registered members
+
+## Discord OAuth Setup
+
+For the Register button to work, the following must be configured:
+
+| Env Var | Where | Value |
+|---------|-------|-------|
+| `DISCORD_CLIENT_ID` | server / backend | From Discord Developer Portal → OAuth2 |
+| `DISCORD_CLIENT_SECRET` | server / backend | From Discord Developer Portal → OAuth2 |
+| `DISCORD_REDIRECT_URI` | server / backend | `https://<your-domain>/api/auth/discord/callback` |
+| `WEBSITE_URL` | backend (Render) | URL of the React website (e.g. `https://cosmictiers.com`) |
+| `DISCORD_BOT_TOKEN` | server / backend | Bot token for role assignment on register |
+| `SERVER_ID` | server / backend | Discord guild ID for server membership check |
+| `VITE_API_URL` | website (build-time) | URL of the backend API (empty for local dev — uses relative URLs) |
+
+**IMPORTANT**: Add `DISCORD_REDIRECT_URI` to your Discord application's OAuth2 → Redirects list in the Developer Portal.
+
+**Local Replit dev**: `WEBSITE_URL` does NOT need to be set — the server auto-detects the Replit dev domain from the request. Set `DISCORD_REDIRECT_URI` to `https://<replit-dev-domain>/api/auth/discord/callback`.
 
 ## Architecture
 

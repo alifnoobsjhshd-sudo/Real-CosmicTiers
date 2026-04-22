@@ -678,6 +678,7 @@ export class DatabaseStorage implements IStorage {
       registeredAt: p.registeredAt, skinUrl: getPlayerSkinUrl(discordId),
       renderedSkinPath: getPlayerSkinUrl(discordId), rank: 0, trend: null,
       title, isTester: p.isTester, testerGameModes: p.testerGameModes ?? [], specialTitle,
+      usernameChangedAt: p.usernameChangedAt ?? null,
     };
   }
 

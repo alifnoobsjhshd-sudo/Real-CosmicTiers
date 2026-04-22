@@ -69,7 +69,7 @@ export interface PlayerProfile {
   isTester: boolean;
   testerGameModes: string[];
   specialTitle: SpecialTitle | null;
-  usernameChangedAt?: string | null;
+  usernameChangedAt?: number | null;
 }
 
 export interface TierTester {

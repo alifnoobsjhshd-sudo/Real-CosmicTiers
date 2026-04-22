@@ -26,9 +26,10 @@ export default function EditProfileModal({ open, onClose }: EditProfileModalProp
   const [region, setRegion] = useState(user?.player?.region ?? "");
   const [saving, setSaving] = useState(false);
 
+  const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
   const canChangeUsername = !user?.player?.mcUsername ||
-    (user?.player?.usernameChangedAt == null ||
-      Date.now() - new Date(user.player.usernameChangedAt).getTime() > 30 * 24 * 60 * 60 * 1000);
+    user?.player?.usernameChangedAt == null ||
+    Date.now() - (user.player.usernameChangedAt as number) > COOLDOWN_MS;
 
   async function handleSave() {
     setSaving(true);

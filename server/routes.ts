@@ -460,7 +460,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/auth/discord/callback", async (req, res) => {
     const { code, error } = req.query as Record<string, string>;
-    const websiteUrl = WEBSITE_URL_WEB || "http://localhost:5173";
+    const websiteUrl = WEBSITE_URL_WEB || `${req.protocol}://${req.get("host")}`;
     if (error || !code) { res.redirect(`${websiteUrl}/auth/callback?error=oauth_denied`); return; }
     try {
       const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
@@ -503,9 +503,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         discordId: session.discordId,
         isTemp: session.isTemp,
         discordUsername: discordUser?.username ?? null,
-        discordAvatar: discordUser?.avatar
-          ? `https://cdn.discordapp.com/avatars/${session.discordId}/${discordUser.avatar}.png`
-          : `https://cdn.discordapp.com/embed/avatars/${parseInt(session.discordId.slice(-1), 10) % 5}.png`,
+        discordAvatar: discordUser?.avatar ?? null,
         player: player ?? null,
       });
     } catch (err) {
@@ -542,13 +540,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       } catch {}
       await storage.registerPlayer({ discordId: session.discordId, mcUsername, region, skinUrl });
       if (skinBase64) await storage.updatePlayerSkinData(session.discordId, skinBase64);
+
       if (SERVER_ID_WEB && DISCORD_BOT_TOKEN_WEB) {
         try {
-          await fetch(`https://discord.com/api/v10/guilds/${SERVER_ID_WEB}/members/${session.discordId}`, {
-            headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_WEB}` },
-          });
+          const guildConfig = (await storage.getGuildConfig?.(SERVER_ID_WEB)) as any ?? {};
+
+          async function assignRole(roleId: string) {
+            await fetch(`https://discord.com/api/v10/guilds/${SERVER_ID_WEB}/members/${session!.discordId}/roles/${roleId}`, {
+              method: "PUT",
+              headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_WEB}` },
+            });
+          }
+
+          if (guildConfig?.registeredRoleId) await assignRole(guildConfig.registeredRoleId).catch(() => {});
+          if (guildConfig?.unrankedRoleId)   await assignRole(guildConfig.unrankedRoleId).catch(() => {});
         } catch {}
       }
+
       await storage.upgradeWebSession(token);
       res.json({ ok: true });
     } catch (err: any) {
