@@ -13,6 +13,11 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    target: ["es2018", "chrome70", "safari12", "firefox68", "edge79"],
+    cssTarget: ["chrome70", "safari12", "firefox68", "edge79"],
+  },
+  esbuild: {
+    target: "es2018",
   },
   server: {
     port: 5173,
