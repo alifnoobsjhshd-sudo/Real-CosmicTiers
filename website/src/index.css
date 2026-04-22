@@ -504,12 +504,9 @@ input[type="button"]:hover:not(:disabled),
 input[type="submit"]:hover:not(:disabled),
 summary:hover,
 .mc-interactive:hover {
-  transform: scale(1.09);
-  filter: brightness(1.15) drop-shadow(0 0 12px rgba(255, 191, 0, 0.55));
-  box-shadow:
-    0 0 0 1px rgba(255, 191, 0, 0.35),
-    0 0 22px 4px rgba(255, 191, 0, 0.40),
-    0 0 48px 12px rgba(155, 89, 182, 0.28);
+  transform: scale(1.05);
+  filter: brightness(1.10)
+          drop-shadow(0 0 10px color-mix(in srgb, currentColor 55%, transparent));
   z-index: 5;
 }
 
@@ -531,12 +528,11 @@ input:focus-visible,
 .mc-interactive:focus-visible {
   outline: none;
   box-shadow:
-    0 0 0 2px rgba(255, 191, 0, 0.55),
-    0 0 18px 4px rgba(255, 191, 0, 0.35),
-    0 0 36px 8px rgba(155, 89, 182, 0.25);
+    0 0 0 2px color-mix(in srgb, currentColor 60%, transparent),
+    0 0 16px 3px color-mix(in srgb, currentColor 45%, transparent);
 }
 
-/* Mobile / touch devices — bigger, brighter taps since :hover is unreliable */
+/* Mobile / touch devices — bright, theme-aware tap feedback */
 @media (hover: none), (pointer: coarse) {
   button:active:not(:disabled),
   a:active,
@@ -547,12 +543,12 @@ input:focus-visible,
   summary:active,
   label[for]:active,
   .mc-interactive:active {
-    transform: scale(1.12);
-    filter: brightness(1.20) drop-shadow(0 0 14px rgba(255, 191, 0, 0.75));
+    transform: scale(1.08);
+    filter: brightness(1.18)
+            drop-shadow(0 0 12px color-mix(in srgb, currentColor 70%, transparent));
     box-shadow:
-      0 0 0 3px rgba(255, 191, 0, 0.55),
-      0 0 28px 8px rgba(255, 191, 0, 0.55),
-      0 0 56px 14px rgba(155, 89, 182, 0.40);
+      0 0 0 2px color-mix(in srgb, currentColor 55%, transparent),
+      0 0 22px 5px color-mix(in srgb, currentColor 45%, transparent);
     animation: none;
     transition:
       transform 130ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -564,12 +560,12 @@ input:focus-visible,
   [data-testid^="player-row-"]:active,
   [data-testid^="tester-card-"]:active,
   [data-testid^="result-card-"]:active {
-    transform: translateY(-6px) scale(1.03) !important;
+    transform: translateY(-5px) scale(1.02) !important;
     box-shadow:
-      0 16px 36px -8px rgba(255, 191, 0, 0.55),
-      0 0 0 2px rgba(255, 191, 0, 0.60),
-      0 0 60px 0px rgba(155, 89, 182, 0.50) !important;
-    filter: brightness(1.18) !important;
+      0 14px 30px -10px rgba(0, 0, 0, 0.55),
+      0 0 0 1px color-mix(in srgb, currentColor 45%, transparent),
+      0 0 36px 2px color-mix(in srgb, currentColor 35%, transparent) !important;
+    filter: brightness(1.12) !important;
   }
 
   [data-testid^="player-row-"]:active::before,
@@ -580,25 +576,35 @@ input:focus-visible,
   }
 
   [data-testid^="link-discord"]:active {
-    transform: scale(1.14) !important;
-    filter: brightness(1.25) drop-shadow(0 0 18px rgba(88, 101, 242, 0.95)) !important;
+    transform: scale(1.10) !important;
+    filter: brightness(1.20) drop-shadow(0 0 14px rgba(88, 101, 242, 0.85)) !important;
     box-shadow:
-      0 0 0  3px rgba(88, 101, 242, 0.75),
-      0 0 36px 12px rgba(88, 101, 242, 0.85),
-      0 0 64px 18px rgba(155, 89, 182, 0.55) !important;
+      0 0 0  2px rgba(88, 101, 242, 0.65),
+      0 0 28px 8px rgba(88, 101, 242, 0.70),
+      0 0 48px 12px rgba(155, 89, 182, 0.40) !important;
   }
 
   [data-testid^="link-discord"]:active::before {
     animation: mc-shine-sweep 0.9s ease-out !important;
   }
 
-  [data-testid^="tab-"]:active {
-    transform: translateY(-3px) scale(1.10) !important;
-    text-shadow: 0 0 16px rgba(255, 191, 0, 0.85);
+  [data-testid^="tab-"]:not([data-testid^="tab-top-"]):active {
+    transform: translateY(-2px) scale(1.07) !important;
+    text-shadow: 0 0 12px hsl(45 90% 60% / 0.7);
     box-shadow:
-      0 0 0 2px rgba(255, 191, 0, 0.55),
-      0 8px 24px -4px rgba(255, 191, 0, 0.55),
-      0 0 36px 0px rgba(155, 89, 182, 0.45) !important;
+      0 0 0 1px hsl(45 90% 55% / 0.45),
+      0 6px 18px -4px hsl(45 90% 55% / 0.45) !important;
+  }
+
+  /* Game-mode strip: small, contained, no layout jump */
+  [data-testid^="tab-top-"]:active {
+    transform: scale(1.04) !important;
+    filter: brightness(1.18)
+            drop-shadow(0 0 6px color-mix(in srgb, currentColor 60%, transparent)) !important;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, currentColor 50%, transparent),
+      0 0 12px 1px color-mix(in srgb, currentColor 35%, transparent) !important;
+    z-index: 3;
   }
 }
 
@@ -652,6 +658,11 @@ button[aria-pressed="true"] {
 }
 
 /* ─── PLAYER ROWS / TESTER CARDS / RESULT CARDS ──────────────────── */
+/* Each card uses its OWN accent color via --mc-accent (set per type below) */
+[data-testid^="player-row-"]   { --mc-accent: 45 90% 55%;   } /* gold */
+[data-testid^="tester-card-"]  { --mc-accent: 270 75% 65%;  } /* purple */
+[data-testid^="result-card-"]  { --mc-accent: 195 85% 55%;  } /* cyan */
+
 [data-testid^="player-row-"],
 [data-testid^="tester-card-"],
 [data-testid^="result-card-"] {
@@ -674,10 +685,11 @@ button[aria-pressed="true"] {
   padding: 1px;
   background: linear-gradient(
     120deg,
-    rgba(255, 191, 0, 0)    0%,
-    rgba(255, 191, 0, 0.6)  35%,
-    rgba(155, 89, 182, 0.7) 65%,
-    rgba(255, 191, 0, 0)    100%
+    hsl(var(--mc-accent) / 0)    0%,
+    hsl(var(--mc-accent) / 0.65) 40%,
+    hsl(var(--mc-accent) / 0.85) 50%,
+    hsl(var(--mc-accent) / 0.65) 60%,
+    hsl(var(--mc-accent) / 0)    100%
   );
   background-size: 250% 100%;
   background-position: 0% 0%;
@@ -695,12 +707,12 @@ button[aria-pressed="true"] {
 [data-testid^="player-row-"]:hover,
 [data-testid^="tester-card-"]:hover,
 [data-testid^="result-card-"]:hover {
-  transform: translateY(-6px) scale(1.025) !important;
-  filter: brightness(1.10) !important;
+  transform: translateY(-5px) scale(1.018) !important;
+  filter: brightness(1.08) !important;
   box-shadow:
-    0 14px 32px -10px rgba(255, 191, 0, 0.40),
-    0 0 0 1px rgba(255, 191, 0, 0.50),
-    0 0 56px -4px rgba(155, 89, 182, 0.40) !important;
+    0 14px 32px -10px hsl(var(--mc-accent) / 0.40),
+    0 0 0 1px hsl(var(--mc-accent) / 0.50),
+    0 0 48px -8px hsl(var(--mc-accent) / 0.35) !important;
   z-index: 6;
 }
 
@@ -715,23 +727,36 @@ button[aria-pressed="true"] {
 [data-testid^="tester-card-"]:active,
 [data-testid^="result-card-"]:active {
   transform: translateY(-2px) scale(1.005) !important;
-  filter: brightness(1.20) !important;
+  filter: brightness(1.18) !important;
   transition-duration: 90ms !important;
 }
 
-/* ─── TAB BUTTONS — stronger highlight ───────────────────────────── */
-[data-testid^="tab-"] {
-  position: relative;
-  isolation: isolate;
+/* ─── TAB BUTTONS (main nav: Leaderboard/Testers/Results/Top/Info) ── */
+[data-testid^="tab-"]:not([data-testid^="tab-top-"]):hover {
+  transform: translateY(-2px) scale(1.05) !important;
+  text-shadow: 0 0 10px hsl(45 90% 60% / 0.55);
+  box-shadow:
+    0 0 0 1px hsl(45 90% 55% / 0.35),
+    0 5px 16px -5px hsl(45 90% 55% / 0.40) !important;
 }
 
-[data-testid^="tab-"]:hover {
-  transform: translateY(-2px) scale(1.06) !important;
-  text-shadow: 0 0 12px rgba(255, 191, 0, 0.55);
+/* ─── TOP-SECTION GAME MODE BUTTONS — compact, theme-aware, no jump ─ */
+[data-testid^="tab-top-"] {
+  /* Stable sizing — prevents row from shifting when scaled */
+  height: 2.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  transform-origin: center center;
+}
+
+[data-testid^="tab-top-"]:hover {
+  transform: scale(1.04) !important;
+  filter: brightness(1.12)
+          drop-shadow(0 0 6px color-mix(in srgb, currentColor 55%, transparent));
   box-shadow:
-    0 0 0 1px rgba(255, 191, 0, 0.40),
-    0 6px 20px -6px rgba(255, 191, 0, 0.45),
-    0 0 30px -2px rgba(155, 89, 182, 0.35) !important;
+    0 0 0 1px color-mix(in srgb, currentColor 45%, transparent),
+    0 0 14px 1px color-mix(in srgb, currentColor 30%, transparent) !important;
+  z-index: 3;
 }
 
 /* Section / card lift — any bordered card or section */
