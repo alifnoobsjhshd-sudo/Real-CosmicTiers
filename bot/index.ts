@@ -2742,6 +2742,11 @@ client.once('clientReady', async () => {
   setInterval(() => refreshTierTestPanel(client),    10 * 60 * 1000);
   setInterval(() => refreshTesterListPanel(client),  10 * 60 * 1000);
   setInterval(() => refreshLeaderboardPanel(client), 10 * 60 * 1000);
+  setInterval(() => {
+    loadRegistrationsFromApi().catch(err =>
+      console.error('[registration] Periodic sync failed:', err),
+    );
+  }, 5 * 60 * 1000);
 });
 
 client.on('guildMemberAdd', async member => {

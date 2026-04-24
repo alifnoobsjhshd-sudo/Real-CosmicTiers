@@ -227,3 +227,16 @@ Cart-PvP uses the internal key `cartpvp` in stored game mode data and Discord co
 - `DISCORD_SERVER_LINK` — Discord invite link shown in the website's "Join Discord" button
 - `WEBSITE_LINK` — Public website URL shown in Discord embeds
 - `DISCORD_REDIRECT_URI`, `DISCORD_CLIENT_SECRET` — For OAuth (if needed)
+
+## Skin Fallback Chain
+
+`/api/skin/:discordId` resolves the player head image in this order:
+1. Custom skin uploaded via the bot (base64 in `players.renderedSkinData`).
+2. Mojang head fetched from `https://mc-heads.net/avatar/{mcUsername}/64` (proxied + cached in memory for 1 hour, head only with helmet overlay).
+3. Local `default-skin.png` (Steve) if both above fail.
+
+The bot embeds always reference this URL via `getBackendSkinUrl(discordId)`, so both the website and the bot benefit from the Mojang fallback automatically. Mojang fetches happen on the backend (not the bot) and are cached, so Discord's own image proxy keeps the per-embed cost near zero.
+
+## Bot Registration Cache
+
+The bot keeps an in-memory cache of all registrations in `bot/registration.ts`. It is hydrated on startup via `loadRegistrationsFromApi()` and re-synced every 5 minutes inside the `clientReady` handler in `bot/index.ts`, so player Minecraft usernames stay accurate in commands like `/leaderboard` even if registrations were created or edited while the bot was offline.

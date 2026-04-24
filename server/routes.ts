@@ -8,6 +8,11 @@ const INTERNAL_API_KEY = process.env["INTERNAL_API_KEY"] ?? "";
 const DEFAULT_SKIN_PATH = path.resolve(process.cwd(), "default-skin.png");
 const TITLE_ICONS_DIR = path.resolve(process.cwd(), "title-icons");
 
+const MC_USERNAME_RE = /^[a-zA-Z0-9_]{1,16}$/;
+const MOJANG_HEAD_TTL_MS = 60 * 60 * 1000;
+const MOJANG_HEAD_FETCH_TIMEOUT_MS = 4000;
+const mojangHeadCache = new Map<string, { buffer: Buffer; expires: number }>();
+
 function sendDefaultSkin(res: Response) {
   if (fs.existsSync(DEFAULT_SKIN_PATH)) {
     res.setHeader("Cache-Control", "public, max-age=86400");
@@ -15,6 +20,28 @@ function sendDefaultSkin(res: Response) {
     return;
   }
   res.status(404).json({ error: "Default skin not found" });
+}
+
+async function fetchMojangHead(mcUsername: string): Promise<Buffer | null> {
+  const key = mcUsername.toLowerCase();
+  const cached = mojangHeadCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.buffer;
+
+  try {
+    const url = `https://mc-heads.net/avatar/${encodeURIComponent(mcUsername)}/64`;
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(MOJANG_HEAD_FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const arrayBuf = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuf);
+    if (buffer.length === 0) return null;
+    mojangHeadCache.set(key, { buffer, expires: Date.now() + MOJANG_HEAD_TTL_MS });
+    return buffer;
+  } catch (err) {
+    console.warn(`[skin] Mojang head fetch failed for ${mcUsername}:`, (err as Error).message);
+    return null;
+  }
 }
 
 function botAuth(req: Request, res: Response, next: NextFunction) {
@@ -69,21 +96,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/skin/:discordId", async (req, res) => {
     try {
       const { discordId } = req.params;
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
 
       const skinData = await storage.getSkinData(discordId);
       if (skinData) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
         const buffer = Buffer.from(skinData, "base64");
         res.setHeader("Content-Type", "image/png");
         res.send(buffer);
         return;
       }
 
+      const mcUsername = await storage.getPlayerMcUsername(discordId);
+      if (mcUsername && MC_USERNAME_RE.test(mcUsername)) {
+        const headBuffer = await fetchMojangHead(mcUsername);
+        if (headBuffer) {
+          res.setHeader("Cache-Control", "public, max-age=3600");
+          res.setHeader("Content-Type", "image/png");
+          res.send(headBuffer);
+          return;
+        }
+      }
+
       sendDefaultSkin(res);
     } catch (err) {
       console.error("[skin]", err);
-      res.status(500).json({ error: "Internal server error" });
+      sendDefaultSkin(res);
     }
   });
 
