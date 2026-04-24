@@ -554,13 +554,32 @@ a:hover,
 input[type="button"]:hover:not(:disabled),
 input[type="submit"]:hover:not(:disabled),
 .mc-interactive:hover {
-  transform: scale(1.05);
   filter: brightness(1.10)
           drop-shadow(0 0 12px hsl(var(--mc-accent) / 0.55));
   box-shadow:
     0 0 0 1px hsl(var(--mc-accent) / 0.45),
     0 0 22px 3px hsl(var(--mc-accent) / 0.30);
   z-index: 5;
+}
+
+/* Size change is kept ONLY for: player cards (.mc-interactive cards),
+   section / tab buttons, top-section player rows, and Discord buttons. */
+.mc-interactive:hover,
+[data-testid^="tab-"]:hover,
+[data-testid^="link-discord"]:hover,
+[data-testid^="top-player-"]:hover {
+  transform: scale(1.05);
+}
+
+/* Opt-out helper — disables ALL interaction animation effects */
+.mc-no-interact,
+.mc-no-interact:hover,
+.mc-no-interact:active,
+.mc-no-interact:focus-visible {
+  transform: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+  animation: none !important;
 }
 
 /* SECTION-level interactive — pure WHITE glow + outline + background halo */
@@ -612,7 +631,6 @@ input:focus-visible,
   summary:active,
   label[for]:active,
   .mc-interactive:active {
-    transform: scale(1.08);
     filter: brightness(1.18)
             drop-shadow(0 0 12px color-mix(in srgb, currentColor 70%, transparent));
     box-shadow:
@@ -624,6 +642,15 @@ input:focus-visible,
       box-shadow 180ms ease,
       filter 130ms ease;
     z-index: 8;
+  }
+
+  /* Touch active size change is also limited to player cards, section/tab
+     buttons, top-section player rows, and Discord buttons. */
+  .mc-interactive:active,
+  [data-testid^="tab-"]:active,
+  [data-testid^="link-discord"]:active,
+  [data-testid^="top-player-"]:active {
+    transform: scale(1.08);
   }
 
   [data-testid^="player-row-"]:active,

@@ -538,7 +538,7 @@ function TesterRow({ tester, expanded, onToggle, onSelectPlayer }: {
 
         <button
           onClick={() => onSelectPlayer(testerAsProfile(tester))}
-          className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+          className="mc-no-interact flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
         >
           <span className="font-bold text-foreground text-base" data-testid={`text-tester-name-${tester.discordId}`}>
             {displayName}
@@ -696,7 +696,7 @@ function ResultCard({ result, players, onSelectPlayer }: {
           <button
             onClick={() => playerProfile && onSelectPlayer(playerProfile)}
             disabled={!playerProfile}
-            className="w-14 h-14 rounded overflow-hidden flex-shrink-0 flex items-center justify-center border border-border hover:opacity-80 transition-opacity disabled:cursor-default"
+            className="mc-no-interact w-14 h-14 rounded overflow-hidden flex-shrink-0 flex items-center justify-center border border-border hover:opacity-80 transition-opacity disabled:cursor-default"
             title={playerProfile ? `View ${result.playerMcUsername}'s profile` : undefined}
           >
             <PlayerSkin
@@ -713,7 +713,7 @@ function ResultCard({ result, players, onSelectPlayer }: {
               <button
                 onClick={() => playerProfile && onSelectPlayer(playerProfile)}
                 disabled={!playerProfile}
-                className="font-bold text-foreground text-base hover:text-primary transition-colors disabled:cursor-default"
+                className="mc-no-interact font-bold text-foreground text-base hover:text-primary transition-colors disabled:cursor-default"
                 data-testid={`text-result-player-${result.id}`}
               >
                 {result.playerMcUsername}
@@ -1131,6 +1131,7 @@ function TopPlayerRow({ player, tierColor, players, onSelectPlayer }: {
     <button
       onClick={() => profile && onSelectPlayer(profile)}
       disabled={!profile}
+      data-testid={`top-player-${player.discordId}`}
       className="flex items-center gap-1.5 px-2 py-1 w-full text-left hover:bg-white/5 transition-colors disabled:cursor-default"
       title={profile ? `View ${player.mcUsername}'s profile` : undefined}
     >
