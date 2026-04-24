@@ -31,6 +31,8 @@ export function PlayerSkin({ discordId, mcUsername, skinUrl, className = "", siz
       alt={mcUsername}
       width={size}
       height={size}
+      loading="lazy"
+      decoding="async"
       className={`object-contain ${className}`}
       style={{ imageRendering: "pixelated" }}
       onError={() => {

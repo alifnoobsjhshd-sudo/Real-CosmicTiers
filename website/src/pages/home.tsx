@@ -11,6 +11,7 @@ import { PlayerSkin } from "@/components/PlayerSkin";
 import { TierList } from "@/components/TierBadge";
 import { TitleBadge } from "@/components/TitleBadge";
 import { RankBadge } from "@/components/RankBadge";
+import { LazyMount } from "@/components/LazyMount";
 
 type Tab = "leaderboard" | "testers" | "results" | "top" | "information";
 type InfoTab = "titles" | "points";
@@ -361,7 +362,9 @@ function LeaderboardSection({
       </div>
 
       {players.map((player) => (
-        <PlayerRow key={player.discordId} player={player} onClick={() => onSelectPlayer(player)} />
+        <LazyMount key={player.discordId} placeholderHeight={104}>
+          <PlayerRow player={player} onClick={() => onSelectPlayer(player)} />
+        </LazyMount>
       ))}
     </div>
   );
@@ -489,13 +492,14 @@ function TestersSection({
       </div>
 
       {testers.map((tester) => (
-        <TesterRow
-          key={tester.discordId}
-          tester={tester}
-          expanded={expandedTesters.has(tester.discordId)}
-          onToggle={() => toggleExpand(tester.discordId)}
-          onSelectPlayer={onSelectPlayer}
-        />
+        <LazyMount key={tester.discordId} placeholderHeight={88}>
+          <TesterRow
+            tester={tester}
+            expanded={expandedTesters.has(tester.discordId)}
+            onToggle={() => toggleExpand(tester.discordId)}
+            onSelectPlayer={onSelectPlayer}
+          />
+        </LazyMount>
       ))}
     </div>
   );
@@ -648,7 +652,9 @@ function ResultsSection({
       </div>
 
       {results.map(result => (
-        <ResultCard key={result.id} result={result} players={players} onSelectPlayer={onSelectPlayer} />
+        <LazyMount key={result.id} placeholderHeight={160}>
+          <ResultCard result={result} players={players} onSelectPlayer={onSelectPlayer} />
+        </LazyMount>
       ))}
     </div>
   );

@@ -582,6 +582,20 @@ input[type="submit"]:hover:not(:disabled),
   animation: none !important;
 }
 
+/* Purple loading spinner for lazy-mounted cards */
+.lazy-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(168, 85, 247, 0.25);
+  border-top-color: #a855f7;
+  animation: lazy-spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes lazy-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* SECTION-level interactive — pure WHITE glow + outline + background halo */
 section,
 article {
