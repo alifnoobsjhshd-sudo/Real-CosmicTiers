@@ -133,6 +133,23 @@ The `backend/` folder is the standalone deployable backend.
 - `POST /api/bot/remove-title` — Remove a special title by name
 - `POST /api/bot/upload-title-icon` — Accept a base64-encoded icon and return a data URL for storage in PostgreSQL
 
+## Phase 4 Feature Summary (Implemented)
+
+### `/remove-tier` Command (staff only)
+- New `/remove-tier <player> <game_mode> [reason]` slash command (player autocomplete uses registered MC usernames)
+- Permission: same as `/retired` (staffRole / modRole / ManageRoles fallback)
+- Removes both active `<GameMode> <Tier>` and retired `<GameMode> R<Tier>` Discord roles for that single mode (if present)
+- Calls new `POST /api/bot/remove-tier` endpoint backed by new `storage.removePlayerTier(discordId, gameMode)` (deletes row in `player_tiers` and any matching row in `retired_player_tiers`, then updates `previousPoints` for trend animation)
+- Posts a red embed (color `0xED4245`) to the results channel with player mention, IGN, head thumbnail, game mode, removed tier, manager mention, optional reason
+
+### Results-Channel Posts for Player Mutations
+- `/retired`, `/clear-user`, and `/delete-user` now also post a red embed to the results channel (in addition to their ephemeral confirmation)
+- All four embeds use the shared `postRedResultEmbed` helper for a consistent layout (player mention, IGN code, MC head thumbnail, action-specific fields, manager mention, optional reason)
+- `/clear-user` and `/delete-user` gained an optional `reason` string option; their own reply embeds are now red as well
+
+### Mod Role Mention in Tier-Test Request
+- `bot/tiertest.ts` request ping now mentions both `staffRoleId` and `modRoleId` (mod role added) in the new tier-test ticket message and the new tester-application ticket message
+
 ## Phase 3 Feature Summary (Implemented)
 
 ### Result Embed Cleanup + Website Button

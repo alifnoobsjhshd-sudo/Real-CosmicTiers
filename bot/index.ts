@@ -45,6 +45,7 @@ import {
   setUnrankedRoleCommand,
   clearTierTestCommand,
   clearUserCommand,
+  removeTierCommand,
   removeTesterCommand,
   setLeaderboardChannelCommand,
   setStaffRoleCommand,
@@ -128,6 +129,40 @@ const WEBSITE_LINK = process.env['WEBSITE_LINK'] ?? '';
 
 function getBackendSkinUrl(discordId: string): string {
   return `${WEBSITE_API_URL.replace(/\/$/, '')}/api/skin/${encodeURIComponent(discordId)}`;
+}
+
+const RESULTS_RED = 0xED4245;
+
+async function postRedResultEmbed(opts: {
+  title: string;
+  discordId: string;
+  mcUsername: string;
+  fields: { name: string; value: string; inline?: boolean }[];
+  managerId: string;
+  reason?: string | null;
+}): Promise<void> {
+  const config = getConfig();
+  if (!config.resultsChannelId) return;
+  try {
+    const ch = await client.channels.fetch(config.resultsChannelId);
+    if (!ch || !ch.isTextBased()) return;
+    const fields: { name: string; value: string; inline?: boolean }[] = [
+      { name: '👤 Player', value: `<@${opts.discordId}>`, inline: true },
+      { name: '🎮 IGN',    value: `\`${opts.mcUsername}\``, inline: true },
+      ...opts.fields,
+      { name: '🛡️ Manager', value: `<@${opts.managerId}>`, inline: true },
+    ];
+    if (opts.reason) fields.push({ name: '📝 Reason', value: opts.reason, inline: false });
+    const embed = new EmbedBuilder()
+      .setColor(RESULTS_RED)
+      .setTitle(opts.title)
+      .setThumbnail(getBackendSkinUrl(opts.discordId))
+      .addFields(fields)
+      .setTimestamp();
+    await (ch as TextChannel).send({ embeds: [embed] });
+  } catch (err) {
+    console.error('[results-channel] Failed to post red embed:', err);
+  }
 }
 
 if (!TOKEN) throw new Error('DISCORD_BOT_TOKEN is not set');
@@ -938,6 +973,7 @@ async function handleDeleteUser(interaction: ChatInputCommandInteraction) {
   }
 
   const target = interaction.options.getUser('user', true);
+  const reason = interaction.options.getString('reason', false)?.trim() || null;
   const guild  = interaction.guild;
   if (!guild) {
     await interaction.editReply('❌ This command must be used inside a server.');
@@ -1026,18 +1062,31 @@ async function handleDeleteUser(interaction: ChatInputCommandInteraction) {
 
   console.log(`[delete-user] ${interaction.user.username} deleted player ${reg.mcUsername} (${target.id})`);
 
+  await postRedResultEmbed({
+    title: '🗑️ Player Deleted',
+    discordId: target.id,
+    mcUsername: reg.mcUsername,
+    fields: [
+      { name: '⚠️ Action', value: 'Fully removed from the system', inline: false },
+    ],
+    managerId: interaction.user.id,
+    reason,
+  });
+
+  let deletedDesc =
+    `**${reg.mcUsername}** (<@${target.id}>) has been fully removed from the system.\n\n` +
+    `• All tier roles removed\n` +
+    `• Registered role removed\n` +
+    `• All data deleted from database\n` +
+    `• They must use \`/register\` again to participate`;
+  if (reason) deletedDesc += `\n\n**Reason:** ${reason}`;
+
   await interaction.editReply({
     embeds: [
       new EmbedBuilder()
-        .setColor(0xFF4444)
+        .setColor(RESULTS_RED)
         .setTitle('🗑️ Player Deleted')
-        .setDescription(
-          `**${reg.mcUsername}** (<@${target.id}>) has been fully removed from the system.\n\n` +
-          `• All tier roles removed\n` +
-          `• Registered role removed\n` +
-          `• All data deleted from database\n` +
-          `• They must use \`/register\` again to participate`,
-        )
+        .setDescription(deletedDesc)
         .setTimestamp(),
     ],
   });
@@ -2335,6 +2384,7 @@ async function handleClearUser(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
   const guild  = interaction.guild!;
   const target = interaction.options.getUser('user', true);
+  const reason = interaction.options.getString('reason', false)?.trim() || null;
 
   let member: GuildMember;
   try {
@@ -2366,14 +2416,33 @@ async function handleClearUser(interaction: ChatInputCommandInteraction) {
 
   await callApi('/api/bot/clear-user', { discordId: target.id });
 
+  const reg = getRegistrationByDiscordId(target.id);
+  const mcUsername = reg?.mcUsername ?? target.username;
+
+  await postRedResultEmbed({
+    title: '🧹 User Cleared',
+    discordId: target.id,
+    mcUsername,
+    fields: [
+      {
+        name: '🏆 Removed Tiers',
+        value: removed.length > 0 ? removed.map(r => `\`${r}\``).join(', ') : '`None`',
+        inline: false,
+      },
+    ],
+    managerId: interaction.user.id,
+    reason,
+  });
+
   let desc = `All tier roles removed from <@${target.id}>. They now have the **Unranked** role.`;
   if (removed.length > 0) desc += `\n\nRemoved: ${removed.map(r => `\`${r}\``).join(', ')}`;
   if (testerCleared) desc += `\n\nTest count reset to **0**.`;
+  if (reason)        desc += `\n\n**Reason:** ${reason}`;
 
   const websiteLinkField = getWebsiteLinkField();
   const embed = new EmbedBuilder()
-    .setColor(TIER_TEST_YELLOW)
-    .setTitle('✅ User Cleared')
+    .setColor(RESULTS_RED)
+    .setTitle('🧹 User Cleared')
     .setDescription(desc);
   if (websiteLinkField) embed.addFields({ name: websiteLinkField.name, value: websiteLinkField.value });
   await interaction.editReply({ embeds: [embed] });
@@ -2580,9 +2649,120 @@ async function handleRetired(interaction: ChatInputCommandInteraction) {
 
   scheduleLeaderboardRefresh(client);
 
+  await postRedResultEmbed({
+    title: '🪦 Player Retired',
+    discordId: reg.discordId,
+    mcUsername,
+    fields: [
+      { name: '⚔️ Game Mode',    value: displayGameMode(gameMode),                inline: true },
+      { name: '🏆 Retired Tier', value: `**${currentTier}** → **R${currentTier}**`, inline: true },
+    ],
+    managerId: interaction.user.id,
+    reason: null,
+  });
+
   await interaction.editReply(
     `✅ **\`${mcUsername}\`** has been retired from **${displayGameMode(gameMode)}** (**${currentTier}** → **R${currentTier}**).\n` +
     `Their points remain unchanged and they no longer appear in the Top section for ${displayGameMode(gameMode)}.`,
+  );
+}
+
+// ─── /remove-tier Command (staff only) ────────────────────────────────────────
+
+async function handleRemoveTier(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const config = getConfig();
+  const member = interaction.member as GuildMember;
+
+  const hasStaff = config.staffRoleId ? member.roles.cache.has(config.staffRoleId) : false;
+  const hasMod   = config.modRoleId   ? member.roles.cache.has(config.modRoleId)   : false;
+  const hasPerms = member.permissions.has(PermissionFlagsBits.ManageRoles);
+  if (!hasStaff && !hasMod && !hasPerms) {
+    await interaction.editReply('❌ Only staff or mod members can use `/remove-tier`.');
+    return;
+  }
+
+  const mcUsername = interaction.options.getString('player', true).trim();
+  const gameMode   = interaction.options.getString('game_mode', true);
+  const reason     = interaction.options.getString('reason', false)?.trim() || null;
+
+  const reg = getRegistrationByMcUsername(mcUsername);
+  if (!reg) {
+    await interaction.editReply(`❌ No registered player found with Minecraft username \`${mcUsername}\`.`);
+    return;
+  }
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply('❌ This command must be used inside a server.');
+    return;
+  }
+
+  let playerMember: GuildMember;
+  try {
+    playerMember = await guild.members.fetch(reg.discordId);
+  } catch {
+    await interaction.editReply(`❌ Could not find the Discord member for **\`${mcUsername}\`** in this server.`);
+    return;
+  }
+
+  let removedTierLabel: string | null = null;
+  const removedRoleNames: string[] = [];
+  const reasonText = `Tier removed by /remove-tier (${interaction.user.username})`;
+
+  for (const tier of ALL_TIERS) {
+    const activeName  = `${displayGameMode(gameMode)} ${tier}`;
+    const retiredName = `${displayGameMode(gameMode)} R${tier}`;
+    const activeRole  = guild.roles.cache.find(r => r.name === activeName);
+    const retiredRole = guild.roles.cache.find(r => r.name === retiredName);
+
+    if (activeRole && playerMember.roles.cache.has(activeRole.id)) {
+      try { await playerMember.roles.remove(activeRole, reasonText); } catch { /* ignored */ }
+      removedRoleNames.push(activeName);
+      if (!removedTierLabel) removedTierLabel = tier;
+    }
+    if (retiredRole && playerMember.roles.cache.has(retiredRole.id)) {
+      try { await playerMember.roles.remove(retiredRole, reasonText); } catch { /* ignored */ }
+      removedRoleNames.push(retiredName);
+      if (!removedTierLabel) removedTierLabel = `R${tier}`;
+    }
+  }
+
+  if (!removedTierLabel) {
+    await interaction.editReply(
+      `❌ **\`${mcUsername}\`** has no active or retired tier in **${displayGameMode(gameMode)}** to remove.`,
+    );
+    return;
+  }
+
+  const apiResult = await callApi('/api/bot/remove-tier', {
+    discordId: reg.discordId,
+    gameMode,
+  });
+  if ('error' in (apiResult as Record<string, unknown>)) {
+    await interaction.editReply('⚠️ Tier role removed, but failed to clear it from the database.');
+    return;
+  }
+
+  scheduleLeaderboardRefresh(client);
+
+  await postRedResultEmbed({
+    title: '❌ Tier Removed',
+    discordId: reg.discordId,
+    mcUsername,
+    fields: [
+      { name: '⚔️ Game Mode',    value: displayGameMode(gameMode),  inline: true },
+      { name: '🏆 Removed Tier', value: `**${removedTierLabel}**`,  inline: true },
+    ],
+    managerId: interaction.user.id,
+    reason,
+  });
+
+  await interaction.editReply(
+    `✅ Removed **${removedTierLabel}** in **${displayGameMode(gameMode)}** from **\`${mcUsername}\`**.` +
+    (removedRoleNames.length > 0 ? `\n\nRoles removed: ${removedRoleNames.map(r => `\`${r}\``).join(', ')}` : '') +
+    (reason ? `\n\n**Reason:** ${reason}` : ''),
   );
 }
 
@@ -2708,6 +2888,7 @@ async function registerCommands(clientId: string) {
         setUnrankedRoleCommand.toJSON(),
         clearTierTestCommand.toJSON(),
         clearUserCommand.toJSON(),
+        removeTierCommand.toJSON(),
         removeTesterCommand.toJSON(),
         setLeaderboardChannelCommand.toJSON(),
         setStaffRoleCommand.toJSON(),
@@ -2947,6 +3128,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'remove-title') return handleProfileAutocomplete(interaction);
       if (interaction.commandName === 'retired')      return handleRetiredAutocomplete(interaction);
       if (interaction.commandName === 'unretired')    return handleRetiredAutocomplete(interaction);
+      if (interaction.commandName === 'remove-tier')  return handleRetiredAutocomplete(interaction);
       return;
     }
 
@@ -2973,6 +3155,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'add-tester')                 return await handleAddTester(interaction);
       if (interaction.commandName === 'clear-tester')               return await handleClearTierTest(interaction);
       if (interaction.commandName === 'clear-user')                 return await handleClearUser(interaction);
+      if (interaction.commandName === 'remove-tier')                return await handleRemoveTier(interaction);
       if (interaction.commandName === 'remove-tester')              return await handleRemoveTester(interaction);
       if (interaction.commandName === 'help')                       return await handleHelpInfo(interaction);
       if (interaction.commandName === 'info')                       return await handleHelpInfo(interaction);

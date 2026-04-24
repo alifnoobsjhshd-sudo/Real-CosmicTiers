@@ -74,6 +74,7 @@ export interface IStorage {
   incrementTesterStat(discordId: string): Promise<void>;
   clearTesterStat(discordId: string): Promise<void>;
   clearPlayerTiers(discordId: string): Promise<void>;
+  removePlayerTier(discordId: string, gameMode: string): Promise<void>;
   deletePlayer(discordId: string): Promise<void>;
   retireTier(discordId: string, gameMode: string): Promise<void>;
   unretireTier(discordId: string, gameMode: string): Promise<void>;
@@ -284,6 +285,21 @@ export class DatabaseStorage implements IStorage {
     const oldPoints = calcPoints(Object.fromEntries(currentTiers.map(t => [t.gameMode, t.tier])));
 
     await db.delete(playerTiersTable).where(eq(playerTiersTable.discordId, discordId));
+    await db.update(playersTable)
+      .set({ previousPoints: oldPoints })
+      .where(eq(playersTable.discordId, discordId));
+  }
+
+  async removePlayerTier(discordId: string, gameMode: string): Promise<void> {
+    const currentTiers = await db.select().from(playerTiersTable).where(eq(playerTiersTable.discordId, discordId));
+    const oldPoints = calcPoints(Object.fromEntries(currentTiers.map(t => [t.gameMode, t.tier])));
+
+    await db.delete(playerTiersTable).where(
+      and(eq(playerTiersTable.discordId, discordId), eq(playerTiersTable.gameMode, gameMode)),
+    );
+    await db.delete(retiredPlayerTiersTable).where(
+      and(eq(retiredPlayerTiersTable.discordId, discordId), eq(retiredPlayerTiersTable.gameMode, gameMode)),
+    );
     await db.update(playersTable)
       .set({ previousPoints: oldPoints })
       .where(eq(playersTable.discordId, discordId));

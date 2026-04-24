@@ -294,6 +294,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/bot/remove-tier", botAuth, async (req, res) => {
+    try {
+      const { discordId, gameMode } = req.body;
+      if (!discordId || !gameMode) {
+        res.status(400).json({ error: "Missing discordId or gameMode" });
+        return;
+      }
+      await storage.removePlayerTier(discordId, gameMode);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[bot/remove-tier]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.post("/api/bot/retire-tier", botAuth, async (req, res) => {
     try {
       const { discordId, gameMode } = req.body;
