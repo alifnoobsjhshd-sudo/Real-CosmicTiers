@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Menu, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, X } from "lucide-react";
 
 interface NavbarProps {
   onSearch: (q: string) => void;
@@ -9,11 +9,21 @@ interface NavbarProps {
 export function Navbar({ onSearch }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const mobileInputRef = useRef<HTMLInputElement>(null);
 
   function handleSearch(val: string) {
     setSearchVal(val);
     onSearch(val);
   }
+
+  // Auto-focus the search field as soon as the mobile search drawer opens.
+  useEffect(() => {
+    if (mobileOpen) {
+      // Defer one frame so the input is mounted before focusing.
+      const id = window.setTimeout(() => mobileInputRef.current?.focus(), 50);
+      return () => window.clearTimeout(id);
+    }
+  }, [mobileOpen]);
 
   return (
     <nav
@@ -59,12 +69,12 @@ export function Navbar({ onSearch }: NavbarProps) {
         <div className="flex-1" />
 
         <button
-          className="sm:hidden text-muted-foreground hover:text-foreground transition-colors"
+          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
           onClick={() => setMobileOpen(!mobileOpen)}
-          data-testid="button-mobile-menu"
-          aria-label="Toggle menu"
+          data-testid="button-mobile-search"
+          aria-label={mobileOpen ? "Close search" : "Open search"}
         >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {mobileOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
         </button>
       </div>
 
@@ -76,6 +86,7 @@ export function Navbar({ onSearch }: NavbarProps) {
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
+              ref={mobileInputRef}
               type="search"
               placeholder="Search player..."
               value={searchVal}

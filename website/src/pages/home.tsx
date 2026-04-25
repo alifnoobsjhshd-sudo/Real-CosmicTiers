@@ -12,7 +12,6 @@ import { TierList } from "@/components/TierBadge";
 import { TitleBadge } from "@/components/TitleBadge";
 import { RankBadge } from "@/components/RankBadge";
 import { LazyMount } from "@/components/LazyMount";
-import { PeacefulScene, NetherScene, BattleScene } from "@/components/SectionScenes";
 
 type Tab = "leaderboard" | "testers" | "results" | "top" | "information";
 type InfoTab = "titles" | "points";
@@ -227,49 +226,40 @@ export default function Home() {
 
         {/* Leaderboard Tab */}
         {tab === "leaderboard" && (
-          <div className="mc-animate-fade-up mc-delay-3 section-with-scene">
-            <PeacefulScene />
-            <div className="section-scene-content">
-              <LeaderboardSection
-                players={filteredPlayers}
-                loading={lbLoading}
-                onSelectPlayer={selectPlayer}
-                lastUpdated={leaderboardData?.lastUpdated}
-              />
-            </div>
+          <div className="mc-animate-fade-up mc-delay-3">
+            <LeaderboardSection
+              players={filteredPlayers}
+              loading={lbLoading}
+              onSelectPlayer={selectPlayer}
+              lastUpdated={leaderboardData?.lastUpdated}
+            />
           </div>
         )}
 
         {/* Tier Testers Tab */}
         {tab === "testers" && (
-          <div className="mc-animate-fade-up mc-delay-3 section-with-scene">
-            <NetherScene />
-            <div className="section-scene-content">
-              <TestersSection
-                testers={filteredTesters}
-                loading={testLoading}
-                expandedTesters={expandedTesters}
-                toggleExpand={toggleTesterExpand}
-                lastUpdated={testersData?.lastUpdated}
-                onSelectPlayer={selectPlayer}
-              />
-            </div>
+          <div className="mc-animate-fade-up mc-delay-3">
+            <TestersSection
+              testers={filteredTesters}
+              loading={testLoading}
+              expandedTesters={expandedTesters}
+              toggleExpand={toggleTesterExpand}
+              lastUpdated={testersData?.lastUpdated}
+              onSelectPlayer={selectPlayer}
+            />
           </div>
         )}
 
         {/* Results Tab */}
         {tab === "results" && (
-          <div className="mc-animate-fade-up mc-delay-3 section-with-scene">
-            <BattleScene />
-            <div className="section-scene-content">
-              <ResultsSection
-                results={filteredResults}
-                loading={resultsLoading}
-                lastUpdated={resultsData?.lastUpdated}
-                players={leaderboardData?.players ?? []}
-                onSelectPlayer={selectPlayer}
-              />
-            </div>
+          <div className="mc-animate-fade-up mc-delay-3">
+            <ResultsSection
+              results={filteredResults}
+              loading={resultsLoading}
+              lastUpdated={resultsData?.lastUpdated}
+              players={leaderboardData?.players ?? []}
+              onSelectPlayer={selectPlayer}
+            />
           </div>
         )}
 
@@ -402,12 +392,10 @@ function PlayerRow({ player, onClick }: { player: PlayerProfile; onClick: () => 
       className="mc-interactive w-full text-left rounded-lg border border-border group"
       style={{
         backgroundColor: isTop3
-          ? player.rank === 1 ? "hsla(45 30% 12% / 0.62)"
-          : player.rank === 2 ? "hsla(220 15% 12% / 0.62)"
-          : "hsla(25 20% 11% / 0.62)"
-          : "hsla(213 27% 11% / 0.55)",
-        backdropFilter: "blur(2px)",
-        WebkitBackdropFilter: "blur(2px)",
+          ? player.rank === 1 ? "hsl(45 30% 12%)"
+          : player.rank === 2 ? "hsl(220 15% 12%)"
+          : "hsl(25 20% 11%)"
+          : "hsl(213 27% 11%)",
         boxShadow: isTop3 ? `inset 0 0 30px -10px ${
           player.rank === 1 ? "rgba(255,215,0,0.08)"
           : player.rank === 2 ? "rgba(192,192,192,0.06)"
@@ -541,11 +529,7 @@ function TesterRow({ tester, expanded, onToggle, onSelectPlayer }: {
     <div
       data-testid={`tester-card-${tester.discordId}`}
       className="mc-interactive rounded-lg border border-border overflow-hidden"
-      style={{
-        backgroundColor: "hsla(213 27% 11% / 0.55)",
-        backdropFilter: "blur(2px)",
-        WebkitBackdropFilter: "blur(2px)",
-      }}
+      style={{ backgroundColor: "hsl(213 27% 11%)" }}
     >
       <div className="flex items-center gap-3 p-3">
         <RankBadge rank={tester.rank} size="md" />
@@ -715,11 +699,7 @@ function ResultCard({ result, players, onSelectPlayer }: {
   return (
     <div
       className="mc-interactive rounded-lg border border-border overflow-hidden"
-      style={{
-        backgroundColor: "hsla(213 27% 11% / 0.55)",
-        backdropFilter: "blur(2px)",
-        WebkitBackdropFilter: "blur(2px)",
-      }}
+      style={{ backgroundColor: "hsl(213 27% 11%)" }}
       data-testid={`result-card-${result.id}`}
     >
       {/* Header bar with game mode color */}
