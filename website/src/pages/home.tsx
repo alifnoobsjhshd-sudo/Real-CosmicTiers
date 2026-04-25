@@ -83,7 +83,18 @@ export default function Home() {
   const [, navigate] = useLocation();
   const switchTab = (newTab: Tab) => {
     setTab(newTab);
+    // Keep URL in sync so the CosmicTiers logo and back/forward navigation
+    // can return the user to the right tab.
+    navigate(newTab === "leaderboard" ? "/" : `/?tab=${newTab}`, { replace: false });
   };
+
+  // Sync local tab state when the URL ?tab= param changes (e.g. user clicks
+  // the CosmicTiers logo, presses browser back, or arrives via deep link).
+  useEffect(() => {
+    const t = new URLSearchParams(search).get("tab");
+    const newTab: Tab = VALID_TABS.includes(t as Tab) ? (t as Tab) : "leaderboard";
+    setTab((prev) => (prev === newTab ? prev : newTab));
+  }, [search]);
   const selectPlayer = (p: PlayerProfile) => {
     if (p?.mcUsername) navigate(`/user/${encodeURIComponent(p.mcUsername)}?from=${tab}`);
   };
@@ -226,7 +237,14 @@ export default function Home() {
 
         {/* Leaderboard Tab */}
         {tab === "leaderboard" && (
-          <div className="mc-animate-fade-up mc-delay-3">
+          <div className="mc-animate-fade-up mc-delay-3 mc-leaderboard-sky">
+            <div className="mc-sky-clouds" aria-hidden="true">
+              <span className="mc-cloud mc-cloud-1"><CloudShape /></span>
+              <span className="mc-cloud mc-cloud-2"><CloudShape /></span>
+              <span className="mc-cloud mc-cloud-3"><CloudShape /></span>
+              <span className="mc-cloud mc-cloud-4"><CloudShape /></span>
+              <span className="mc-cloud mc-cloud-5"><CloudShape /></span>
+            </div>
             <LeaderboardSection
               players={filteredPlayers}
               loading={lbLoading}

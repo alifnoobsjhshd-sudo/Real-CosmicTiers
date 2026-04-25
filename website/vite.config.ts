@@ -13,11 +13,13 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    target: "es2020",
-    cssTarget: ["chrome87", "safari13.1", "firefox78", "edge88"],
+    // Lowered to es2015 so older Android TV WebViews (Chrome 60-70 era) can
+    // still parse the bundle. esbuild transpiles ?? and ?. down to ES2015.
+    target: "es2015",
+    cssTarget: ["chrome61", "safari11", "firefox60", "edge18"],
   },
   esbuild: {
-    target: "es2020",
+    target: "es2015",
   },
   server: {
     port: 5173,

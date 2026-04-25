@@ -89,13 +89,28 @@ export default function UserPage() {
     }
   };
 
+  // Clicking on the empty page background acts like a back button. We only
+  // trigger when the click target is the backdrop element itself, so clicks
+  // inside the profile card or the back button still behave normally.
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) handleBack();
+  };
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div
+      className="min-h-screen bg-background text-foreground"
+      onClick={handleBackdropClick}
+      data-testid="user-backdrop"
+    >
       <Navbar onSearch={() => {}} discordLink={discordLink} />
 
-      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
+      <div
+        className="max-w-2xl mx-auto px-4 py-6 sm:py-10"
+        onClick={handleBackdropClick}
+        data-testid="user-backdrop-inner"
+      >
         <button
-          onClick={handleBack}
+          onClick={(e) => { e.stopPropagation(); handleBack(); }}
           data-testid="button-back-home"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5"
         >
@@ -106,13 +121,21 @@ export default function UserPage() {
         </button>
 
         {loading && (
-          <div className="rounded-xl border border-border p-8 text-center text-muted-foreground" data-testid="text-user-loading">
+          <div
+            className="rounded-xl border border-border p-8 text-center text-muted-foreground"
+            data-testid="text-user-loading"
+            onClick={(e) => e.stopPropagation()}
+          >
             Loading player profile…
           </div>
         )}
 
         {!loading && !player && (
-          <div className="rounded-xl border border-border p-8 text-center" data-testid="text-user-not-found">
+          <div
+            className="rounded-xl border border-border p-8 text-center"
+            data-testid="text-user-not-found"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold text-foreground mb-2">Player not found</h2>
             <p className="text-muted-foreground text-sm">
               No player named "{decodeURIComponent(params.username || "")}" exists on CosmicTiers.
@@ -120,7 +143,11 @@ export default function UserPage() {
           </div>
         )}
 
-        {!loading && player && <ProfileView player={player} />}
+        {!loading && player && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <ProfileView player={player} />
+          </div>
+        )}
       </div>
     </div>
   );
