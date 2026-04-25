@@ -1095,3 +1095,567 @@ main, .min-h-screen > div {
     --destructive-border:     hsl(0 65% 46%);
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION SCENES — peaceful / nether / battle backgrounds
+   Lightweight inline SVG + CSS. Only the peaceful scene animates.
+   ════════════════════════════════════════════════════════════════ */
+
+.section-with-scene {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.section-with-scene + .section-with-scene { margin-top: 16px; }
+
+.section-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+  opacity: 0;
+  animation: scene-fade-in 700ms ease-out 80ms forwards;
+}
+
+.section-scene-content {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes scene-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── shared sky layer ── */
+.scene-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.scene-sky-peaceful {
+  background:
+    linear-gradient(180deg,
+      rgba(120, 180, 230, 0.30) 0%,
+      rgba(170, 210, 240, 0.22) 35%,
+      rgba(220, 200, 180, 0.18) 68%,
+      rgba(140, 175, 110, 0.20) 92%,
+      rgba(90, 130, 70, 0.25) 100%);
+}
+.scene-sky-nether {
+  background:
+    linear-gradient(180deg,
+      rgba(60, 12, 8, 0.55) 0%,
+      rgba(90, 20, 12, 0.40) 35%,
+      rgba(140, 45, 15, 0.32) 65%,
+      rgba(180, 70, 20, 0.40) 90%,
+      rgba(220, 90, 25, 0.55) 100%);
+}
+.scene-sky-battle {
+  background:
+    linear-gradient(180deg,
+      rgba(20, 20, 30, 0.55) 0%,
+      rgba(40, 30, 35, 0.40) 40%,
+      rgba(70, 35, 30, 0.32) 70%,
+      rgba(50, 40, 40, 0.45) 100%);
+}
+
+/* ── sun (peaceful) ── */
+.scene-sun {
+  position: absolute;
+  top: 8%;
+  right: 12%;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 35%,
+      rgba(255, 245, 200, 0.85) 0%,
+      rgba(255, 220, 150, 0.65) 45%,
+      rgba(255, 200, 120, 0.30) 70%,
+      transparent 100%);
+  filter: blur(0.5px);
+  animation: scene-sun-pulse 6s ease-in-out infinite;
+  z-index: 1;
+}
+@keyframes scene-sun-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.85; }
+  50%      { transform: scale(1.06); opacity: 1.00; }
+}
+
+/* ── clouds (peaceful, drifting) ── */
+.scene-cloud {
+  position: absolute;
+  height: 22px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 25% 50%, rgba(255,255,255,0.85), rgba(255,255,255,0.65) 40%, rgba(255,255,255,0.45) 70%, transparent 100%);
+  filter: blur(1px);
+  z-index: 1;
+}
+.scene-cloud::before,
+.scene-cloud::after {
+  content: '';
+  position: absolute;
+  background: rgba(255,255,255,0.75);
+  border-radius: 50%;
+  filter: blur(1px);
+}
+.scene-cloud::before { width: 26px; height: 26px; top: -10px; left: 22%; }
+.scene-cloud::after  { width: 32px; height: 32px; top: -16px; left: 50%; }
+
+.scene-cloud-1 { top: 12%; left: -120px; width: 110px; animation: cloud-drift-slow   55s linear infinite;  opacity: 0.55; }
+.scene-cloud-2 { top: 22%; left: -200px; width: 150px; animation: cloud-drift-medium 42s linear infinite;  animation-delay: -8s;  opacity: 0.65; }
+.scene-cloud-3 { top: 6%;  left: -180px; width: 130px; animation: cloud-drift-fast   34s linear infinite;  animation-delay: -16s; opacity: 0.50; }
+.scene-cloud-4 { top: 28%; left: -150px; width: 90px;  animation: cloud-drift-medium 48s linear infinite;  animation-delay: -22s; opacity: 0.45; }
+
+@keyframes cloud-drift-slow   { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 200px)); } }
+@keyframes cloud-drift-medium { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 250px)); } }
+@keyframes cloud-drift-fast   { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 220px)); } }
+
+/* ── hills (shared positioning, color set per scene) ── */
+.scene-hills {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 50px;
+  width: 100%;
+  height: 110px;
+  z-index: 1;
+}
+.scene-hills-nether { bottom: 38px; height: 95px; }
+.scene-hills-battle { bottom: 30px; height: 80px; }
+
+/* ── grass (peaceful) ── */
+.scene-grass {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 60px;
+  background:
+    linear-gradient(180deg,
+      rgba(80, 140, 60, 0.35) 0%,
+      rgba(55, 105, 40, 0.55) 50%,
+      rgba(35, 75, 28, 0.70) 100%);
+  z-index: 1;
+}
+.scene-grass-blades {
+  position: absolute;
+  left: 0; right: 0; bottom: 56px;
+  height: 8px;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(60, 120, 50, 0.55) 0px,
+      rgba(60, 120, 50, 0.55) 2px,
+      transparent 2px,
+      transparent 9px);
+  animation: grass-wave 7s ease-in-out infinite;
+  transform-origin: bottom;
+  z-index: 2;
+}
+@keyframes grass-wave {
+  0%, 100% { transform: skewX(-1.5deg); }
+  50%      { transform: skewX(1.5deg);  }
+}
+
+/* ── sitting player (peaceful) ── */
+.scene-player-sitting {
+  position: absolute;
+  bottom: 28px;
+  right: 7%;
+  width: 70px;
+  height: 90px;
+  z-index: 3;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));
+  animation: player-bob 5s ease-in-out infinite;
+}
+@keyframes player-bob {
+  0%, 100% { transform: translateY(0);    }
+  50%      { transform: translateY(-2px); }
+}
+.scene-player-sword,
+.scene-player-arm {
+  transform-origin: 50px 60px;
+  animation: sword-sway 4.2s ease-in-out infinite;
+}
+@keyframes sword-sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50%      { transform: rotate(3deg);  }
+}
+
+/* ── sparkles (peaceful) ── */
+.scene-spark {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 250, 200, 0.95);
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(255, 235, 150, 0.7);
+  opacity: 0;
+}
+.scene-spark-1 { top: 35%; left: 18%; animation: spark-rise 5s ease-in-out 0.0s infinite; }
+.scene-spark-2 { top: 45%; left: 38%; animation: spark-rise 6s ease-in-out 1.4s infinite; }
+.scene-spark-3 { top: 30%; left: 62%; animation: spark-rise 5.5s ease-in-out 2.6s infinite; }
+.scene-spark-4 { top: 50%; left: 80%; animation: spark-rise 6.4s ease-in-out 0.8s infinite; }
+.scene-spark-5 { top: 40%; left: 12%; animation: spark-rise 5.8s ease-in-out 3.2s infinite; }
+.scene-spark-6 { top: 55%; left: 50%; animation: spark-rise 6.2s ease-in-out 1.9s infinite; }
+@keyframes spark-rise {
+  0%   { opacity: 0; transform: translateY(0) scale(0.8); }
+  20%  { opacity: 0.95; }
+  60%  { opacity: 0.85; }
+  100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
+}
+
+/* ════ NETHER SCENE ════ */
+.scene-nether-haze {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 95%, rgba(255, 100, 30, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse at 30% 30%, rgba(180, 40, 20, 0.18) 0%, transparent 55%);
+  z-index: 1;
+}
+.scene-lava {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 38px;
+  background:
+    linear-gradient(180deg,
+      rgba(255, 140, 30, 0.65) 0%,
+      rgba(220, 80, 20, 0.85) 50%,
+      rgba(180, 40, 10, 0.95) 100%);
+  z-index: 2;
+}
+.scene-lava-glow {
+  position: absolute;
+  left: 0; right: 0; bottom: 30px;
+  height: 18px;
+  background:
+    radial-gradient(ellipse at 50% 100%,
+      rgba(255, 180, 60, 0.55) 0%,
+      rgba(255, 120, 30, 0.30) 40%,
+      transparent 80%);
+  filter: blur(4px);
+  z-index: 2;
+}
+.scene-ember {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 180, 60, 0.95);
+  box-shadow: 0 0 6px rgba(255, 140, 40, 0.8);
+  z-index: 3;
+  opacity: 0.85;
+}
+.scene-ember-1 { top: 20%; left: 12%; }
+.scene-ember-2 { top: 35%; left: 28%; }
+.scene-ember-3 { top: 18%; left: 45%; }
+.scene-ember-4 { top: 40%; left: 60%; }
+.scene-ember-5 { top: 25%; left: 78%; }
+.scene-ember-6 { top: 52%; left: 88%; }
+.scene-ember-7 { top: 48%; left: 8%;  }
+.scene-ember-8 { top: 30%; left: 70%; }
+
+.scene-ghast {
+  position: absolute;
+  top: 8%;
+  left: 6%;
+  width: 70px;
+  height: 80px;
+  z-index: 3;
+  filter: drop-shadow(0 0 6px rgba(255, 160, 80, 0.35));
+}
+.scene-enderman {
+  position: absolute;
+  bottom: 38px;
+  right: 14%;
+  width: 36px;
+  height: 100px;
+  z-index: 3;
+  filter: drop-shadow(0 0 8px rgba(180, 60, 220, 0.40));
+}
+.scene-piglin {
+  position: absolute;
+  bottom: 38px;
+  left: 18%;
+  width: 60px;
+  height: 70px;
+  z-index: 3;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.40));
+}
+
+/* ════ BATTLE SCENE ════ */
+.scene-battle-haze {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 70%, rgba(200, 80, 60, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(120, 100, 90, 0.30) 0%, transparent 60%);
+  z-index: 1;
+}
+.scene-battle-ground {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 35px;
+  background:
+    linear-gradient(180deg,
+      rgba(60, 50, 45, 0.55) 0%,
+      rgba(40, 32, 28, 0.85) 100%);
+  z-index: 2;
+}
+.scene-fighter {
+  position: absolute;
+  bottom: 28px;
+  width: 78px;
+  height: 100px;
+  z-index: 3;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.45));
+}
+.scene-fighter-left  { left: 14%;  }
+.scene-fighter-right { right: 14%; transform: scaleX(-1); }
+
+.scene-clash-spark {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 220, 100, 0.95);
+  border-radius: 1px;
+  box-shadow: 0 0 8px rgba(255, 200, 60, 0.85);
+  z-index: 4;
+}
+.scene-clash-spark-1 { bottom: 80px;  left: 50%; transform: translateX(-12px); }
+.scene-clash-spark-2 { bottom: 75px;  left: 50%; transform: translateX(8px);   }
+.scene-clash-spark-3 { bottom: 90px;  left: 50%; transform: translateX(-2px);  }
+.scene-clash-spark-4 { bottom: 70px;  left: 50%; transform: translateX(16px);  }
+
+/* ── Mobile tuning for scenes ── */
+@media (max-width: 640px) {
+  .scene-sun           { width: 44px; height: 44px; top: 6%; right: 8%; }
+  .scene-cloud         { transform: scale(0.75); }
+  .scene-player-sitting{ width: 52px; height: 68px; bottom: 22px; right: 5%; }
+  .scene-grass         { height: 46px; }
+  .scene-grass-blades  { bottom: 42px; }
+  .scene-hills         { height: 80px; bottom: 36px; }
+  .scene-ghast         { width: 50px; height: 58px; top: 6%; left: 4%; }
+  .scene-enderman      { width: 26px; height: 72px; right: 10%; }
+  .scene-piglin        { width: 44px; height: 52px; left: 14%; }
+  .scene-lava          { height: 28px; }
+  .scene-lava-glow     { bottom: 22px; }
+  .scene-fighter       { width: 56px; height: 72px; bottom: 22px; }
+  .scene-battle-ground { height: 28px; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .section-scene,
+  .scene-cloud,
+  .scene-sun,
+  .scene-player-sitting,
+  .scene-player-sword,
+  .scene-player-arm,
+  .scene-grass-blades,
+  .scene-spark {
+    animation: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   YELLOW INFORMATION PILL (matches Discord button shape)
+   ════════════════════════════════════════════════════════════════ */
+.mc-info-pill {
+  background-color: rgba(255, 200, 40, 0.14);
+  color: rgba(255, 220, 120, 0.95);
+  border: 1px solid rgba(255, 200, 40, 0.45);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 220, 120, 0.10),
+    0 0 0 0 rgba(255, 200, 40, 0);
+  transition:
+    background-color 220ms ease,
+    color            220ms ease,
+    border-color     220ms ease,
+    box-shadow       260ms ease,
+    transform        180ms cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+.mc-info-pill:hover {
+  background-color: rgba(255, 200, 40, 0.22);
+  color: rgba(255, 235, 160, 1);
+  border-color: rgba(255, 220, 120, 0.75);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 220, 120, 0.20),
+    0 0 14px 1px rgba(255, 200, 60, 0.45),
+    0 0 28px 4px rgba(255, 200, 60, 0.20);
+  transform: scale(1.05) !important;
+}
+.mc-info-pill.is-active {
+  background-color: rgba(255, 200, 40, 0.32);
+  color: #fff7d5;
+  border-color: rgba(255, 220, 120, 0.85);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 230, 160, 0.30),
+    0 0 12px 1px rgba(255, 200, 60, 0.55),
+    0 0 24px 4px rgba(255, 200, 60, 0.25);
+}
+.mc-info-pill.is-active:hover {
+  background-color: rgba(255, 200, 40, 0.38);
+}
+/* sweeping shine on hover */
+.mc-info-pill::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -40%;
+  width: 30%;
+  background: linear-gradient(110deg,
+    transparent 0%,
+    rgba(255, 245, 200, 0.0) 30%,
+    rgba(255, 245, 200, 0.45) 50%,
+    rgba(255, 245, 200, 0.0) 70%,
+    transparent 100%);
+  transform: skewX(-18deg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.mc-info-pill:hover::after {
+  opacity: 1;
+  animation: info-pill-shine 1.1s ease-out;
+}
+@keyframes info-pill-shine {
+  from { left: -40%; }
+  to   { left: 130%; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   COSMIC TIERS LOGO — light-blue "Cosmic" + animated white "Tiers"
+   plus cute pixel particles jumping around the text
+   ════════════════════════════════════════════════════════════════ */
+.mc-logo-wrap {
+  position: relative;
+  padding: 4px 8px 4px 4px;
+  height: 100%;
+}
+.mc-logo-title {
+  font-size: 1.45rem;
+  letter-spacing: -0.01em;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+}
+@media (min-width: 640px) {
+  .mc-logo-title { font-size: 1.7rem; }
+}
+
+.mc-logo-cosmic {
+  background: linear-gradient(180deg,
+    #cfeeff 0%,
+    #8fd0ff 45%,
+    #4ea9ee 75%,
+    #2f86c8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  text-shadow: 0 0 14px rgba(110, 190, 255, 0.35);
+  filter: drop-shadow(0 1px 0 rgba(20, 60, 100, 0.30));
+}
+.mc-logo-tiers {
+  color: #ffffff;
+  margin-left: 0.18em;
+  text-shadow:
+    0 0 10px rgba(255, 255, 255, 0.55),
+    0 0 22px rgba(180, 220, 255, 0.35);
+  background: linear-gradient(90deg,
+    #ffffff 0%,
+    #e7f5ff 45%,
+    #ffffff 55%,
+    #d6efff 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: logo-tiers-shimmer 3.6s ease-in-out infinite;
+}
+@keyframes logo-tiers-shimmer {
+  0%, 100% { background-position: 0%   center; }
+  50%      { background-position: 100% center; }
+}
+
+/* Pixel particles bouncing around the logo */
+.mc-logo-pixel {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #ffffff;
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(180, 220, 255, 0.85);
+  pointer-events: none;
+  opacity: 0;
+}
+.mc-logo-pixel-1 { top: 18%; left: 6%;  background: #b3dcff; animation: pixel-jump-a 2.6s ease-in-out 0.0s infinite; }
+.mc-logo-pixel-2 { top: 70%; left: 22%; background: #ffffff; animation: pixel-jump-b 3.0s ease-in-out 0.5s infinite; }
+.mc-logo-pixel-3 { top: 14%; left: 46%; background: #e6f4ff; animation: pixel-jump-c 2.8s ease-in-out 1.1s infinite; }
+.mc-logo-pixel-4 { top: 76%; left: 60%; background: #b3dcff; animation: pixel-jump-a 3.2s ease-in-out 1.6s infinite; }
+.mc-logo-pixel-5 { top: 22%; left: 78%; background: #ffffff; animation: pixel-jump-b 2.7s ease-in-out 0.8s infinite; }
+.mc-logo-pixel-6 { top: 68%; left: 90%; background: #d3ebff; animation: pixel-jump-c 3.1s ease-in-out 2.0s infinite; }
+
+@keyframes pixel-jump-a {
+  0%   { opacity: 0;    transform: translate(0, 0)     scale(0.8); }
+  20%  { opacity: 1;    transform: translate(0, -10px) scale(1);   }
+  40%  { opacity: 0.9;  transform: translate(2px, 0)   scale(0.9); }
+  60%  { opacity: 0.9;  transform: translate(0, -7px)  scale(1);   }
+  80%  { opacity: 0.6;  transform: translate(-2px, 0)  scale(0.85);}
+  100% { opacity: 0;    transform: translate(0, 0)     scale(0.7); }
+}
+@keyframes pixel-jump-b {
+  0%   { opacity: 0;    transform: translate(0, 0)     scale(0.8); }
+  25%  { opacity: 1;    transform: translate(0, -8px)  scale(1.1); }
+  50%  { opacity: 0.9;  transform: translate(-3px, 0)  scale(0.9); }
+  75%  { opacity: 0.7;  transform: translate(0, -5px)  scale(1);   }
+  100% { opacity: 0;    transform: translate(0, 0)     scale(0.7); }
+}
+@keyframes pixel-jump-c {
+  0%   { opacity: 0;    transform: translate(0, 0)     scale(0.7); }
+  30%  { opacity: 1;    transform: translate(2px, -9px) scale(1);  }
+  60%  { opacity: 0.85; transform: translate(-2px, -3px) scale(0.95); }
+  100% { opacity: 0;    transform: translate(0, 0)     scale(0.7); }
+}
+
+/* xs breakpoint for tiny labels in the nav action buttons */
+@media (min-width: 420px) {
+  .xs\:inline { display: inline; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FINAL HARD-LOCK: NO size change on game-mode tabs and info subtabs
+   (overrides any earlier rule that might still introduce transform)
+   ════════════════════════════════════════════════════════════════ */
+[data-testid^="tab-top-"],
+[data-testid^="tab-top-"]:hover,
+[data-testid^="tab-top-"]:focus,
+[data-testid^="tab-top-"]:focus-visible,
+[data-testid^="tab-top-"]:active,
+[data-testid^="tab-info-"],
+[data-testid^="tab-info-"]:hover,
+[data-testid^="tab-info-"]:focus,
+[data-testid^="tab-info-"]:focus-visible,
+[data-testid^="tab-info-"]:active {
+  transform: none !important;
+}
+
+/* Stop the section-card auto lift from also scaling these subtab buttons */
+button.rounded-md[data-testid^="tab-top-"]:hover,
+button.rounded-md[data-testid^="tab-info-"]:hover {
+  transform: none !important;
+}
+
+/* Prevent the global pulse-glow animation on these subtabs as well —
+   it doesn't change size, but reinforce zero motion as user requested */
+[data-testid^="tab-top-"][aria-selected="true"],
+[data-testid^="tab-info-"][aria-selected="true"] {
+  animation: none !important;
+}

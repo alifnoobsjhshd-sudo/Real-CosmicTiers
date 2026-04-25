@@ -12,6 +12,7 @@ import { TierList } from "@/components/TierBadge";
 import { TitleBadge } from "@/components/TitleBadge";
 import { RankBadge } from "@/components/RankBadge";
 import { LazyMount } from "@/components/LazyMount";
+import { PeacefulScene, NetherScene, BattleScene } from "@/components/SectionScenes";
 
 type Tab = "leaderboard" | "testers" | "results" | "top" | "information";
 type InfoTab = "titles" | "points";
@@ -195,24 +196,30 @@ export default function Home() {
             label="Top"
             testId="tab-top"
           />
-          <TabButton
-            active={tab === "information"}
-            onClick={() => switchTab("information")}
-            icon={<Info className="h-4 w-4" />}
-            label="Information"
-            testId="tab-information"
-          />
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={() => switchTab("information")}
+              className={`mc-info-pill flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded text-sm font-medium ${
+                tab === "information" ? "is-active" : ""
+              }`}
+              data-testid="link-information-nav"
+              aria-label="Information"
+            >
+              <Info className="h-4 w-4" />
+              <span className="hidden xs:inline sm:hidden">Info</span>
+              <span className="hidden sm:inline">Information</span>
+            </button>
             <a
               href={discordLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-all hover:opacity-90"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded text-sm font-medium transition-all hover:opacity-90"
               style={{ backgroundColor: "#5865F2", color: "white" }}
               data-testid="link-discord-nav"
             >
               <SiDiscord className="h-4 w-4" />
+              <span className="hidden xs:inline sm:hidden">Discord</span>
               <span className="hidden sm:inline">Join Discord</span>
             </a>
           </div>
@@ -220,40 +227,49 @@ export default function Home() {
 
         {/* Leaderboard Tab */}
         {tab === "leaderboard" && (
-          <div className="mc-animate-fade-up mc-delay-3">
-            <LeaderboardSection
-              players={filteredPlayers}
-              loading={lbLoading}
-              onSelectPlayer={selectPlayer}
-              lastUpdated={leaderboardData?.lastUpdated}
-            />
+          <div className="mc-animate-fade-up mc-delay-3 section-with-scene">
+            <PeacefulScene />
+            <div className="section-scene-content">
+              <LeaderboardSection
+                players={filteredPlayers}
+                loading={lbLoading}
+                onSelectPlayer={selectPlayer}
+                lastUpdated={leaderboardData?.lastUpdated}
+              />
+            </div>
           </div>
         )}
 
         {/* Tier Testers Tab */}
         {tab === "testers" && (
-          <div className="mc-animate-fade-up mc-delay-3">
-            <TestersSection
-              testers={filteredTesters}
-              loading={testLoading}
-              expandedTesters={expandedTesters}
-              toggleExpand={toggleTesterExpand}
-              lastUpdated={testersData?.lastUpdated}
-              onSelectPlayer={selectPlayer}
-            />
+          <div className="mc-animate-fade-up mc-delay-3 section-with-scene">
+            <NetherScene />
+            <div className="section-scene-content">
+              <TestersSection
+                testers={filteredTesters}
+                loading={testLoading}
+                expandedTesters={expandedTesters}
+                toggleExpand={toggleTesterExpand}
+                lastUpdated={testersData?.lastUpdated}
+                onSelectPlayer={selectPlayer}
+              />
+            </div>
           </div>
         )}
 
         {/* Results Tab */}
         {tab === "results" && (
-          <div className="mc-animate-fade-up mc-delay-3">
-            <ResultsSection
-              results={filteredResults}
-              loading={resultsLoading}
-              lastUpdated={resultsData?.lastUpdated}
-              players={leaderboardData?.players ?? []}
-              onSelectPlayer={selectPlayer}
-            />
+          <div className="mc-animate-fade-up mc-delay-3 section-with-scene">
+            <BattleScene />
+            <div className="section-scene-content">
+              <ResultsSection
+                results={filteredResults}
+                loading={resultsLoading}
+                lastUpdated={resultsData?.lastUpdated}
+                players={leaderboardData?.players ?? []}
+                onSelectPlayer={selectPlayer}
+              />
+            </div>
           </div>
         )}
 
@@ -386,10 +402,12 @@ function PlayerRow({ player, onClick }: { player: PlayerProfile; onClick: () => 
       className="mc-interactive w-full text-left rounded-lg border border-border group"
       style={{
         backgroundColor: isTop3
-          ? player.rank === 1 ? "hsl(45 30% 12%)"
-          : player.rank === 2 ? "hsl(220 15% 12%)"
-          : "hsl(25 20% 11%)"
-          : "hsl(213 27% 11%)",
+          ? player.rank === 1 ? "hsla(45 30% 12% / 0.62)"
+          : player.rank === 2 ? "hsla(220 15% 12% / 0.62)"
+          : "hsla(25 20% 11% / 0.62)"
+          : "hsla(213 27% 11% / 0.55)",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
         boxShadow: isTop3 ? `inset 0 0 30px -10px ${
           player.rank === 1 ? "rgba(255,215,0,0.08)"
           : player.rank === 2 ? "rgba(192,192,192,0.06)"
@@ -523,7 +541,11 @@ function TesterRow({ tester, expanded, onToggle, onSelectPlayer }: {
     <div
       data-testid={`tester-card-${tester.discordId}`}
       className="mc-interactive rounded-lg border border-border overflow-hidden"
-      style={{ backgroundColor: "hsl(213 27% 11%)" }}
+      style={{
+        backgroundColor: "hsla(213 27% 11% / 0.55)",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
+      }}
     >
       <div className="flex items-center gap-3 p-3">
         <RankBadge rank={tester.rank} size="md" />
@@ -693,7 +715,11 @@ function ResultCard({ result, players, onSelectPlayer }: {
   return (
     <div
       className="mc-interactive rounded-lg border border-border overflow-hidden"
-      style={{ backgroundColor: "hsl(213 27% 11%)" }}
+      style={{
+        backgroundColor: "hsla(213 27% 11% / 0.55)",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
+      }}
       data-testid={`result-card-${result.id}`}
     >
       {/* Header bar with game mode color */}
@@ -845,29 +871,16 @@ function InformationSection({
 }) {
   return (
     <div className="flex flex-col gap-5" data-testid="information-section">
-      {/* Discord Banner */}
+      {/* Discord Banner — informational only; the single Discord button lives in the top nav */}
       <div
-        className="rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-3"
+        className="rounded-lg p-4 flex items-center gap-3"
         style={{ backgroundColor: "#5865F233", border: "1px solid #5865F255" }}
       >
-        <div className="flex items-center gap-3">
-          <SiDiscord className="h-8 w-8 text-[#5865F2]" />
-          <div>
-            <p className="font-bold text-foreground">Join our Discord Server</p>
-            <p className="text-muted-foreground text-sm">Get tier tested and join the community</p>
-          </div>
+        <SiDiscord className="h-8 w-8 text-[#5865F2] flex-shrink-0" />
+        <div className="min-w-0">
+          <p className="font-bold text-foreground">Join our Discord Server</p>
+          <p className="text-muted-foreground text-sm">Use the Discord button at the top to get tier tested and join the community.</p>
         </div>
-        <a
-          href={discordLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 rounded font-medium text-sm transition-all hover:opacity-90 flex-shrink-0"
-          style={{ backgroundColor: "#5865F2", color: "white" }}
-          data-testid="link-discord-info"
-        >
-          <SiDiscord className="h-4 w-4" />
-          <span>Join Server</span>
-        </a>
       </div>
 
 
