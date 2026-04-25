@@ -563,9 +563,11 @@ input[type="submit"]:hover:not(:disabled),
 }
 
 /* Size change is kept ONLY for: player cards (.mc-interactive cards),
-   section / tab buttons, top-section player rows, and Discord buttons. */
+   main section tab buttons, top-section player rows, and Discord buttons.
+   Excluded: top-section game-mode tabs (tab-top-*) and information
+   subtabs (tab-info-*) — they must NOT scale on hover. */
 .mc-interactive:hover,
-[data-testid^="tab-"]:hover,
+[data-testid^="tab-"]:not([data-testid^="tab-top-"]):not([data-testid^="tab-info-"]):hover,
 [data-testid^="link-discord"]:hover,
 [data-testid^="top-player-"]:hover {
   transform: scale(1.05);
@@ -658,10 +660,11 @@ input:focus-visible,
     z-index: 8;
   }
 
-  /* Touch active size change is also limited to player cards, section/tab
-     buttons, top-section player rows, and Discord buttons. */
+  /* Touch active size change is also limited to player cards, main section
+     tab buttons, top-section player rows, and Discord buttons.
+     Excluded: top-section game-mode tabs and information subtabs. */
   .mc-interactive:active,
-  [data-testid^="tab-"]:active,
+  [data-testid^="tab-"]:not([data-testid^="tab-top-"]):not([data-testid^="tab-info-"]):active,
   [data-testid^="link-discord"]:active,
   [data-testid^="top-player-"]:active {
     transform: scale(1.08);
@@ -698,12 +701,23 @@ input:focus-visible,
     animation: mc-shine-sweep 0.9s ease-out !important;
   }
 
-  [data-testid^="tab-"]:not([data-testid^="tab-top-"]):active {
+  /* Touch active feedback for main section tab buttons only.
+     Excluded: top-section game-mode tabs and information subtabs. */
+  [data-testid^="tab-"]:not([data-testid^="tab-top-"]):not([data-testid^="tab-info-"]):active {
     transform: translateY(-2px) scale(1.07) !important;
     text-shadow: 0 0 12px hsl(45 90% 60% / 0.7);
     box-shadow:
       0 0 0 1px hsl(45 90% 55% / 0.45),
       0 6px 18px -4px hsl(45 90% 55% / 0.45) !important;
+  }
+
+  /* Information subtabs (Titles / Points): subtle touch feedback, NO size change. */
+  [data-testid^="tab-info-"]:active {
+    transform: none !important;
+    filter: brightness(1.08) !important;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.30),
+      0 0 14px 1px rgba(255,255,255,0.18) !important;
   }
 
   /* Game-mode strip: small, contained, no layout jump */
@@ -770,12 +784,12 @@ button[aria-pressed="true"] {
 /* ─── PLAYER ROWS / TESTER CARDS / RESULT CARDS ──────────────────── */
 /* Each card uses its OWN accent color via --mc-accent (matches outline + glow) */
 
-/* Leaderboard players: default = gray */
-[data-testid="leaderboard-section"] [data-testid^="player-row-"]   { --mc-accent: 0 0% 65%;    }
-/* Top 1 = gold, Top 2 = silver, Top 3 = bronze/brown */
-[data-testid="leaderboard-section"] > [data-testid^="player-row-"]:nth-of-type(1) { --mc-accent: 45 92% 55%; }
-[data-testid="leaderboard-section"] > [data-testid^="player-row-"]:nth-of-type(2) { --mc-accent: 0 0% 78%;   }
-[data-testid="leaderboard-section"] > [data-testid^="player-row-"]:nth-of-type(3) { --mc-accent: 25 75% 45%; }
+/* Leaderboard players: rank-based accent — top 1 = gold gradient,
+   top 2 = silver gradient, top 3 = bronze gradient, rest = plain gray. */
+[data-testid^="player-row-"][data-rank-tier="default"] { --mc-accent: 0 0% 65%;   }
+[data-testid^="player-row-"][data-rank-tier="gold"]    { --mc-accent: 45 92% 55%; }
+[data-testid^="player-row-"][data-rank-tier="silver"]  { --mc-accent: 0 0% 80%;   }
+[data-testid^="player-row-"][data-rank-tier="bronze"]  { --mc-accent: 25 80% 50%; }
 
 [data-testid^="tester-card-"]  { --mc-accent: 270 75% 65%; } /* purple */
 [data-testid^="result-card-"]  { --mc-accent: 195 85% 55%; } /* cyan */
@@ -842,6 +856,47 @@ button[aria-pressed="true"] {
   background-position: 100% 0%;
 }
 
+/* Below top 3: NO gradient ring at all — only the plain gray glow remains */
+[data-testid^="player-row-"][data-rank-tier="default"]::before {
+  display: none;
+}
+
+/* Top 1 — golden multi-stop gradient */
+[data-testid^="player-row-"][data-rank-tier="gold"]::before {
+  background-image: linear-gradient(
+    120deg,
+    hsl(45 100% 50% / 0)    0%,
+    hsl(50 100% 70% / 0.70) 30%,
+    hsl(45 100% 55% / 0.95) 50%,
+    hsl(35 95% 50% / 0.70)  70%,
+    hsl(45 100% 50% / 0)    100%
+  );
+}
+
+/* Top 2 — silver multi-stop gradient */
+[data-testid^="player-row-"][data-rank-tier="silver"]::before {
+  background-image: linear-gradient(
+    120deg,
+    hsl(0 0% 70% / 0)    0%,
+    hsl(0 0% 92% / 0.70) 30%,
+    hsl(0 0% 100% / 0.95) 50%,
+    hsl(0 0% 75% / 0.70) 70%,
+    hsl(0 0% 70% / 0)    100%
+  );
+}
+
+/* Top 3 — bronze / copper multi-stop gradient */
+[data-testid^="player-row-"][data-rank-tier="bronze"]::before {
+  background-image: linear-gradient(
+    120deg,
+    hsl(25 70% 40% / 0)    0%,
+    hsl(30 85% 60% / 0.70) 30%,
+    hsl(25 90% 52% / 0.95) 50%,
+    hsl(18 80% 42% / 0.70) 70%,
+    hsl(25 70% 40% / 0)    100%
+  );
+}
+
 [data-testid^="player-row-"]:active,
 [data-testid^="tester-card-"]:active,
 [data-testid^="result-card-"]:active {
@@ -850,13 +905,67 @@ button[aria-pressed="true"] {
   transition-duration: 90ms !important;
 }
 
-/* ─── TAB BUTTONS (main nav: Leaderboard/Testers/Results/Top/Info) ── */
-[data-testid^="tab-"]:not([data-testid^="tab-top-"]):hover {
+/* ─── TAB BUTTONS (main nav: Leaderboard/Testers/Results/Top/Info) ──
+   Two distinct interaction states:
+   • DEFAULT (not selected): white outline matching white text.
+   • HOVER on inactive tab (before click):  WHITE outline + WHITE glow + WHITE shadow.
+   • SELECTED (after click):                GOLDEN outline + GOLDEN text.
+   • HOVER on selected tab (after click):   GOLDEN outline + GOLDEN glow + GOLDEN shadow + GOLDEN text. */
+
+/* DEFAULT — visible white outline + soft white text on all main tabs */
+[data-testid="tab-leaderboard"]:not(.is-active),
+[data-testid="tab-testers"]:not(.is-active),
+[data-testid="tab-results"]:not(.is-active),
+[data-testid="tab-top"]:not(.is-active),
+[data-testid="tab-information"]:not(.is-active) {
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+/* HOVER on inactive — white glow / shadow / outline */
+[data-testid="tab-leaderboard"]:not(.is-active):hover,
+[data-testid="tab-testers"]:not(.is-active):hover,
+[data-testid="tab-results"]:not(.is-active):hover,
+[data-testid="tab-top"]:not(.is-active):hover,
+[data-testid="tab-information"]:not(.is-active):hover {
   transform: translateY(-2px) scale(1.05) !important;
-  text-shadow: 0 0 10px hsl(45 90% 60% / 0.55);
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.85) !important;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.55);
   box-shadow:
-    0 0 0 1px hsl(45 90% 55% / 0.35),
-    0 5px 16px -5px hsl(45 90% 55% / 0.40) !important;
+    0 0 0 1px rgba(255, 255, 255, 0.50),
+    0 5px 16px -5px rgba(255, 255, 255, 0.45),
+    0 0 22px -4px rgba(255, 255, 255, 0.35) !important;
+}
+
+/* SELECTED (after click) — golden outline + golden text */
+[data-testid="tab-leaderboard"].is-active,
+[data-testid="tab-testers"].is-active,
+[data-testid="tab-results"].is-active,
+[data-testid="tab-top"].is-active,
+[data-testid="tab-information"].is-active {
+  color: hsl(45 95% 62%) !important;
+  border-color: hsl(45 90% 55% / 0.85) !important;
+  background-color: hsl(45 90% 55% / 0.10) !important;
+  box-shadow:
+    0 0 0 1px hsl(45 90% 55% / 0.55),
+    0 0 18px -4px hsl(45 90% 55% / 0.45) !important;
+}
+
+/* HOVER on selected — golden glow / shadow / outline / text */
+[data-testid="tab-leaderboard"].is-active:hover,
+[data-testid="tab-testers"].is-active:hover,
+[data-testid="tab-results"].is-active:hover,
+[data-testid="tab-top"].is-active:hover,
+[data-testid="tab-information"].is-active:hover {
+  transform: translateY(-2px) scale(1.05) !important;
+  color: hsl(45 100% 70%) !important;
+  border-color: hsl(45 90% 60% / 0.95) !important;
+  text-shadow: 0 0 12px hsl(45 90% 60% / 0.70);
+  box-shadow:
+    0 0 0 1px hsl(45 90% 55% / 0.70),
+    0 5px 18px -4px hsl(45 90% 55% / 0.55),
+    0 0 26px -4px hsl(45 90% 60% / 0.45) !important;
 }
 
 /* ─── TOP-SECTION GAME MODE BUTTONS — compact, fixed sizing, soft glow ─ */
@@ -873,8 +982,8 @@ button[aria-pressed="true"] {
 }
 
 [data-testid^="tab-top-"]:hover {
-  /* Less dramatic than other interactives */
-  transform: scale(1.03) !important;
+  /* No size change — only colour / glow / shadow feedback */
+  transform: none !important;
   filter: brightness(1.08)
           drop-shadow(0 0 4px hsl(var(--mc-accent) / 0.40)) !important;
   box-shadow:
@@ -915,7 +1024,8 @@ button[aria-pressed="true"] {
   }
 
   [data-testid^="tab-top-"]:active {
-    transform: scale(1.04) !important;
+    /* No size change on touch either */
+    transform: none !important;
     filter: brightness(1.10)
             drop-shadow(0 0 5px hsl(var(--mc-accent) / 0.50)) !important;
     box-shadow:

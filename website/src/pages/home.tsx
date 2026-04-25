@@ -372,11 +372,17 @@ function LeaderboardSection({
 
 function PlayerRow({ player, onClick }: { player: PlayerProfile; onClick: () => void }) {
   const isTop3 = player.rank <= 3;
+  const rankTier =
+    player.rank === 1 ? "gold"
+    : player.rank === 2 ? "silver"
+    : player.rank === 3 ? "bronze"
+    : "default";
 
   return (
     <button
       onClick={onClick}
       data-testid={`player-row-${player.discordId}`}
+      data-rank-tier={rankTier}
       className="mc-interactive w-full text-left rounded-lg border border-border group"
       style={{
         backgroundColor: isTop3
