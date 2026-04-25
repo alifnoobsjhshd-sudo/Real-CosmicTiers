@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx index.ts",
-    "start": "tsx index.ts"
+    "start": "tsx index.ts",
+    "build": "echo 'no build step required (tsx runs TypeScript directly)'"
   },
   "dependencies": {
     "discord.js": "^14.25.1",
