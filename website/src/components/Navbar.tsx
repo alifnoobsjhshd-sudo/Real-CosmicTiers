@@ -38,29 +38,33 @@ export function Navbar({ onSearch }: NavbarProps) {
       data-testid="navbar"
     >
       <div className="max-w-6xl mx-auto px-4 h-16 sm:h-[72px] flex items-center gap-4">
-        <a
-          href="/"
-          onClick={goToLeaderboard}
-          className="flex items-center gap-2 flex-shrink-0 mc-logo-wrap"
-          data-testid="link-logo"
-          aria-label="CosmicTiers — go to Leaderboard"
-        >
-          {/* Pixel particles around the logo */}
-          <span className="mc-logo-pixel mc-logo-pixel-1" aria-hidden="true" />
-          <span className="mc-logo-pixel mc-logo-pixel-2" aria-hidden="true" />
-          <span className="mc-logo-pixel mc-logo-pixel-3" aria-hidden="true" />
-          <span className="mc-logo-pixel mc-logo-pixel-4" aria-hidden="true" />
-          <span className="mc-logo-pixel mc-logo-pixel-5" aria-hidden="true" />
-          <span className="mc-logo-pixel mc-logo-pixel-6" aria-hidden="true" />
+        {/* Logo — fixed-width column on the LEFT */}
+        <div className="flex-1 min-w-0 sm:flex-none flex items-center">
+          <a
+            href="/"
+            onClick={goToLeaderboard}
+            className="flex items-center gap-2 flex-shrink-0 mc-logo-wrap mc-no-interact"
+            data-testid="link-logo"
+            aria-label="CosmicTiers — go to Leaderboard"
+          >
+            {/* Pixel particles around the logo */}
+            <span className="mc-logo-pixel mc-logo-pixel-1" aria-hidden="true" />
+            <span className="mc-logo-pixel mc-logo-pixel-2" aria-hidden="true" />
+            <span className="mc-logo-pixel mc-logo-pixel-3" aria-hidden="true" />
+            <span className="mc-logo-pixel mc-logo-pixel-4" aria-hidden="true" />
+            <span className="mc-logo-pixel mc-logo-pixel-5" aria-hidden="true" />
+            <span className="mc-logo-pixel mc-logo-pixel-6" aria-hidden="true" />
 
-          <h1 className="mc-logo-title font-extrabold tracking-tight leading-none flex items-baseline">
-            <span className="mc-logo-cosmic">Cosmic</span>
-            <span className="mc-logo-tiers">Tiers</span>
-          </h1>
-        </a>
+            <h1 className="mc-logo-title font-extrabold tracking-tight leading-none flex items-baseline">
+              <span className="mc-logo-cosmic">Cosmic</span>
+              <span className="mc-logo-tiers">Tiers</span>
+            </h1>
+          </a>
+        </div>
 
-        <div className="flex-1 max-w-md hidden sm:block">
-          <div className="relative mc-navbar-search">
+        {/* Search bar — CENTERED on desktop */}
+        <div className="hidden sm:flex flex-1 justify-center px-4">
+          <div className="relative mc-navbar-search w-full max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-sky-200/70" />
             <input
               type="search"
@@ -73,16 +77,17 @@ export function Navbar({ onSearch }: NavbarProps) {
           </div>
         </div>
 
-        <div className="flex-1" />
-
-        <button
-          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          data-testid="button-mobile-search"
-          aria-label={mobileOpen ? "Close search" : "Open search"}
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-        </button>
+        {/* Right column — keeps the search visually centered */}
+        <div className="flex-none sm:flex-1 sm:flex sm:justify-end">
+          <button
+            className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            data-testid="button-mobile-search"
+            aria-label={mobileOpen ? "Close search" : "Open search"}
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {mobileOpen && (

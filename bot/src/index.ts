@@ -1556,9 +1556,13 @@ async function handleDone(interaction: ChatInputCommandInteraction) {
   const config = getConfig();
   const member = interaction.member as GuildMember;
 
-  // Only tier testers can use /done
-  if (!config.tierTesterRoleId || !member.roles.cache.has(config.tierTesterRoleId)) {
-    await interaction.editReply('❌ Only Tier Testers can use `/done`.');
+  // Tier Testers, Staff, Mods, and Admins can use /done
+  const isAdmin      = member.permissions.has(PermissionFlagsBits.Administrator);
+  const hasTesterRole = config.tierTesterRoleId ? member.roles.cache.has(config.tierTesterRoleId) : false;
+  const hasStaffRole  = config.staffRoleId     ? member.roles.cache.has(config.staffRoleId)     : false;
+  const hasModRole    = config.modRoleId       ? member.roles.cache.has(config.modRoleId)       : false;
+  if (!isAdmin && !hasTesterRole && !hasStaffRole && !hasModRole) {
+    await interaction.editReply('❌ Only Tier Testers, Staff, or Mods can use `/done`.');
     return;
   }
 

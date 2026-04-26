@@ -883,17 +883,29 @@ function InformationSection({
 }) {
   return (
     <div className="flex flex-col gap-5" data-testid="information-section">
-      {/* Discord Banner — informational only; the single Discord button lives in the top nav */}
-      <div
-        className="rounded-lg p-4 flex items-center gap-3"
-        style={{ backgroundColor: "#5865F233", border: "1px solid #5865F255" }}
+      {/* Discord Join Card — full clickable button */}
+      <a
+        href={discordLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid="button-info-join-discord"
+        aria-label="Join our Discord Server"
+        className="mc-interactive mc-info-discord-card group rounded-lg p-4 flex items-center gap-4 no-underline"
       >
-        <SiDiscord className="h-8 w-8 text-[#5865F2] flex-shrink-0" />
-        <div className="min-w-0">
-          <p className="font-bold text-foreground">Join our Discord Server</p>
-          <p className="text-muted-foreground text-sm">Use the Discord button at the top to get tier tested and join the community.</p>
+        <div className="mc-info-discord-icon flex items-center justify-center rounded-md flex-shrink-0">
+          <SiDiscord className="h-7 w-7 text-white" />
         </div>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-white text-base sm:text-lg leading-tight">Join our Discord Server</p>
+          <p className="text-white/85 text-xs sm:text-sm mt-0.5">
+            Get tier tested, chat with the community, and stay up to date.
+          </p>
+        </div>
+        <div className="mc-info-discord-cta hidden sm:flex items-center gap-1 text-white text-sm font-semibold flex-shrink-0">
+          Join
+          <span aria-hidden="true" className="mc-info-discord-arrow">→</span>
+        </div>
+      </a>
 
 
       {/* Info Subtabs */}
@@ -1026,7 +1038,7 @@ const GAME_MODE_LABELS: Record<string, string> = {
   "Axe-PvP": "Axe",
   "Mace-PvP": "Mace",
   "Crystal-PvP": "Crystal",
-  cartpvp: "Cart-PvP",
+  cartpvp: "Cart",
 };
 
 function TopSection({

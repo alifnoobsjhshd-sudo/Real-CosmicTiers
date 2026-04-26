@@ -1420,3 +1420,207 @@ button.rounded-md[data-testid^="tab-info-"]:hover {
 [data-testid^="tab-info-"][aria-selected="true"] {
   animation: none !important;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   INFO TAB → DISCORD JOIN BUTTON
+   Big branded card with crisp Discord-purple gradient + hover lift.
+   ════════════════════════════════════════════════════════════════ */
+.mc-info-discord-card {
+  background: linear-gradient(135deg, #5865F2 0%, #4752c4 55%, #3c45a5 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 6px 18px -8px rgba(88, 101, 242, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: #fff;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 220ms ease, filter 220ms ease;
+}
+.mc-info-discord-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 0%,
+              rgba(255, 255, 255, 0.18) 0%, transparent 55%);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.mc-info-discord-card:hover {
+  transform: translateY(-2px) scale(1.015);
+  box-shadow:
+    0 14px 28px -8px rgba(88, 101, 242, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  filter: brightness(1.06);
+}
+.mc-info-discord-card:active {
+  transform: translateY(0) scale(0.99);
+  box-shadow: 0 4px 12px -6px rgba(88, 101, 242, 0.65),
+              inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.mc-info-discord-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 200ms ease;
+}
+.mc-info-discord-card:hover .mc-info-discord-icon {
+  transform: rotate(-6deg) scale(1.05);
+  background: rgba(255, 255, 255, 0.22);
+}
+.mc-info-discord-cta {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  transition: background 200ms ease, transform 200ms ease;
+}
+.mc-info-discord-card:hover .mc-info-discord-cta {
+  background: rgba(255, 255, 255, 0.28);
+}
+.mc-info-discord-arrow {
+  display: inline-block;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mc-info-discord-card:hover .mc-info-discord-arrow {
+  transform: translateX(4px);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PLAYER PROFILE — backgrounds + entrance animation
+   Top-3 → animated underwater theme.
+   Below top-3 → static green Minecraft grass theme.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Card entrance — gentle fade + lift */
+.profile-card {
+  animation: profile-card-in 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes profile-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);     }
+}
+/* Belt-and-braces: never let the skin frame inherit a hover scale */
+.profile-skin-frame,
+.profile-skin-frame:hover,
+.profile-skin-frame:active {
+  transform: none !important;
+  animation: none !important;
+}
+
+/* ── Top-3: UNDERWATER theme ─────────────────────────────────── */
+.profile-bg-underwater {
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(160, 220, 255, 0.18) 0%, transparent 55%),
+    linear-gradient(180deg,
+      #0a3a6b 0%,
+      #0c4d86 30%,
+      #0e5fa3 55%,
+      #0a4a82 80%,
+      #062b54 100%);
+  background-size: 100% 100%, 100% 200%;
+  background-position: 50% 0%, 50% 0%;
+  animation: underwater-shift 14s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+.profile-bg-underwater::before {
+  /* Soft caustics streaks */
+  content: "";
+  position: absolute;
+  inset: -10% -10% -10% -10%;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.10) 0%, transparent 35%),
+    radial-gradient(ellipse at 70% 60%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 90%, rgba(255, 255, 255, 0.06) 0%, transparent 45%);
+  filter: blur(20px);
+  animation: underwater-caustics 9s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes underwater-shift {
+  0%, 100% { background-position: 50% 0%, 50% 0%; }
+  50%      { background-position: 50% 0%, 50% 25%; }
+}
+@keyframes underwater-caustics {
+  0%   { transform: translate(0, 0)    scale(1);    opacity: 0.85; }
+  100% { transform: translate(2%, -1%) scale(1.05); opacity: 1;    }
+}
+
+/* Rising bubbles overlay */
+.profile-bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.profile-bubbles .bubble {
+  position: absolute;
+  bottom: -40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%,
+              rgba(255, 255, 255, 0.85) 0%,
+              rgba(200, 230, 255, 0.45) 45%,
+              rgba(180, 220, 255, 0.0) 70%);
+  box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  animation: bubble-rise linear infinite;
+}
+.profile-bubbles .b1 { left: 6%;  width: 14px; height: 14px; animation-duration: 11s; animation-delay: 0s;   }
+.profile-bubbles .b2 { left: 18%; width:  8px; height:  8px; animation-duration: 9s;  animation-delay: 2s;   }
+.profile-bubbles .b3 { left: 30%; width: 18px; height: 18px; animation-duration: 13s; animation-delay: 4s;   }
+.profile-bubbles .b4 { left: 44%; width: 10px; height: 10px; animation-duration: 10s; animation-delay: 1s;   }
+.profile-bubbles .b5 { left: 56%; width: 16px; height: 16px; animation-duration: 12s; animation-delay: 5s;   }
+.profile-bubbles .b6 { left: 68%; width:  9px; height:  9px; animation-duration: 8s;  animation-delay: 3s;   }
+.profile-bubbles .b7 { left: 78%; width: 13px; height: 13px; animation-duration: 11s; animation-delay: 6s;   }
+.profile-bubbles .b8 { left: 88%; width:  7px; height:  7px; animation-duration: 9s;  animation-delay: 2.5s; }
+.profile-bubbles .b9 { left: 96%; width: 12px; height: 12px; animation-duration: 12s; animation-delay: 0.5s; }
+@keyframes bubble-rise {
+  0%   { transform: translateY(0)     translateX(0)   scale(0.85); opacity: 0;    }
+  10%  { opacity: 0.85; }
+  50%  { transform: translateY(-55vh) translateX(8px) scale(1);    opacity: 0.85; }
+  90%  { opacity: 0.6;  }
+  100% { transform: translateY(-110vh) translateX(-6px) scale(0.9); opacity: 0;   }
+}
+
+/* ── Below top-3: STATIC Minecraft GRASS theme ───────────────── */
+.profile-bg-mcgrass {
+  /* Top: layered green earth + grass surface; bottom: dark dirt
+     Pixel-style noise built with small repeating gradients (no animation) */
+  background-color: #2f6b2a;
+  background-image:
+    /* tiny "grass" pixel speckles (top band) */
+    radial-gradient(circle at 25% 18%, rgba(255,255,255,0.08) 1.2px, transparent 1.6px),
+    radial-gradient(circle at 75% 22%, rgba(0,0,0,0.18)      1.2px, transparent 1.6px),
+    radial-gradient(circle at 50% 12%, rgba(255,255,255,0.05) 1.0px, transparent 1.4px),
+    /* main vertical gradient: bright grass top → darker dirt bottom */
+    linear-gradient(180deg,
+      #6bc25c 0%,
+      #4d9a3f 14%,
+      #3a7e30 28%,
+      #2f6b2a 40%,
+      #5a3d2a 55%,
+      #4a3122 75%,
+      #36251a 100%);
+  background-size: 9px 9px, 9px 9px, 11px 11px, 100% 100%;
+  background-repeat: repeat, repeat, repeat, no-repeat;
+  position: relative;
+}
+.profile-bg-mcgrass::before {
+  /* A subtle pixel grid overlay for the Minecraft block feel */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.10) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  opacity: 0.45;
+  mix-blend-mode: multiply;
+}

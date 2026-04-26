@@ -96,33 +96,59 @@ export default function UserPage() {
     if (e.target === e.currentTarget) handleBack();
   };
 
+  // Top-3 detection — only based on real leaderboard rank (testers without rank don't count)
+  const rank = player?.rank ?? 0;
+  const isTop3 = !player?.isTester && rank >= 1 && rank <= 3;
+  const rankTier: "gold" | "silver" | "bronze" | "default" =
+    rank === 1 ? "gold" : rank === 2 ? "silver" : rank === 3 ? "bronze" : "default";
+
+  // Background theme based on rank: top-3 → animated underwater, below → static MC grass
+  const bgClass = !player
+    ? "" // plain background while loading / not found
+    : isTop3
+      ? "profile-bg-underwater"
+      : "profile-bg-mcgrass";
+
   return (
     <div
-      className="min-h-screen bg-background text-foreground"
+      className={`min-h-screen text-foreground relative ${bgClass}`}
       onClick={handleBackdropClick}
       data-testid="user-backdrop"
     >
+      {/* Underwater bubbles — only for top-3 */}
+      {isTop3 && (
+        <div aria-hidden="true" className="profile-bubbles pointer-events-none">
+          <span className="bubble b1" /><span className="bubble b2" /><span className="bubble b3" />
+          <span className="bubble b4" /><span className="bubble b5" /><span className="bubble b6" />
+          <span className="bubble b7" /><span className="bubble b8" /><span className="bubble b9" />
+        </div>
+      )}
+
       <Navbar onSearch={() => {}} discordLink={discordLink} />
 
       <div
-        className="max-w-2xl mx-auto px-4 py-6 sm:py-10"
+        className="relative max-w-xl mx-auto px-4 py-6 sm:py-10 flex flex-col items-center"
         onClick={handleBackdropClick}
         data-testid="user-backdrop-inner"
       >
-        <button
-          onClick={(e) => { e.stopPropagation(); handleBack(); }}
-          data-testid="button-back-home"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {fromTab && fromTab !== "leaderboard"
-            ? `Back to ${fromTab.charAt(0).toUpperCase() + fromTab.slice(1)}`
-            : "Back to Leaderboard"}
-        </button>
+        <div className="w-full">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleBack(); }}
+            data-testid="button-back-home"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-white/85 hover:text-white transition-colors mb-5 px-2.5 py-1.5 rounded-md backdrop-blur-sm"
+            style={{ background: "rgba(0,0,0,0.28)" }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {fromTab && fromTab !== "leaderboard"
+              ? `Back to ${fromTab.charAt(0).toUpperCase() + fromTab.slice(1)}`
+              : "Back to Leaderboard"}
+          </button>
+        </div>
 
         {loading && (
           <div
-            className="rounded-xl border border-border p-8 text-center text-muted-foreground"
+            className="rounded-xl border border-border p-8 text-center text-muted-foreground w-full"
+            style={{ backgroundColor: "hsl(213 27% 11%)" }}
             data-testid="text-user-loading"
             onClick={(e) => e.stopPropagation()}
           >
@@ -132,7 +158,8 @@ export default function UserPage() {
 
         {!loading && !player && (
           <div
-            className="rounded-xl border border-border p-8 text-center"
+            className="rounded-xl border border-border p-8 text-center w-full"
+            style={{ backgroundColor: "hsl(213 27% 11%)" }}
             data-testid="text-user-not-found"
             onClick={(e) => e.stopPropagation()}
           >
@@ -144,8 +171,8 @@ export default function UserPage() {
         )}
 
         {!loading && player && (
-          <div onClick={(e) => e.stopPropagation()}>
-            <ProfileView player={player} />
+          <div onClick={(e) => e.stopPropagation()} className="w-full">
+            <ProfileView player={player} rankTier={rankTier} />
           </div>
         )}
       </div>
@@ -153,29 +180,53 @@ export default function UserPage() {
   );
 }
 
-function ProfileView({ player }: { player: PlayerProfile }) {
+const RANK_BORDERS: Record<"gold" | "silver" | "bronze" | "default", { border: string; glow: string }> = {
+  gold:    { border: "#FFD700", glow: "0 0 22px rgba(255, 215, 0, 0.55), 0 0 6px rgba(255, 215, 0, 0.65) inset" },
+  silver:  { border: "#D0D5DB", glow: "0 0 18px rgba(208, 213, 219, 0.45), 0 0 6px rgba(208, 213, 219, 0.55) inset" },
+  bronze:  { border: "#CD7F32", glow: "0 0 18px rgba(205, 127, 50, 0.50), 0 0 6px rgba(205, 127, 50, 0.55) inset" },
+  default: { border: "rgba(255,255,255,0.18)", glow: "0 4px 12px rgba(0,0,0,0.45)" },
+};
+
+function ProfileView({
+  player,
+  rankTier,
+}: {
+  player: PlayerProfile;
+  rankTier: "gold" | "silver" | "bronze" | "default";
+}) {
   const gameModes = player.testerGameModes ?? [];
+  const rb = RANK_BORDERS[rankTier];
 
   return (
     <div
-      className="rounded-xl overflow-hidden border border-border w-full"
-      style={{ backgroundColor: "hsl(213 27% 11%)" }}
+      className="profile-card rounded-xl overflow-hidden border border-border w-full mx-auto"
+      style={{
+        backgroundColor: "hsl(213 27% 11% / 0.92)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+      }}
       data-testid="user-profile"
+      data-rank-tier={rankTier}
     >
       {/* Header */}
-      <div className="flex flex-col items-center gap-4 px-4 sm:px-8 pt-8 pb-6">
+      <div className="flex flex-col items-center gap-4 px-4 sm:px-8 pt-7 pb-6">
 
-        {/* Avatar */}
+        {/* Avatar — square (matches leaderboard card style) with rank-colored border */}
         <div
-          className="rounded-full overflow-hidden flex-shrink-0"
-          style={{ border: "3px solid hsl(45 90% 55%)", padding: "2px" }}
+          className="profile-skin-frame rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center"
+          style={{
+            border: `3px solid ${rb.border}`,
+            boxShadow: rb.glow,
+            padding: "3px",
+            background: "rgba(0,0,0,0.35)",
+          }}
         >
           <PlayerSkin
             discordId={player.discordId}
             mcUsername={player.mcUsername}
             skinUrl={player.skinUrl}
-            size={112}
-            className="rounded-full w-24 h-24 sm:w-28 sm:h-28"
+            size={128}
+            className="w-24 h-24 sm:w-32 sm:h-32 rounded-sm"
           />
         </div>
 
