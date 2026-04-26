@@ -1098,6 +1098,133 @@ main, .min-h-screen > div {
 
 
 /* ════════════════════════════════════════════════════════════════
+   TOP-3 PLAYER ROW — preserve gold/silver/bronze background
+   on hover/focus (only outline glow changes, not the card fill).
+   ════════════════════════════════════════════════════════════════ */
+[data-rank-tier="gold"]:hover,
+[data-rank-tier="gold"]:focus-visible,
+[data-rank-tier="gold"]:active {
+  --mc-accent: 45 100% 60%;
+  filter: drop-shadow(0 0 14px hsl(45 100% 60% / 0.45)) !important;
+  box-shadow:
+    0 0 0 1px hsl(45 100% 60% / 0.55),
+    0 0 22px 3px rgba(255, 215, 0, 0.30),
+    inset 0 0 30px -10px rgba(255, 215, 0, 0.18) !important;
+}
+[data-rank-tier="silver"]:hover,
+[data-rank-tier="silver"]:focus-visible,
+[data-rank-tier="silver"]:active {
+  --mc-accent: 0 0% 80%;
+  filter: drop-shadow(0 0 14px hsl(0 0% 90% / 0.40)) !important;
+  box-shadow:
+    0 0 0 1px hsl(0 0% 85% / 0.55),
+    0 0 22px 3px rgba(220, 220, 230, 0.28),
+    inset 0 0 30px -10px rgba(220, 220, 230, 0.16) !important;
+}
+[data-rank-tier="bronze"]:hover,
+[data-rank-tier="bronze"]:focus-visible,
+[data-rank-tier="bronze"]:active {
+  --mc-accent: 25 75% 55%;
+  filter: drop-shadow(0 0 14px hsl(25 75% 55% / 0.45)) !important;
+  box-shadow:
+    0 0 0 1px hsl(25 75% 55% / 0.55),
+    0 0 22px 3px rgba(205, 127, 50, 0.30),
+    inset 0 0 30px -10px rgba(205, 127, 50, 0.18) !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LIGHT-BLUE NAVBAR THEME
+   Top bar uses a soft navy/sky-blue gradient.
+   ════════════════════════════════════════════════════════════════ */
+.mc-navbar-skyblue {
+  background-image: linear-gradient(
+    180deg,
+    hsl(208 65% 20%) 0%,
+    hsl(212 55% 14%) 100%
+  );
+  background-color: hsl(212 55% 14%); /* fallback for old browsers */
+  border-bottom-color: hsl(210 40% 28%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+/* Desktop search input — bigger, professional, sky-blue tinted */
+.mc-navbar-search input {
+  background-color: rgba(8, 22, 40, 0.55);
+  border: 1px solid rgba(126, 200, 255, 0.25);
+  color: #eaf4ff;
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease,
+    box-shadow 200ms ease;
+}
+.mc-navbar-search input::placeholder {
+  color: rgba(190, 215, 240, 0.55);
+}
+.mc-navbar-search input:hover {
+  border-color: rgba(126, 200, 255, 0.45);
+  background-color: rgba(8, 22, 40, 0.70);
+}
+.mc-navbar-search input:focus {
+  border-color: rgba(126, 200, 255, 0.85);
+  background-color: rgba(8, 22, 40, 0.80);
+  box-shadow:
+    0 0 0 3px rgba(126, 200, 255, 0.18),
+    0 0 18px rgba(126, 200, 255, 0.20);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LEADERBOARD SKY SECTION
+   Light-blue tinted background with non-animated, transparent
+   pixel-style clouds. Only shown when the Leaderboard tab is open.
+   Cards are NOT clipped — clouds live in a separate overflow-hidden
+   layer behind the content.
+   ════════════════════════════════════════════════════════════════ */
+.mc-leaderboard-sky {
+  position: relative;
+  border-radius: 14px;
+  padding: 20px 14px 24px;
+  margin: 0 -6px;
+  background-image: linear-gradient(
+    180deg,
+    hsla(204, 90%, 60%, 0.13) 0%,
+    hsla(208, 65%, 35%, 0.06) 55%,
+    hsla(213, 30%, 10%, 0)    100%
+  );
+}
+.mc-sky-clouds {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 14px;
+  z-index: 0;
+}
+.mc-leaderboard-sky > *:not(.mc-sky-clouds) {
+  position: relative;
+  z-index: 1;
+}
+.mc-cloud {
+  position: absolute;
+  display: block;
+  opacity: 0.16;
+}
+.mc-cloud svg { display: block; width: 100%; height: 100%; }
+.mc-cloud-1 { top: 14px;  left:  4%; width: 110px; height: 32px; opacity: 0.18; }
+.mc-cloud-2 { top: 70px;  right: 8%; width: 150px; height: 42px; opacity: 0.13; }
+.mc-cloud-3 { top: 200px; left: 22%; width:  90px; height: 26px; opacity: 0.16; }
+.mc-cloud-4 { top: 360px; right:18%; width: 130px; height: 38px; opacity: 0.12; }
+.mc-cloud-5 { top: 540px; left:  6%; width: 100px; height: 28px; opacity: 0.14; }
+
+@media (max-width: 640px) {
+  .mc-leaderboard-sky { padding: 14px 8px 18px; margin: 0 -4px; }
+  .mc-cloud-1 { width:  80px; height: 22px; }
+  .mc-cloud-2 { width: 100px; height: 28px; }
+  .mc-cloud-3 { width:  70px; height: 20px; }
+  .mc-cloud-4 { width:  90px; height: 26px; }
+  .mc-cloud-5 { width:  70px; height: 20px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
    YELLOW INFORMATION PILL (matches Discord button shape)
    ════════════════════════════════════════════════════════════════ */
 .mc-info-pill {

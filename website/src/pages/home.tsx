@@ -394,6 +394,20 @@ function LeaderboardSection({
   );
 }
 
+/* Inline pixel-style cloud used by the leaderboard sky background */
+function CloudShape() {
+  return (
+    <svg viewBox="0 0 80 28" preserveAspectRatio="xMidYMid meet" width="100%" height="100%">
+      <g fill="white">
+        <rect x="0"  y="14" width="80" height="14" />
+        <rect x="6"  y="8"  width="58" height="6"  />
+        <rect x="18" y="2"  width="32" height="6"  />
+        <rect x="50" y="8"  width="22" height="6"  />
+      </g>
+    </svg>
+  );
+}
+
 function PlayerRow({ player, onClick }: { player: PlayerProfile; onClick: () => void }) {
   const isTop3 = player.rank <= 3;
   const rankTier =
