@@ -12,10 +12,12 @@ import {
   type GuildMember,
   type TextChannel,
   type Client,
+  type OverwriteResolvable,
 } from 'discord.js';
 import { getConfig, setConfig } from './config.js';
 import { getRegistrationByDiscordId } from './registration.js';
 import { getGameModeEmoji, parseEmojiForButton } from './emojis.js';
+import { createQueueChannel } from './queue.js';
 
 export const TIER_TEST_YELLOW = 0xFFBF00;
 
@@ -122,7 +124,7 @@ function buildPanelButtons(): ActionRowBuilder<ButtonBuilder> {
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(BUTTON_ID)
-      .setLabel('⚔️ Start Tier Test')
+      .setLabel('🎮 Get Tested')
       .setStyle(ButtonStyle.Primary),
   );
 }
@@ -337,108 +339,15 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
   const reg = getRegistrationByDiscordId(interaction.user.id);
   if (!reg) {
     await interaction.editReply({
-      content: '❌ You must register first. Click the **📋 Register** button on the tier test panel.',
+      content: '❌ You must register first. Click the **📋 Register** button on the panel.',
       components: [],
       embeds: [],
     });
     return;
   }
 
-  const { mcUsername, region } = reg;
-  const config = getConfig();
-
-  const existingName = `tt-${sanitizeChannelName(mcUsername)}`;
-  const existing = guild.channels.cache.find(c => c.name === existingName);
-  if (existing) {
-    await interaction.editReply({
-      content: `❌ A ticket already exists for **\`${mcUsername}\`**: <#${existing.id}>. Please use it or wait for it to be closed.`,
-      components: [],
-      embeds: [],
-    });
-    return;
-  }
-
-  // Find game-mode-specific tester role (e.g. "Nethpot Tester")
-  const gameModeRoleName = `${displayGameMode(gameMode)} Tester`;
-  const gameModeRole = guild.roles.cache.find(r => r.name === gameModeRoleName);
-
-  const overwrites: Parameters<typeof guild.channels.create>[0]['permissionOverwrites'] = [
-    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-    {
-      id: interaction.user.id,
-      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles],
-    },
-  ];
-  if (config.tierTesterRoleId) {
-    overwrites.push({
-      id: config.tierTesterRoleId,
-      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-    });
-  }
-  if (gameModeRole && gameModeRole.id !== config.tierTesterRoleId) {
-    overwrites.push({
-      id: gameModeRole.id,
-      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-    });
-  }
-
-  let ticketChannel: TextChannel;
-  try {
-    ticketChannel = await guild.channels.create({
-      name: existingName,
-      type: ChannelType.GuildText,
-      permissionOverwrites: overwrites,
-      reason: `Tier test ticket for ${interaction.user.username}`,
-      topic: `Tier test ticket — ${interaction.user.id} (${mcUsername}) · Region: ${region} · Mode: ${displayGameMode(gameMode)}`,
-    }) as TextChannel;
-  } catch (err) {
-    console.error('Failed to create ticket channel:', err);
-    await interaction.editReply({
-      content: '❌ Failed to create ticket channel. Make sure the bot has **Manage Channels** permission.',
-      components: [],
-      embeds: [],
-    });
-    return;
-  }
-
-  const ticketEmbed = new EmbedBuilder()
-    .setTitle('🎫 New Tier Test Request')
-    .setColor(TIER_TEST_YELLOW)
-    .setThumbnail(`${WEBSITE_API_URL}/api/skin/${interaction.user.id}`)
-    .addFields(
-      { name: '👤 Discord',           value: `<@${interaction.user.id}>`, inline: true },
-      { name: '🎮 Minecraft Username', value: `\`${mcUsername}\``,        inline: true },
-      { name: '🌍 Region',            value: `\`${region}\``,             inline: true },
-      { name: '⚔️ Game Mode',         value: `\`${gameMode}\``,           inline: true },
-      {
-        name: '📋 What Happens Next',
-        value:
-          '• A Tier Tester will join this ticket shortly\n' +
-          '• Please be patient and stay available\n' +
-          '• You may upload your **Minecraft skin** here to update it\n' +
-          '• The tester will guide you through the test\n' +
-          '• Your result will be posted in the results channel',
-      },
-    )
-    .setFooter({ text: `Ticket created by ${interaction.user.username}` })
-    .setTimestamp();
-
-  const generalTesterMention = config.tierTesterRoleId ? `<@&${config.tierTesterRoleId}>` : '**Tier Testers**';
-  const gmTesterMention      = gameModeRole ? ` <@&${gameModeRole.id}>` : '';
-  const staffMention         = config.staffRoleId ? ` <@&${config.staffRoleId}>` : '';
-  const modMention           = config.modRoleId   ? ` <@&${config.modRoleId}>` : '';
-
-  await ticketChannel.send({
-    content: `${generalTesterMention}${gmTesterMention}${staffMention}${modMention} — a new **${displayGameMode(gameMode)}** tier test request has arrived!`,
-    embeds: [ticketEmbed],
-    components: [buildTicketActionRow()],
-  });
-
-  await interaction.editReply({
-    content: `✅ Your tier test ticket has been created: <#${ticketChannel.id}>\nA Tier Tester will be with you shortly!`,
-    components: [],
-    embeds: [],
-  });
+  // Delegate queue channel creation to queue.ts
+  await createQueueChannel(interaction, guild, gameMode, interaction.user.id, reg.mcUsername, reg.region);
 }
 
 // ─── Legacy Modal Handler (kept for backward-compat if any existing modal is open) ──
@@ -465,7 +374,7 @@ export async function handleApplyTesterButton(interaction: ButtonInteraction): P
     return;
   }
 
-  const overwrites: Parameters<typeof guild.channels.create>[0]['permissionOverwrites'] = [
+  const overwrites: OverwriteResolvable[] = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     {
       id: interaction.user.id,

@@ -12,6 +12,7 @@ import {
   type GuildMember,
   type TextChannel,
   type Client,
+  type OverwriteResolvable,
 } from 'discord.js';
 import { getConfig, setConfig } from './config.js';
 import { getRegistrationByDiscordId } from './registration.js';
@@ -362,7 +363,7 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
   const gameModeRoleName = `${displayGameMode(gameMode)} Tester`;
   const gameModeRole = guild.roles.cache.find(r => r.name === gameModeRoleName);
 
-  const overwrites: Parameters<typeof guild.channels.create>[0]['permissionOverwrites'] = [
+  const overwrites: OverwriteResolvable[] = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     {
       id: interaction.user.id,
@@ -464,7 +465,7 @@ export async function handleApplyTesterButton(interaction: ButtonInteraction): P
     return;
   }
 
-  const overwrites: Parameters<typeof guild.channels.create>[0]['permissionOverwrites'] = [
+  const overwrites: OverwriteResolvable[] = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     {
       id: interaction.user.id,

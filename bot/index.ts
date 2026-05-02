@@ -84,6 +84,21 @@ import {
   schedulePanelRefresh,
 } from './tiertest.js';
 import {
+  QUEUE_LEAVE_ID,
+  QUEUE_NEXT_ID,
+  QUEUE_END_ID,
+  TIER_SELECT_PREFIX,
+  TT_CLOSE_ID,
+  handleQueueLeave,
+  handleQueueNext,
+  handleQueueEnd,
+  handleTtClose,
+  scheduleQueueRefresh,
+  getActiveTierTest,
+  parseTierTestTopic,
+  removeTierTestEntry,
+} from './queue.js';
+import {
   isTierRoleName as isTierRoleNameForTesterList,
   TL_PREV_ID,
   TL_NEXT_ID,
@@ -700,10 +715,11 @@ async function handleResult(interaction: ChatInputCommandInteraction) {
   const config = getConfig();
 
   const member = interaction.member as GuildMember;
-  const hasStaffRole = config.staffRoleId ? member.roles.cache.has(config.staffRoleId) : true;
-  const hasModRoleForResult = config.modRoleId ? member.roles.cache.has(config.modRoleId) : false;
-  if (config.staffRoleId && !hasStaffRole && !hasModRoleForResult) {
-    await interaction.editReply('❌ Only staff or mod members can use `/result`.');
+  const hasStaffRole        = config.staffRoleId      ? member.roles.cache.has(config.staffRoleId)      : true;
+  const hasModRoleForResult = config.modRoleId        ? member.roles.cache.has(config.modRoleId)        : false;
+  const hasTesterRoleResult = config.tierTesterRoleId ? member.roles.cache.has(config.tierTesterRoleId) : false;
+  if (config.staffRoleId && !hasStaffRole && !hasModRoleForResult && !hasTesterRoleResult) {
+    await interaction.editReply('❌ Only staff, mod, or tier tester members can use `/result`.');
     return;
   }
 
@@ -728,6 +744,15 @@ async function handleResult(interaction: ChatInputCommandInteraction) {
       `Only registered players can receive results. Ask them to use \`/register\` first.`,
     );
     return;
+  }
+
+  // Tier testers cannot submit a result where they are the player (no self-tiering)
+  if (hasTesterRoleResult && !hasStaffRole && !hasModRoleForResult) {
+    const callerReg = getRegistrationByDiscordId(interaction.user.id);
+    if (callerReg && callerReg.mcUsername.toLowerCase() === mcUsername.toLowerCase()) {
+      await interaction.editReply('❌ Tier testers cannot use `/result` to give themselves a tier.');
+      return;
+    }
   }
 
   const guild = interaction.guild;
@@ -2944,10 +2969,14 @@ client.on('guildMemberAdd', async member => {
 
 client.on('presenceUpdate', (_old, newPresence) => {
   const config = getConfig();
-  if (!config.tierTesterRoleId || !config.tierTestChannelId) return;
   const member = newPresence?.member;
   if (!member) return;
-  if (member.roles.cache.has(config.tierTesterRoleId)) schedulePanelRefresh(client);
+  // Refresh the tier test panel when a tester's presence changes
+  if (config.tierTesterRoleId && config.tierTestChannelId && member.roles.cache.has(config.tierTesterRoleId)) {
+    schedulePanelRefresh(client);
+  }
+  // Always refresh active queue/tier-test embeds (player+tester online status matters)
+  scheduleQueueRefresh(client);
 });
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
@@ -3116,6 +3145,159 @@ client.on('messageCreate', async (message: Message) => {
   }
 });
 
+// ─── Tier Select Button Handler ───────────────────────────────────────────────
+
+async function handleTierSelect(interaction: ButtonInteraction): Promise<void> {
+  const parts    = interaction.customId.split(':');
+  const gameMode = parts[1];
+  const tier     = parts[2];
+
+  if (!gameMode || !tier) {
+    await interaction.reply({ content: '❌ Invalid tier selection.', ephemeral: true });
+    return;
+  }
+
+  const channel = interaction.channel as TextChannel;
+  const member  = interaction.member as GuildMember;
+  const config  = getConfig();
+
+  // Resolve tier test info: in-memory map first, channel topic as fallback (post bot restart)
+  const infoFromMap = getActiveTierTest(channel.id);
+  const topicInfo   = parseTierTestTopic(channel.topic ?? '');
+  const info        = infoFromMap ?? topicInfo;
+
+  if (!info) {
+    await interaction.reply({ content: '❌ Could not identify this tier test session. Contact an admin.', ephemeral: true });
+    return;
+  }
+
+  // Permission check: only the accepting tester, or staff/mod/admin
+  const isAcceptingTester = interaction.user.id === info.testerId;
+  const hasMod   = config.modRoleId   ? member.roles.cache.has(config.modRoleId)   : false;
+  const hasStaff = config.staffRoleId ? member.roles.cache.has(config.staffRoleId) : false;
+  const isAdmin  = member.permissions.has(PermissionFlagsBits.Administrator);
+
+  if (!isAcceptingTester && !hasMod && !hasStaff && !isAdmin) {
+    await interaction.reply({ content: '⛔ You are not the tester for this session.', ephemeral: true });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  const guild = interaction.guild!;
+
+  const reg = getRegistrationByDiscordId(info.playerId);
+  if (!reg) {
+    await channel.send('❌ Player registration not found. Cannot post result. Contact an admin.');
+    return;
+  }
+
+  let playerMember: GuildMember;
+  try {
+    playerMember = await guild.members.fetch(info.playerId);
+  } catch {
+    await channel.send('❌ Could not find the player in this server. Cannot assign tier role.');
+    return;
+  }
+
+  let testerMember: GuildMember | null = null;
+  try { testerMember = await guild.members.fetch(info.testerId); } catch { /* ignored */ }
+
+  const previous       = await getMemberCurrentTier(playerMember, gameMode);
+  const { emoji, label } = getRankChange(previous, tier);
+  const color          = getTierColor(tier);
+  const previousPoints = getMemberPoints(playerMember);
+  const testerReg      = getRegistrationByDiscordId(info.testerId);
+
+  const modeDisplay = displayGameMode(gameMode);
+  const modeEmoji   = getGameModeEmoji(gameMode);
+  const modeFull    = modeEmoji ? `${modeEmoji} ${modeDisplay}` : modeDisplay;
+
+  const embedFields: { name: string; value: string; inline?: boolean }[] = [
+    { name: '👤 Tested Player', value: `<@${info.playerId}>`,    inline: true },
+    { name: '🎮 IGN',           value: `\`${info.mcUsername}\``, inline: true },
+    { name: '🌍 Region',        value: info.region,              inline: true },
+    { name: '🧪 Tester',        value: `<@${info.testerId}>`,    inline: true },
+    { name: '⚔️ Game Mode',     value: modeFull,                 inline: true },
+    { name: '📋 Previous Tier', value: `**${previous}**`,        inline: true },
+    { name: '🏆 Earned Tier',   value: `**${tier}**`,            inline: true },
+  ];
+
+  const resultEmbed = new EmbedBuilder()
+    .setTitle(`${emoji} Tier Test Result — ${label}`)
+    .setColor(color)
+    .setAuthor({
+      name: `Tested by ${testerMember?.user.username ?? 'Tester'}`,
+      iconURL: testerMember?.user.displayAvatarURL({ size: 256 }),
+    })
+    .setThumbnail(getBackendSkinUrl(info.playerId))
+    .addFields(...embedFields)
+    .setFooter({ text: 'Tier Test System' })
+    .setTimestamp();
+
+  // Assign tier role
+  const roleResult = await assignTierRole(guild, info.playerId, gameMode, tier, color);
+  let updatedMember: GuildMember | null = null;
+  let titleName = 'None';
+  let totalPoints = 0;
+  let pointDelta  = 0;
+
+  if (!('error' in roleResult)) {
+    updatedMember = roleResult.member;
+    titleName     = await assignTitleRole(guild, updatedMember);
+    totalPoints   = getMemberPoints(updatedMember);
+    pointDelta    = totalPoints - previousPoints;
+    scheduleLeaderboardRefresh(client);
+  }
+
+  const trendEmoji = getTrendEmojiString(pointDelta);
+  resultEmbed.addFields({ name: '💎 Points', value: `${totalPoints} pts ${trendEmoji}`, inline: true });
+
+  // Post to results channel
+  if (config.resultsChannelId) {
+    try {
+      const resCh = await client.channels.fetch(config.resultsChannelId);
+      if (resCh && resCh.isTextBased()) {
+        const websiteRow = WEBSITE_LINK
+          ? new ActionRowBuilder<ButtonBuilder>().addComponents(
+              new ButtonBuilder().setLabel('View on Cosmic Tiers').setStyle(ButtonStyle.Link).setURL(WEBSITE_LINK),
+            )
+          : null;
+        const resultMsg = await (resCh as TextChannel).send({
+          embeds: [resultEmbed],
+          ...(websiteRow ? { components: [websiteRow] } : {}),
+        });
+        for (const reactionEmoji of RESULT_REACTION_EMOJIS) {
+          try { await resultMsg.react(reactionEmoji); } catch { /* ignore */ }
+        }
+      }
+    } catch (err) {
+      console.error('[tier-select] Failed to post result to results channel:', err);
+    }
+  }
+
+  // Update API and stats
+  await callApi('/api/bot/result', {
+    discordId:         info.playerId,
+    mcUsername:        info.mcUsername,
+    gameMode,
+    tier,
+    previousTier:      previous,
+    testerDiscordId:   info.testerId,
+    testerMcUsername:  testerReg?.mcUsername ?? null,
+  });
+  incrementTesterStat(info.testerId);
+  scheduleTesterListRefresh(client);
+  await callApi('/api/bot/tester-stat', { discordId: info.testerId, action: 'increment' });
+
+  console.log(`[tier-select] ${testerMember?.user.username ?? info.testerId} → ${info.mcUsername} | ${gameMode} ${tier} (prev: ${previous})`);
+
+  // Clean up and delete the tier test channel
+  removeTierTestEntry(channel.id);
+  await channel.send(`✅ Result posted for **${info.mcUsername}** — **${tier}** in **${modeDisplay}**!`);
+  setTimeout(() => channel.delete('Tier test completed').catch(console.error), 2500);
+}
+
 client.on('error', err => console.error('[Discord Client Error]', err));
 
 client.on('interactionCreate', async interaction => {
@@ -3183,6 +3365,13 @@ client.on('interactionCreate', async interaction => {
       if (id === CLOSE_TICKET_ID)  return await handleCloseTicket(interaction);
       if (id === DELETE_TICKET_ID) return await handleDeleteTicket(interaction);
       if (id === APPLY_TESTER_ID)  return await handleApplyTesterButton(interaction);
+
+      // ── Queue system ────────────────────────────────────────────────────────
+      if (id === QUEUE_LEAVE_ID)  return await handleQueueLeave(interaction as ButtonInteraction);
+      if (id === QUEUE_NEXT_ID)   return await handleQueueNext(interaction as ButtonInteraction);
+      if (id === QUEUE_END_ID)    return await handleQueueEnd(interaction as ButtonInteraction);
+      if (id === TT_CLOSE_ID)     return await handleTtClose(interaction as ButtonInteraction);
+      if (id.startsWith(TIER_SELECT_PREFIX + ':')) return await handleTierSelect(interaction as ButtonInteraction);
 
       if (id === PANEL_REGISTER_ID) {
         const existing = getRegistrationByDiscordId(interaction.user.id);
