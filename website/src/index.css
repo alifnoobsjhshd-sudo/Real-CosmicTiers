@@ -1662,3 +1662,164 @@ button.rounded-md[data-testid^="tab-info-"]:hover {
 .search-overlay-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.20);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME SYSTEM — cosmictiers.app
+   Applied via [data-theme] attribute on <html> set by ThemeProvider
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Body becomes transparent so the ThemeProvider's fixed gradient div shows through */
+[data-theme] body {
+  background: transparent !important;
+}
+
+/* Admin preview card float animation */
+@keyframes ct-preview-float {
+  0%, 100% { transform: translateY(0px) scale(1); opacity: 0.65; }
+  50%       { transform: translateY(-7px) scale(1.12); opacity: 1; }
+}
+
+/* ── mc-hero section overrides per theme ────────────────────── */
+[data-theme="summer"] .mc-hero {
+  background: linear-gradient(135deg, hsl(30 40% 6%) 0%, hsl(30 35% 9%) 40%, hsl(38 30% 8%) 75%, hsl(30 40% 6%) 100%) !important;
+  border-color: hsl(30 28% 18%) !important;
+}
+[data-theme="summer"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(38 50% 30% / 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(38 50% 30% / 0.10) 1px, transparent 1px) !important;
+}
+[data-theme="summer"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, hsl(38 95% 55%) 0%, hsl(45 100% 72%) 40%, hsl(38 95% 55%) 60%, hsl(30 85% 45%) 100%) !important;
+}
+
+[data-theme="christmas"] .mc-hero {
+  background: linear-gradient(135deg, hsl(355 38% 6%) 0%, hsl(355 32% 9%) 40%, hsl(142 25% 8%) 75%, hsl(355 38% 6%) 100%) !important;
+  border-color: hsl(355 25% 18%) !important;
+}
+[data-theme="christmas"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(0 60% 30% / 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(0 60% 30% / 0.10) 1px, transparent 1px) !important;
+}
+[data-theme="christmas"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, hsl(0 78% 52%) 0%, hsl(0 90% 70%) 35%, hsl(142 60% 50%) 65%, hsl(0 78% 52%) 100%) !important;
+}
+
+[data-theme="winter"] .mc-hero {
+  background: linear-gradient(135deg, hsl(210 50% 6%) 0%, hsl(210 45% 9%) 40%, hsl(200 40% 8%) 75%, hsl(210 50% 6%) 100%) !important;
+  border-color: hsl(210 35% 18%) !important;
+}
+[data-theme="winter"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(200 70% 50% / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(200 70% 50% / 0.09) 1px, transparent 1px) !important;
+}
+[data-theme="winter"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, hsl(200 90% 65%) 0%, hsl(200 100% 82%) 40%, hsl(200 90% 65%) 60%, hsl(210 80% 55%) 100%) !important;
+}
+
+[data-theme="raining"] .mc-hero {
+  background: linear-gradient(135deg, hsl(220 35% 6%) 0%, hsl(220 30% 9%) 40%, hsl(215 28% 8%) 75%, hsl(220 35% 6%) 100%) !important;
+  border-color: hsl(220 25% 17%) !important;
+}
+[data-theme="raining"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(215 60% 40% / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(215 60% 40% / 0.08) 1px, transparent 1px) !important;
+}
+[data-theme="raining"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, hsl(215 75% 58%) 0%, hsl(210 90% 75%) 40%, hsl(215 75% 58%) 60%, hsl(220 65% 48%) 100%) !important;
+}
+
+[data-theme="cherry_blossom"] .mc-hero {
+  background: linear-gradient(135deg, hsl(340 35% 6%) 0%, hsl(340 30% 9%) 40%, hsl(330 28% 8%) 75%, hsl(340 35% 6%) 100%) !important;
+  border-color: hsl(340 22% 17%) !important;
+}
+[data-theme="cherry_blossom"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(340 60% 50% / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(340 60% 50% / 0.09) 1px, transparent 1px) !important;
+}
+[data-theme="cherry_blossom"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, hsl(340 80% 68%) 0%, hsl(340 90% 82%) 40%, hsl(340 80% 68%) 60%, hsl(350 70% 55%) 100%) !important;
+}
+
+[data-theme="blossom"] .mc-hero {
+  background: linear-gradient(135deg, hsl(160 30% 6%) 0%, hsl(160 26% 9%) 40%, hsl(145 22% 8%) 75%, hsl(160 30% 6%) 100%) !important;
+  border-color: hsl(160 20% 17%) !important;
+}
+[data-theme="blossom"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(145 55% 40% / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(145 55% 40% / 0.09) 1px, transparent 1px) !important;
+}
+[data-theme="blossom"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, hsl(145 65% 48%) 0%, hsl(145 80% 65%) 40%, hsl(145 65% 48%) 60%, hsl(60 70% 50%) 100%) !important;
+}
+
+[data-theme="moon"] .mc-hero {
+  background: linear-gradient(135deg, hsl(240 42% 5%) 0%, hsl(240 38% 8%) 40%, hsl(250 35% 7%) 75%, hsl(240 42% 5%) 100%) !important;
+  border-color: hsl(240 28% 16%) !important;
+}
+[data-theme="moon"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(240 40% 40% / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(240 40% 40% / 0.08) 1px, transparent 1px) !important;
+}
+[data-theme="moon"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, hsl(220 25% 82%) 0%, hsl(220 40% 95%) 40%, hsl(220 25% 82%) 60%, hsl(240 20% 70%) 100%) !important;
+}
+
+[data-theme="april_fool"] .mc-hero {
+  background: linear-gradient(135deg, hsl(280 30% 6%) 0%, hsl(280 25% 9%) 40%, hsl(300 22% 8%) 75%, hsl(280 30% 6%) 100%) !important;
+  border-color: hsl(280 20% 17%) !important;
+}
+[data-theme="april_fool"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(300 60% 50% / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(300 60% 50% / 0.09) 1px, transparent 1px) !important;
+}
+[data-theme="april_fool"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, #f87171 0%, #fb923c 14%, #fbbf24 28%, #4ade80 45%, #60a5fa 62%, #c084fc 78%, #f87171 100%) !important;
+  animation: mc-shimmer 1.8s linear infinite !important;
+}
+
+[data-theme="halloween"] .mc-hero {
+  background: linear-gradient(135deg, hsl(25 50% 5%) 0%, hsl(25 42% 8%) 40%, hsl(270 28% 7%) 75%, hsl(25 50% 5%) 100%) !important;
+  border-color: hsl(25 32% 16%) !important;
+}
+[data-theme="halloween"] .mc-hero::before {
+  background-image:
+    linear-gradient(hsl(25 70% 40% / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(25 70% 40% / 0.09) 1px, transparent 1px) !important;
+}
+[data-theme="halloween"] .mc-shimmer-text {
+  background-image: linear-gradient(90deg, hsl(25 90% 52%) 0%, hsl(30 100% 68%) 40%, hsl(25 90% 52%) 60%, hsl(270 60% 50%) 100%) !important;
+}
+
+/* ── Easter egg: april fool disco glow ─────────────────────── */
+@keyframes ct-disco-glow {
+  0%   { box-shadow: 0 0 0 3px rgba(248,113,113,0.4), 0 0 24px 6px rgba(248,113,113,0.2); }
+  20%  { box-shadow: 0 0 0 3px rgba(251,146,60,0.4),  0 0 24px 6px rgba(251,146,60,0.2);  }
+  40%  { box-shadow: 0 0 0 3px rgba(74,222,128,0.4),  0 0 24px 6px rgba(74,222,128,0.2);  }
+  60%  { box-shadow: 0 0 0 3px rgba(96,165,250,0.4),  0 0 24px 6px rgba(96,165,250,0.2);  }
+  80%  { box-shadow: 0 0 0 3px rgba(192,132,252,0.4), 0 0 24px 6px rgba(192,132,252,0.2); }
+  100% { box-shadow: 0 0 0 3px rgba(248,113,113,0.4), 0 0 24px 6px rgba(248,113,113,0.2); }
+}
+[data-theme="april_fool"] a[class*="mc-navbar"],
+[data-theme="april_fool"] .mc-hero {
+  animation: ct-disco-glow 3s linear infinite !important;
+}
+
+/* ── mc-enchant-glow recolor per theme ──────────────────────── */
+[data-theme="summer"] .mc-enchant {
+  animation: mc-enchant-glow 3s ease-in-out infinite !important;
+  --glow-c: rgba(251,146,60,0.4);
+}
+[data-theme="christmas"] .mc-enchant { filter: hue-rotate(200deg); }
+[data-theme="winter"] .mc-enchant    { filter: hue-rotate(170deg); }
+[data-theme="cherry_blossom"] .mc-enchant { filter: hue-rotate(270deg); }
+[data-theme="blossom"] .mc-enchant   { filter: hue-rotate(100deg); }
+[data-theme="moon"] .mc-enchant      { filter: hue-rotate(180deg) saturate(0.3); }
+[data-theme="halloween"] .mc-enchant { filter: hue-rotate(200deg); }
