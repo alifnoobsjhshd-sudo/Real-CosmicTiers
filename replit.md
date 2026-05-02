@@ -1,5 +1,26 @@
 # Cosmic Tiers — Full-Stack System
 
+## Recent Website Changes (May 2026)
+
+### Profile as slide-in overlay (no separate page navigation)
+- Clicking any player name, avatar, or row opens a **right-side drawer panel** over the current page
+- Smooth CSS `translateX` transition (300ms), dark blurred backdrop
+- Clicking the backdrop or pressing ESC closes it with the same smooth animation
+- Body scroll is locked while the drawer is open; scroll position is fully preserved
+- Top-3 players get the underwater effect + bubbles inside the drawer, others get grass
+- Shared `ProfileCard` component extracted to `website/src/components/ProfileCard.tsx`
+- `/user/:username` route preserved for direct URL / SEO access
+
+### Search overlay (replaces inline navbar search)
+- Navbar search bar is now a **click-to-open trigger button** (not an inline `<input>`)
+- Pressing `/` (slash key) anywhere on the page opens the search overlay
+- Search overlay drops from the top with fade + slide transition
+- **3 tabs (no "All")**: Players (default), Results, Testers
+  - Players: searchable by username or `#rank` number (e.g. `#1`, `5`)
+  - Results: searchable by player name, tester name, tier keyword (`ht1`, `lt3`), game mode
+  - Testers: searchable by username
+- ESC or clicking the backdrop closes the overlay; selecting a result opens the profile drawer
+
 A full-stack Minecraft PvP tier test system consisting of:
 1. A Discord bot (`bot/`) using discord.js v14 for managing tier tests
 2. A PostgreSQL database (via Drizzle ORM) for persistent data

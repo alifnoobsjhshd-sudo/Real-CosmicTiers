@@ -1,44 +1,23 @@
-import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface NavbarProps {
-  onSearch: (q: string) => void;
+  onSearchOpen: () => void;
   discordLink: string;
 }
 
-export function Navbar({ onSearch }: NavbarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchVal, setSearchVal] = useState("");
-  const mobileInputRef = useRef<HTMLInputElement>(null);
+export function Navbar({ onSearchOpen }: NavbarProps) {
   const [, navigate] = useLocation();
-
-  function handleSearch(val: string) {
-    setSearchVal(val);
-    onSearch(val);
-  }
 
   function goToLeaderboard(e: React.MouseEvent) {
     e.preventDefault();
     navigate("/");
   }
 
-  // Auto-focus the search field as soon as the mobile search drawer opens.
-  useEffect(() => {
-    if (mobileOpen) {
-      // Defer one frame so the input is mounted before focusing.
-      const id = window.setTimeout(() => mobileInputRef.current?.focus(), 50);
-      return () => window.clearTimeout(id);
-    }
-  }, [mobileOpen]);
-
   return (
-    <nav
-      className="sticky top-0 z-50 w-full border-b mc-navbar-skyblue"
-      data-testid="navbar"
-    >
+    <nav className="sticky top-0 z-50 w-full border-b mc-navbar-skyblue" data-testid="navbar">
       <div className="max-w-6xl mx-auto px-4 h-16 sm:h-[72px] flex items-center gap-4">
-        {/* Logo — fixed-width column on the LEFT */}
+        {/* Logo */}
         <div className="flex-1 min-w-0 sm:flex-none flex items-center">
           <a
             href="/"
@@ -47,14 +26,12 @@ export function Navbar({ onSearch }: NavbarProps) {
             data-testid="link-logo"
             aria-label="CosmicTiers — go to Leaderboard"
           >
-            {/* Pixel particles around the logo */}
             <span className="mc-logo-pixel mc-logo-pixel-1" aria-hidden="true" />
             <span className="mc-logo-pixel mc-logo-pixel-2" aria-hidden="true" />
             <span className="mc-logo-pixel mc-logo-pixel-3" aria-hidden="true" />
             <span className="mc-logo-pixel mc-logo-pixel-4" aria-hidden="true" />
             <span className="mc-logo-pixel mc-logo-pixel-5" aria-hidden="true" />
             <span className="mc-logo-pixel mc-logo-pixel-6" aria-hidden="true" />
-
             <h1 className="mc-logo-title font-extrabold tracking-tight leading-none flex items-baseline">
               <span className="mc-logo-cosmic">Cosmic</span>
               <span className="mc-logo-tiers">Tiers</span>
@@ -62,52 +39,36 @@ export function Navbar({ onSearch }: NavbarProps) {
           </a>
         </div>
 
-        {/* Search bar — CENTERED on desktop */}
+        {/* Search trigger — CENTERED on desktop */}
         <div className="hidden sm:flex flex-1 justify-center px-4">
-          <div className="relative mc-navbar-search w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-sky-200/70" />
-            <input
-              type="search"
-              placeholder="Search player or title..."
-              value={searchVal}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full h-10 pl-10 pr-3 rounded-md text-[15px] focus:outline-none"
-              data-testid="input-search"
-            />
-          </div>
+          <button
+            onClick={onSearchOpen}
+            className="mc-navbar-search w-full max-w-md flex items-center gap-2.5 px-3 h-10 rounded-md cursor-text group"
+            data-testid="button-search-trigger"
+            aria-label="Open search"
+          >
+            <Search className="h-4 w-4 text-sky-200/60 flex-shrink-0 group-hover:text-sky-200/90 transition-colors" />
+            <span className="flex-1 text-left text-sm text-sky-200/45 group-hover:text-sky-200/70 transition-colors">
+              Search players, results, testers...
+            </span>
+            <span className="hidden lg:flex items-center gap-1 text-[10px] text-sky-200/30 font-mono">
+              <kbd className="px-1.5 py-0.5 rounded border border-sky-200/20">/</kbd>
+            </span>
+          </button>
         </div>
 
-        {/* Right column — keeps the search visually centered */}
+        {/* Right column — mobile search icon */}
         <div className="flex-none sm:flex-1 sm:flex sm:justify-end">
           <button
             className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-            onClick={() => setMobileOpen(!mobileOpen)}
+            onClick={onSearchOpen}
             data-testid="button-mobile-search"
-            aria-label={mobileOpen ? "Close search" : "Open search"}
+            aria-label="Open search"
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            <Search className="h-5 w-5" />
           </button>
         </div>
       </div>
-
-      {mobileOpen && (
-        <div
-          className="sm:hidden border-t border-border px-4 py-3 flex flex-col gap-3 mc-navbar-skyblue"
-        >
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              ref={mobileInputRef}
-              type="search"
-              placeholder="Search player..."
-              value={searchVal}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full h-9 pl-8 pr-3 rounded text-sm bg-muted/60 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-              data-testid="input-search-mobile"
-            />
-          </div>
-        </div>
-      )}
     </nav>
   );
 }

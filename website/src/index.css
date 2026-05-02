@@ -1624,3 +1624,41 @@ button.rounded-md[data-testid^="tab-info-"]:hover {
   opacity: 0.45;
   mix-blend-mode: multiply;
 }
+
+/* ─── Profile Drawer scrollbar ───────────────────────────────────────────── */
+.profile-drawer-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+.profile-drawer-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.profile-drawer-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.profile-drawer-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.13);
+  border-radius: 2px;
+}
+.profile-drawer-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+/* ─── Search overlay scrollbar ───────────────────────────────────────────── */
+.search-overlay-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.10) transparent;
+}
+.search-overlay-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.search-overlay-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.search-overlay-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.10);
+  border-radius: 2px;
+}
+.search-overlay-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.20);
+}

@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Users, Info, RefreshCw, ChevronDown, ChevronUp, Star, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ClipboardList, Crown } from "lucide-react";
+import { Trophy, Users, Info, RefreshCw, ChevronDown, ChevronUp, Star, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ClipboardList, Crown, Search, X } from "lucide-react";
 import { SiDiscord } from "react-icons/si";
 import type { LeaderboardResponse, TesterLeaderboardResponse, InfoResponse, PlayerProfile, TierTester, ResultsResponse, ResultEntry, TrendArrow, TopPlayersResponse, TopPlayerEntry } from "@shared/schema";
 import { TITLES, TIER_POINTS, GAME_MODES } from "@shared/schema";
@@ -12,6 +12,7 @@ import { TierList } from "@/components/TierBadge";
 import { TitleBadge } from "@/components/TitleBadge";
 import { RankBadge } from "@/components/RankBadge";
 import { LazyMount } from "@/components/LazyMount";
+import { ProfileCard } from "@/components/ProfileCard";
 
 type Tab = "leaderboard" | "testers" | "results" | "top" | "information";
 type InfoTab = "titles" | "points";
@@ -72,32 +73,57 @@ export default function Home() {
 
   const [tab, setTab] = useState<Tab>(initialTab);
   const [infoTab, setInfoTab] = useState<InfoTab>("titles");
-  const [searchQuery, setSearchQuery] = useState("");
   const [expandedTesters, setExpandedTesters] = useState<Set<string>>(new Set());
   const [topGameMode, setTopGameMode] = useState<string>(GAME_MODES[0]);
   const [loadingVisible, setLoadingVisible] = useState(true);
   const [loadingKey, setLoadingKey] = useState(0);
   const [loadingDuration, setLoadingDuration] = useState(1800);
   const [loadingTab, setLoadingTab] = useState('');
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerProfile | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const [, navigate] = useLocation();
   const switchTab = (newTab: Tab) => {
     setTab(newTab);
-    // Keep URL in sync so the CosmicTiers logo and back/forward navigation
-    // can return the user to the right tab.
     navigate(newTab === "leaderboard" ? "/" : `/?tab=${newTab}`, { replace: false });
   };
 
-  // Sync local tab state when the URL ?tab= param changes (e.g. user clicks
-  // the CosmicTiers logo, presses browser back, or arrives via deep link).
   useEffect(() => {
     const t = new URLSearchParams(search).get("tab");
     const newTab: Tab = VALID_TABS.includes(t as Tab) ? (t as Tab) : "leaderboard";
     setTab((prev) => (prev === newTab ? prev : newTab));
   }, [search]);
-  const selectPlayer = (p: PlayerProfile) => {
-    if (p?.mcUsername) navigate(`/user/${encodeURIComponent(p.mcUsername)}?from=${tab}`);
+
+  const openProfile = (p: PlayerProfile) => {
+    if (!p) return;
+    setSelectedPlayer(p);
+    setProfileOpen(true);
   };
+
+  const closeProfile = () => {
+    setProfileOpen(false);
+    setTimeout(() => setSelectedPlayer(null), 300);
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
+          e.preventDefault();
+          setSearchOpen(true);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = profileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [profileOpen]);
 
   const { data: leaderboardData, isLoading: lbLoading } = useQuery<LeaderboardResponse>({
     queryKey: ["/api/leaderboard"],
@@ -120,36 +146,6 @@ export default function Home() {
     enabled: tab === "top",
   });
 
-  const filteredPlayers = useMemo(() => {
-    if (!leaderboardData?.players) return [];
-    if (!searchQuery.trim()) return leaderboardData.players;
-    const q = searchQuery.toLowerCase();
-    return leaderboardData.players.filter(p =>
-      p.mcUsername.toLowerCase().includes(q) ||
-      p.title.name.toLowerCase().includes(q)
-    );
-  }, [leaderboardData, searchQuery]);
-
-  const filteredTesters = useMemo(() => {
-    if (!testersData?.testers) return [];
-    if (!searchQuery.trim()) return testersData.testers;
-    const q = searchQuery.toLowerCase();
-    return testersData.testers.filter(t =>
-      t.mcUsername?.toLowerCase().includes(q) ||
-      t.discordId.includes(q)
-    );
-  }, [testersData, searchQuery]);
-
-  const filteredResults = useMemo(() => {
-    if (!resultsData?.results) return [];
-    if (!searchQuery.trim()) return resultsData.results;
-    const q = searchQuery.toLowerCase();
-    return resultsData.results.filter(r =>
-      r.playerMcUsername.toLowerCase().includes(q) ||
-      r.testerMcUsername?.toLowerCase().includes(q) ||
-      r.gameMode.toLowerCase().includes(q)
-    );
-  }, [resultsData, searchQuery]);
 
   function toggleTesterExpand(id: string) {
     setExpandedTesters(prev => {
@@ -173,7 +169,7 @@ export default function Home() {
           onHide={() => setLoadingVisible(false)}
         />
       )}
-      <Navbar onSearch={setSearchQuery} discordLink={discordLink} />
+      <Navbar onSearchOpen={() => setSearchOpen(true)} discordLink={discordLink} />
 
       <div className="max-w-5xl 2xl:max-w-7xl mx-auto px-4 py-6">
         {/* Tab Navigation */}
@@ -246,9 +242,9 @@ export default function Home() {
               <span className="mc-cloud mc-cloud-5"><CloudShape /></span>
             </div>
             <LeaderboardSection
-              players={filteredPlayers}
+              players={leaderboardData?.players ?? []}
               loading={lbLoading}
-              onSelectPlayer={selectPlayer}
+              onSelectPlayer={openProfile}
               lastUpdated={leaderboardData?.lastUpdated}
             />
           </div>
@@ -258,12 +254,12 @@ export default function Home() {
         {tab === "testers" && (
           <div className="mc-animate-fade-up mc-delay-3">
             <TestersSection
-              testers={filteredTesters}
+              testers={testersData?.testers ?? []}
               loading={testLoading}
               expandedTesters={expandedTesters}
               toggleExpand={toggleTesterExpand}
               lastUpdated={testersData?.lastUpdated}
-              onSelectPlayer={selectPlayer}
+              onSelectPlayer={openProfile}
             />
           </div>
         )}
@@ -272,11 +268,11 @@ export default function Home() {
         {tab === "results" && (
           <div className="mc-animate-fade-up mc-delay-3">
             <ResultsSection
-              results={filteredResults}
+              results={resultsData?.results ?? []}
               loading={resultsLoading}
               lastUpdated={resultsData?.lastUpdated}
               players={leaderboardData?.players ?? []}
-              onSelectPlayer={selectPlayer}
+              onSelectPlayer={openProfile}
             />
           </div>
         )}
@@ -290,7 +286,7 @@ export default function Home() {
               activeGameMode={topGameMode}
               setActiveGameMode={setTopGameMode}
               players={leaderboardData?.players ?? []}
-              onSelectPlayer={selectPlayer}
+              onSelectPlayer={openProfile}
             />
           </div>
         )}
@@ -307,6 +303,21 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <ProfileDrawer
+        player={selectedPlayer}
+        open={profileOpen}
+        onClose={closeProfile}
+      />
+
+      <SearchOverlay
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        players={leaderboardData?.players ?? []}
+        results={resultsData?.results ?? []}
+        testers={testersData?.testers ?? []}
+        onSelectPlayer={(p) => { setSearchOpen(false); openProfile(p); }}
+      />
 
       <section aria-label="About CosmicTiers" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
         <h2>CosmicTiers — Minecraft PvP Tier List &amp; Rankings</h2>
@@ -1254,5 +1265,422 @@ function PointsInfo() {
         ))}
       </div>
     </div>
+  );
+}
+
+/* ─── Profile Drawer ─────────────────────────────────────────────────────── */
+
+function ProfileDrawer({
+  player,
+  open,
+  onClose,
+}: {
+  player: PlayerProfile | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const rank = player?.rank ?? 0;
+  const isTop3 = !player?.isTester && rank >= 1 && rank <= 3;
+  const rankTier: "gold" | "silver" | "bronze" | "default" =
+    rank === 1 ? "gold" : rank === 2 ? "silver" : rank === 3 ? "bronze" : "default";
+
+  return (
+    <div
+      className={`fixed inset-0 z-[150] flex justify-end transition-[opacity,visibility] duration-300 ${
+        open ? "opacity-100 visible" : "opacity-0 invisible"
+      }`}
+      aria-modal={open}
+      role="dialog"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.58)", backdropFilter: "blur(3px)" }}
+        onClick={onClose}
+      />
+
+      {/* Panel — slides from right */}
+      <div
+        className={`relative w-full sm:max-w-[440px] flex flex-col transition-transform duration-300 ease-out ${
+          open ? "translate-x-0" : "translate-x-full"
+        } ${isTop3 ? "profile-bg-underwater" : ""}`}
+        style={{ backgroundColor: "hsl(213 30% 9%)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isTop3 && (
+          <div aria-hidden="true" className="profile-bubbles pointer-events-none">
+            <span className="bubble b1" /><span className="bubble b2" /><span className="bubble b3" />
+            <span className="bubble b4" /><span className="bubble b5" />
+          </div>
+        )}
+
+        {/* Sticky header */}
+        <div
+          className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-border/40 flex-shrink-0"
+          style={{ background: "rgba(8,13,20,0.88)", backdropFilter: "blur(12px)" }}
+        >
+          <span className="text-sm font-semibold text-foreground/75 truncate pr-3">
+            {player?.mcUsername ?? "Profile"}
+          </span>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors flex-shrink-0"
+            aria-label="Close profile"
+            data-testid="button-close-profile"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto profile-drawer-scroll px-4 pt-4 pb-10">
+          {player && <ProfileCard player={player} rankTier={rankTier} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Search Overlay ─────────────────────────────────────────────────────── */
+
+type SearchType = "player" | "result" | "tester";
+
+function SearchOverlay({
+  open,
+  onClose,
+  players,
+  results,
+  testers,
+  onSelectPlayer,
+}: {
+  open: boolean;
+  onClose: () => void;
+  players: PlayerProfile[];
+  results: ResultEntry[];
+  testers: TierTester[];
+  onSelectPlayer: (p: PlayerProfile) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState<SearchType>("player");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      const id = setTimeout(() => inputRef.current?.focus(), 60);
+      return () => clearTimeout(id);
+    } else {
+      setQuery("");
+      setType("player");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const filteredPlayers = useMemo(() => {
+    const q = query.trim().toLowerCase().replace(/^#/, "");
+    if (!q) return players.slice(0, 24);
+    const isNum = /^\d+$/.test(q);
+    if (isNum) {
+      const n = parseInt(q, 10);
+      return players.filter(p => p.rank === n);
+    }
+    return players.filter(p =>
+      p.mcUsername.toLowerCase().includes(q) ||
+      p.title?.name?.toLowerCase().includes(q)
+    );
+  }, [players, query]);
+
+  const filteredResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return results.slice(0, 12);
+    return results.filter(r =>
+      r.playerMcUsername.toLowerCase().includes(q) ||
+      r.testerMcUsername?.toLowerCase().includes(q) ||
+      r.gameMode.toLowerCase().includes(q) ||
+      r.earnedTier.toLowerCase().includes(q) ||
+      r.previousTier.toLowerCase().includes(q)
+    );
+  }, [results, query]);
+
+  const filteredTesters = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return testers.slice(0, 24);
+    return testers.filter(t =>
+      t.mcUsername?.toLowerCase().includes(q) ||
+      t.discordId.includes(q)
+    );
+  }, [testers, query]);
+
+  const TABS: { key: SearchType; label: string }[] = [
+    { key: "player", label: "Players" },
+    { key: "result", label: "Results" },
+    { key: "tester", label: "Testers" },
+  ];
+
+  const placeholder =
+    type === "player" ? "Search by username or #rank..." :
+    type === "result" ? "Search by player, tier (ht1, lt3), game mode..." :
+    "Search tester by username...";
+
+  return (
+    <div
+      className={`fixed inset-0 z-[200] transition-[opacity,visibility] duration-200 ${
+        open ? "opacity-100 visible" : "opacity-0 invisible"
+      }`}
+      aria-modal={open}
+      role="dialog"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(5,9,16,0.82)", backdropFilter: "blur(6px)" }}
+        onClick={onClose}
+      />
+
+      {/* Panel — drops from top */}
+      <div
+        className={`absolute inset-x-0 top-4 sm:top-6 mx-auto max-w-2xl px-4 transition-all duration-300 ease-out ${
+          open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-5"
+        }`}
+      >
+        <div
+          className="rounded-xl border border-border overflow-hidden shadow-2xl"
+          style={{ backgroundColor: "hsl(213 30% 8%)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Search input row */}
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
+            <Search className="text-primary/70 flex-shrink-0" style={{ width: "18px", height: "18px" }} />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={placeholder}
+              className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground/55 text-base focus:outline-none min-w-0"
+              data-testid="input-search-overlay"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-1"
+              aria-label="Close search"
+              data-testid="button-close-search"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Type selector */}
+          <div className="flex border-b border-border">
+            {TABS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setType(key)}
+                data-testid={`tab-search-${key}`}
+                className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2 ${
+                  type === key
+                    ? "text-primary border-primary bg-primary/5"
+                    : "text-muted-foreground hover:text-foreground border-transparent"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Results */}
+          <div className="max-h-[60vh] overflow-y-auto search-overlay-scroll overscroll-contain">
+            {type === "player" && (
+              filteredPlayers.length === 0
+                ? <SearchEmpty query={query} label="players" />
+                : filteredPlayers.map(p => (
+                    <SearchPlayerItem key={p.discordId} player={p} onSelect={() => onSelectPlayer(p)} />
+                  ))
+            )}
+            {type === "result" && (
+              filteredResults.length === 0
+                ? <SearchEmpty query={query} label="results" />
+                : filteredResults.map(r => {
+                    const prof = players.find(p => p.discordId === r.playerDiscordId);
+                    return (
+                      <SearchResultItem
+                        key={r.id}
+                        result={r}
+                        player={prof}
+                        onSelect={() => prof && onSelectPlayer(prof)}
+                      />
+                    );
+                  })
+            )}
+            {type === "tester" && (
+              filteredTesters.length === 0
+                ? <SearchEmpty query={query} label="testers" />
+                : filteredTesters.map(t => (
+                    <SearchTesterItem key={t.discordId} tester={t} onSelect={() => onSelectPlayer(testerAsProfile(t))} />
+                  ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SearchEmpty({ query, label }: { query: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
+      <Search className="h-8 w-8 opacity-20" />
+      <p className="text-sm">
+        {query ? `No ${label} matching "${query}"` : `Start typing to search ${label}`}
+      </p>
+    </div>
+  );
+}
+
+function SearchPlayerItem({ player, onSelect }: { player: PlayerProfile; onSelect: () => void }) {
+  return (
+    <button
+      onClick={onSelect}
+      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors text-left border-b border-border/25 last:border-0"
+      data-testid={`search-player-${player.discordId}`}
+    >
+      <span className="text-muted-foreground/50 text-xs font-mono w-7 text-right flex-shrink-0 tabular-nums">
+        #{player.rank}
+      </span>
+      <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-border/50">
+        <PlayerSkin
+          discordId={player.discordId}
+          mcUsername={player.mcUsername}
+          skinUrl={player.skinUrl}
+          size={32}
+          className="w-full h-full"
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-foreground text-sm">{player.mcUsername}</span>
+          {player.title && <TitleBadge title={player.title} size="sm" />}
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+          <span className="text-primary font-medium">{player.totalPoints} pts</span>
+          {player.region && <span>{player.region}</span>}
+        </div>
+      </div>
+      <TrendIcon trend={player.trend} />
+    </button>
+  );
+}
+
+function SearchResultItem({
+  result,
+  player,
+  onSelect,
+}: {
+  result: ResultEntry;
+  player?: PlayerProfile;
+  onSelect: () => void;
+}) {
+  const tierColor = getTierColor(result.earnedTier);
+  const date = new Date(result.timestamp).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+  return (
+    <button
+      onClick={onSelect}
+      disabled={!player}
+      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors text-left border-b border-border/25 last:border-0 disabled:opacity-50 disabled:cursor-default"
+      data-testid={`search-result-${result.id}`}
+    >
+      <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-border/50">
+        <PlayerSkin
+          discordId={result.playerDiscordId}
+          mcUsername={result.playerMcUsername}
+          skinUrl={result.playerSkinUrl ?? player?.skinUrl}
+          size={32}
+          className="w-full h-full"
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-foreground text-sm">{result.playerMcUsername}</span>
+          <span
+            className="text-xs font-bold px-1.5 py-0.5 rounded"
+            style={{ backgroundColor: `${tierColor}22`, color: tierColor, border: `1px solid ${tierColor}44` }}
+          >
+            {result.earnedTier}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+          <span>{result.gameMode}</span>
+          <span className="text-muted-foreground/40">·</span>
+          <span>{date}</span>
+          {result.testerMcUsername && (
+            <>
+              <span className="text-muted-foreground/40">·</span>
+              <span>by {result.testerMcUsername}</span>
+            </>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function SearchTesterItem({ tester, onSelect }: { tester: TierTester; onSelect: () => void }) {
+  const displayName = tester.mcUsername ?? `User ${tester.discordId.slice(-4)}`;
+  return (
+    <button
+      onClick={onSelect}
+      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors text-left border-b border-border/25 last:border-0"
+      data-testid={`search-tester-${tester.discordId}`}
+    >
+      <span className="text-muted-foreground/50 text-xs font-mono w-7 text-right flex-shrink-0 tabular-nums">
+        #{tester.rank}
+      </span>
+      <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-border/50">
+        <PlayerSkin
+          discordId={tester.discordId}
+          mcUsername={tester.mcUsername ?? ""}
+          skinUrl={tester.skinUrl}
+          size={32}
+          className="w-full h-full"
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <span className="font-semibold text-foreground text-sm">{displayName}</span>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+          <span className="text-primary font-medium">{tester.testCount} tests</span>
+          {tester.gameModes && tester.gameModes.length > 0 && (
+            <span>
+              {tester.gameModes.slice(0, 2).join(", ")}
+              {tester.gameModes.length > 2 ? ` +${tester.gameModes.length - 2}` : ""}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
   );
 }
