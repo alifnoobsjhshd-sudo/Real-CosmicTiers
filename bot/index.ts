@@ -308,23 +308,104 @@ function getTrendEmojiString(pointDelta: number): string {
   return '➡️';
 }
 
+// ─── Role Safety ──────────────────────────────────────────────────────────────
+
+/**
+ * Permissions that bot-managed roles must never hold.
+ * Any of these found on a bot role will be stripped automatically.
+ */
+const DANGEROUS_PERMISSIONS = [
+  PermissionFlagsBits.Administrator,
+  PermissionFlagsBits.ManageGuild,
+  PermissionFlagsBits.BanMembers,
+  PermissionFlagsBits.KickMembers,
+  PermissionFlagsBits.ManageRoles,
+  PermissionFlagsBits.ManageChannels,
+  PermissionFlagsBits.ManageWebhooks,
+  PermissionFlagsBits.ViewAuditLog,
+  PermissionFlagsBits.MentionEveryone,
+  PermissionFlagsBits.MuteMembers,
+  PermissionFlagsBits.DeafenMembers,
+  PermissionFlagsBits.MoveMembers,
+  PermissionFlagsBits.ManageNicknames,
+  PermissionFlagsBits.ManageMessages,
+  PermissionFlagsBits.ManageThreads,
+  PermissionFlagsBits.ManageEvents,
+  PermissionFlagsBits.ModerateMembers,
+] as const;
+
+/** Remove any dangerous permissions from a bot-managed role. */
+async function sanitizeBotRole(role: Role): Promise<void> {
+  const hasDangerous = DANGEROUS_PERMISSIONS.some(p => role.permissions.has(p));
+  if (!hasDangerous) return;
+  // Build a safe bitfield by clearing each dangerous permission bit
+  const safeBits = DANGEROUS_PERMISSIONS.reduce(
+    (bits, flag) => bits & ~flag,
+    role.permissions.bitfield,
+  );
+  await role.setPermissions(safeBits, 'Removed dangerous permissions from bot-managed role');
+  console.log(`[role-audit] Stripped dangerous permissions from "${role.name}"`);
+}
+
+/**
+ * Audit every bot-managed role in the guild and strip dangerous permissions.
+ * Runs on startup and can be triggered at any time.
+ */
+async function auditBotRoles(guild: Guild): Promise<void> {
+  try {
+    await guild.roles.fetch();
+    const config = getConfig();
+    const managedIds = new Set<string>(
+      [
+        config.unrankedRoleId,
+        config.registeredRoleId,
+        config.tierTesterRoleId,
+        ...Object.values(config.titleRoleIds ?? {}),
+      ].filter((id): id is string => Boolean(id)),
+    );
+    for (const [, role] of guild.roles.cache) {
+      if (managedIds.has(role.id) || isTierRoleName(role.name)) {
+        await sanitizeBotRole(role).catch(err =>
+          console.error(`[role-audit] Failed to sanitize "${role.name}":`, err),
+        );
+      }
+    }
+    console.log('[role-audit] Role audit complete.');
+  } catch (err) {
+    console.error('[role-audit] Audit failed:', err);
+  }
+}
+
 // ─── Role Helpers ─────────────────────────────────────────────────────────────
 
 async function findOrCreateRole(guild: Guild, roleName: string, color: number): Promise<Role> {
   const existing = guild.roles.cache.find(r => r.name === roleName);
-  if (existing) return existing;
-  return guild.roles.create({ name: roleName, color, reason: 'Auto-created by Tier Test Bot' });
+  if (existing) {
+    await sanitizeBotRole(existing);
+    return existing;
+  }
+  const role = await guild.roles.create({
+    name: roleName,
+    color,
+    permissions: 0n,
+    reason: 'Auto-created by Tier Test Bot',
+  });
+  return role;
 }
 
 async function getOrCreateUnrankedRole(guild: Guild): Promise<Role> {
   const config = getConfig();
   if (config.unrankedRoleId) {
     const existing = guild.roles.cache.get(config.unrankedRoleId);
-    if (existing) return existing;
+    if (existing) {
+      await sanitizeBotRole(existing);
+      return existing;
+    }
   }
   const role = await guild.roles.create({
     name: 'Unranked',
     color: 0x99aab5,
+    permissions: 0n,
     reason: 'Auto-created by Tier Test Bot (Unranked role)',
   });
   setConfig({ unrankedRoleId: role.id });
@@ -335,21 +416,29 @@ async function getOrCreateRegisteredRole(guild: Guild): Promise<Role> {
   const config = getConfig();
   if (config.registeredRoleId) {
     const existing = guild.roles.cache.get(config.registeredRoleId);
-    if (existing) return existing;
+    if (existing) {
+      await sanitizeBotRole(existing);
+      return existing;
+    }
     try {
       const fetched = await guild.roles.fetch(config.registeredRoleId);
-      if (fetched) return fetched;
+      if (fetched) {
+        await sanitizeBotRole(fetched);
+        return fetched;
+      }
     } catch { /* fall through */ }
   }
   await guild.roles.fetch();
   const existingByName = guild.roles.cache.find(r => r.name === 'Registered');
   if (existingByName) {
+    await sanitizeBotRole(existingByName);
     setConfig({ registeredRoleId: existingByName.id });
     return existingByName;
   }
   const role = await guild.roles.create({
     name: 'Registered',
     color: 0x57F287,
+    permissions: 0n,
     reason: 'Auto-created by Tier Test Bot (Registered role)',
   });
   setConfig({ registeredRoleId: role.id });
@@ -1334,9 +1423,11 @@ async function handleAddTester(interaction: ChatInputCommandInteraction) {
       gmRole = await guild.roles.create({
         name: gmRoleName,
         color: 0xFFBF00,
+        permissions: 0n,
         reason: `Auto-created: ${gmRoleName} role for Tier Tester system`,
       });
     }
+    await sanitizeBotRole(gmRole);
     if (!member.roles.cache.has(gmRole.id)) {
       await member.roles.add(gmRole.id, `Assigned ${gmRoleName} role by ${interaction.user.username}`);
     }
@@ -2655,9 +2746,11 @@ async function handleRetired(interaction: ChatInputCommandInteraction) {
       retiredRole = await guild.roles.create({
         name: retiredRoleName,
         color: 0x8B4513,
+        permissions: 0n,
         reason: 'Auto-created retired tier role',
       });
     }
+    await sanitizeBotRole(retiredRole);
     await playerMember.roles.add(retiredRole, `Retired from ${displayGameMode(gameMode)} by ${interaction.user.username}`);
   } catch (err) {
     console.error('[retired] Role error:', err);
@@ -2855,9 +2948,11 @@ async function handleUnretired(interaction: ChatInputCommandInteraction) {
     regularRole = await guild.roles.create({
       name: regularRoleName,
       color,
+      permissions: 0n,
       reason: 'Auto-created tier role on unretire',
     });
   }
+  await sanitizeBotRole(regularRole);
   await playerMember.roles.add(regularRole, `Unretired: restored ${regularRoleName}`);
 
   await callApi('/api/bot/unretire-tier', { discordId: reg.discordId, gameMode });
@@ -2947,6 +3042,10 @@ client.once('clientReady', async () => {
   await loadConfigFromApi();
   await loadRegistrationsFromApi();
   await registerCommands(client.user!.id);
+  // Audit all bot-managed roles and strip any dangerous permissions
+  for (const [, guild] of client.guilds.cache) {
+    auditBotRoles(guild).catch(err => console.error('[role-audit] Startup audit error:', err));
+  }
   setInterval(() => refreshTierTestPanel(client),    10 * 60 * 1000);
   setInterval(() => refreshTesterListPanel(client),  10 * 60 * 1000);
   setInterval(() => refreshLeaderboardPanel(client), 10 * 60 * 1000);

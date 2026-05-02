@@ -3,10 +3,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  PermissionFlagsBits,
   type Guild,
   type Client,
   type GuildMember,
   type TextChannel,
+  type Role,
 } from 'discord.js';
 import { getConfig, setConfig } from './config.js';
 import { getRegistrationByDiscordId } from './registration.js';
@@ -95,6 +97,7 @@ async function getOrCreateTitleRole(guild: Guild, title: typeof TITLES[number]):
   await guild.roles.fetch();
   const existing = guild.roles.cache.find(r => r.name === title.name);
   if (existing) {
+    await sanitizeTitleRole(existing);
     titleRoleIds[title.name] = existing.id;
     setConfig({ titleRoleIds });
     return existing.id;
@@ -103,12 +106,44 @@ async function getOrCreateTitleRole(guild: Guild, title: typeof TITLES[number]):
   const role = await guild.roles.create({
     name: title.name,
     color: title.color,
+    permissions: 0n,
     reason: 'Auto-created title role by Tier Test Bot',
   });
   titleRoleIds[title.name] = role.id;
   setConfig({ titleRoleIds });
   console.log(`Auto-created title role "${title.name}": ${role.id}`);
   return role.id;
+}
+
+const TITLE_DANGEROUS_PERMISSIONS = [
+  PermissionFlagsBits.Administrator,
+  PermissionFlagsBits.ManageGuild,
+  PermissionFlagsBits.BanMembers,
+  PermissionFlagsBits.KickMembers,
+  PermissionFlagsBits.ManageRoles,
+  PermissionFlagsBits.ManageChannels,
+  PermissionFlagsBits.ManageWebhooks,
+  PermissionFlagsBits.ViewAuditLog,
+  PermissionFlagsBits.MentionEveryone,
+  PermissionFlagsBits.MuteMembers,
+  PermissionFlagsBits.DeafenMembers,
+  PermissionFlagsBits.MoveMembers,
+  PermissionFlagsBits.ManageNicknames,
+  PermissionFlagsBits.ManageMessages,
+  PermissionFlagsBits.ManageThreads,
+  PermissionFlagsBits.ManageEvents,
+  PermissionFlagsBits.ModerateMembers,
+] as const;
+
+async function sanitizeTitleRole(role: Role): Promise<void> {
+  const hasDangerous = TITLE_DANGEROUS_PERMISSIONS.some(p => role.permissions.has(p));
+  if (!hasDangerous) return;
+  const safeBits = TITLE_DANGEROUS_PERMISSIONS.reduce(
+    (bits, flag) => bits & ~flag,
+    role.permissions.bitfield,
+  );
+  await role.setPermissions(safeBits, 'Removed dangerous permissions from bot-managed title role');
+  console.log(`[role-audit] Stripped dangerous permissions from title role "${role.name}"`);
 }
 
 export async function assignTitleRole(guild: Guild, member: GuildMember): Promise<string> {
