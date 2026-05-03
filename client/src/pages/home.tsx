@@ -289,15 +289,27 @@ function TabButton({
   label: string;
   testId: string;
 }) {
+  const { theme } = useTheme();
+
   return (
     <button
       onClick={onClick}
       data-testid={testId}
-      className={`mc-button-outline flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold border ${
+      className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold border transition-all duration-300"
+      style={
         active
-          ? "is-active"
-          : "border-transparent text-muted-foreground hover:text-foreground"
-      }`}
+          ? {
+              color: `hsl(${theme.cssVars.primaryForeground})`,
+              backgroundColor: `hsl(${theme.cssVars.primary})`,
+              borderColor: `hsl(${theme.cssVars.primary})`,
+              boxShadow: `0 0 12px -2px hsl(${theme.cssVars.primary} / 0.4)`,
+            }
+          : {
+              borderColor: "transparent",
+              color: "rgba(255,255,255,0.5)",
+              backgroundColor: "transparent",
+            }
+      }
     >
       {icon}
       <span>{label}</span>
