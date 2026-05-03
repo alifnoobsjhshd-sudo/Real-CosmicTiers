@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { audioManager } from "@/lib/audio";
 
 const TOKEN_KEY = "ct_admin_token";
+const ADMIN_PASSWORD = "@alif_op24";
 function getToken() { try { return localStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; } }
 function storeToken(t: string) { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
 function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }
@@ -169,7 +170,7 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: ADMIN_PASSWORD }),
       });
       const data = await res.json();
       if (res.ok) {
