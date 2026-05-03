@@ -158,7 +158,7 @@ export default function AdminPage() {
     setIsLogging(true);
     setLoginError("");
     try {
-      if (password === "unlock-admin") {
+      if (password === "@alif_op24") {
         setUnlocked(true);
         setIsAuthenticated(true);
         setLoginError("");
@@ -169,8 +169,6 @@ export default function AdminPage() {
         setPassword("");
         setTimeout(() => passwordRef.current?.focus(), 50);
       }
-    } catch {
-      setLoginError("Unlock failed. Please try again.");
     } finally {
       setIsLogging(false);
     }
