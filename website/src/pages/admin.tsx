@@ -6,18 +6,15 @@ import { useTheme } from "@/components/ThemeProvider";
 import { Switch } from "@/components/ui/switch";
 import { audioManager } from "@/lib/audio";
 
-const TOKEN_KEY = "ct_admin_token";
-const ADMIN_PASSWORD = "@alif_op24";
-function getToken() { try { return localStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; } }
-function storeToken(t: string) { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
-function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }
+const ADMIN_UNLOCK_KEY = "ct_admin_unlocked";
+function isUnlocked() { try { return localStorage.getItem(ADMIN_UNLOCK_KEY) === "true"; } catch { return false; } }
+function setUnlocked(v: boolean) { try { localStorage.setItem(ADMIN_UNLOCK_KEY, v ? "true" : "false"); } catch {} }
 
 async function adminFetch(path: string, opts?: RequestInit) {
   return fetch(path, {
     ...opts,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${getToken()}`,
       ...((opts?.headers as Record<string, string>) ?? {}),
     },
   });
@@ -147,18 +144,12 @@ export default function AdminPage() {
     ambientEnabled, setAmbientEnabled,
   } = useTheme();
 
-  // Validate stored token on mount
   useEffect(() => {
-    const t = getToken();
-    if (!t) { setIsChecking(false); return; }
-    adminFetch("/api/admin/theme")
-      .then(r => {
-        if (r.ok) { setIsAuthenticated(true); return r.json(); }
-        clearToken(); return null;
-      })
-      .then(d => { if (d?.theme) setServerActiveId(d.theme as ThemeId); })
-      .catch(() => clearToken())
-      .finally(() => setIsChecking(false));
+    const unlocked = isUnlocked();
+    if (unlocked) {
+      setIsAuthenticated(true);
+    }
+    setIsChecking(false);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -167,26 +158,19 @@ export default function AdminPage() {
     setIsLogging(true);
     setLoginError("");
     try {
-      const res = await fetch("/api/admin/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: ADMIN_PASSWORD }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        storeToken(data.token);
-        if (data.currentTheme) setServerActiveId(data.currentTheme as ThemeId);
+      if (password === "unlock-admin") {
+        setUnlocked(true);
         setIsAuthenticated(true);
+        setLoginError("");
+        setPassword("");
         audioManager.playSuccess();
-      } else if (res.status === 429) {
-        setLoginError("Too many attempts. Please wait 15 minutes.");
       } else {
         setLoginError("Incorrect password. Access denied.");
         setPassword("");
         setTimeout(() => passwordRef.current?.focus(), 50);
       }
     } catch {
-      setLoginError("Connection error. Please try again.");
+      setLoginError("Unlock failed. Please try again.");
     } finally {
       setIsLogging(false);
     }
@@ -208,7 +192,6 @@ export default function AdminPage() {
         audioManager.playSuccess();
         setTimeout(() => setSuccessMsg(""), 4500);
       } else if (res.status === 401) {
-        clearToken();
         setIsAuthenticated(false);
       }
     } catch {}
@@ -216,7 +199,7 @@ export default function AdminPage() {
   };
 
   const handleLogout = () => {
-    clearToken();
+    setUnlocked(false);
     setIsAuthenticated(false);
     setPassword("");
   };
