@@ -82,24 +82,26 @@ export default function UserPage() {
     <div className="min-h-screen bg-background text-foreground">
       <Navbar onSearch={() => {}} discordLink={discordLink} />
 
-      <div className="max-w-3xl mx-auto px-4 py-6">
-        <button
-          onClick={() => navigate("/")}
-          data-testid="button-back-home"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Leaderboard
-        </button>
+      <div className="px-4 py-6 flex flex-col items-center">
+        <div className="w-full max-w-xl">
+          <button
+            onClick={() => navigate("/")}
+            data-testid="button-back-home"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Leaderboard
+          </button>
+        </div>
 
         {loading && (
-          <div className="rounded-lg border border-border p-8 text-center text-muted-foreground" data-testid="text-user-loading">
+          <div className="w-full max-w-xl rounded-lg border border-border p-8 text-center text-muted-foreground" data-testid="text-user-loading">
             Loading player profile…
           </div>
         )}
 
         {!loading && !player && (
-          <div className="rounded-lg border border-border p-8 text-center" data-testid="text-user-not-found">
+          <div className="w-full max-w-xl rounded-lg border border-border p-8 text-center" data-testid="text-user-not-found">
             <h2 className="text-xl font-bold text-foreground mb-2">Player not found</h2>
             <p className="text-muted-foreground text-sm">
               No player named "{decodeURIComponent(params.username || "")}" exists on CosmicTiers.
@@ -107,7 +109,11 @@ export default function UserPage() {
           </div>
         )}
 
-        {!loading && player && <ProfileView player={player} />}
+        {!loading && player && (
+          <div className="w-full max-w-xl">
+            <ProfileView player={player} />
+          </div>
+        )}
       </div>
     </div>
   );
