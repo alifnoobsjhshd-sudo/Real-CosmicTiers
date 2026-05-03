@@ -136,6 +136,7 @@ export default function AdminPage() {
 
   const {
     setTheme,
+    theme,
     particlesEnabled, setParticlesEnabled,
     particleDensity, setParticleDensity,
     soundEnabled, setSoundEnabled,
@@ -289,11 +290,13 @@ export default function AdminPage() {
               data-testid="button-admin-login"
               type="submit"
               disabled={!password || isLogging}
-              className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2"
               style={{
-                background: "linear-gradient(135deg, rgba(139,92,246,0.85) 0%, rgba(109,40,217,0.85) 100%)",
-                border: "1px solid rgba(139,92,246,0.35)",
-                opacity: !password || isLogging ? 0.55 : 1,
+                backgroundColor: `hsl(${THEMES.cosmic.cssVars.primary})`,
+                color: `hsl(${THEMES.cosmic.cssVars.primaryForeground})`,
+                border: `1px solid hsl(${THEMES.cosmic.cssVars.primary} / 0.5)`,
+                boxShadow: !password || isLogging ? "none" : `0 0 16px -2px hsl(${THEMES.cosmic.cssVars.primary} / 0.5)`,
+                opacity: !password || isLogging ? 0.6 : 1,
               }}
             >
               {isLogging
@@ -347,11 +350,11 @@ export default function AdminPage() {
           <button
             data-testid="button-logout"
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-300"
             style={{
-              background: "rgba(239,68,68,0.07)",
-              border: "1px solid rgba(239,68,68,0.13)",
-              color: "rgba(239,68,68,0.65)",
+              background: `hsl(${theme.cssVars.primary} / 0.12)`,
+              border: `1px solid hsl(${theme.cssVars.primary} / 0.25)`,
+              color: `hsl(${theme.cssVars.primary})`,
             }}
           >
             <LogOut className="h-3.5 w-3.5" /> Logout

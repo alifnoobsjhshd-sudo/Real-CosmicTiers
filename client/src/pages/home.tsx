@@ -200,8 +200,12 @@ export default function Home() {
               href={discordLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-all hover:opacity-90"
-              style={{ backgroundColor: "#5865F2", color: "white" }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-all hover:opacity-90 duration-300"
+              style={{
+                backgroundColor: `hsl(${theme.cssVars.primary})`,
+                color: `hsl(${theme.cssVars.primaryForeground})`,
+                boxShadow: `0 0 12px -2px hsl(${theme.cssVars.primary} / 0.4)`,
+              }}
               data-testid="link-discord-nav"
             >
               <SiDiscord className="h-4 w-4" />

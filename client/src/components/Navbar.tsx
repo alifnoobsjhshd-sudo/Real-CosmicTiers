@@ -61,8 +61,12 @@ export function Navbar({ onSearch, discordLink }: NavbarProps) {
           href={discordLink || "#"}
           target="_blank"
           rel="noopener noreferrer"
-          className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-all hover:scale-105"
-          style={{ backgroundColor: "#5865F2", color: "white" }}
+          className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-all hover:scale-105 duration-300"
+          style={{
+            backgroundColor: `hsl(${theme.cssVars.primary})`,
+            color: `hsl(${theme.cssVars.primaryForeground})`,
+            boxShadow: `0 0 12px -2px hsl(${theme.cssVars.primary} / 0.4)`,
+          }}
           data-testid="link-discord"
         >
           <SiDiscord className="h-4 w-4" />
@@ -95,8 +99,12 @@ export function Navbar({ onSearch, discordLink }: NavbarProps) {
             href={discordLink || "#"}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium"
-            style={{ backgroundColor: "#5865F2", color: "white" }}
+            className="flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-all duration-300"
+            style={{
+              backgroundColor: `hsl(${theme.cssVars.primary})`,
+              color: `hsl(${theme.cssVars.primaryForeground})`,
+              boxShadow: `0 0 12px -2px hsl(${theme.cssVars.primary} / 0.4)`,
+            }}
             data-testid="link-discord-mobile"
           >
             <SiDiscord className="h-4 w-4" />
