@@ -3,10 +3,71 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import path from "path";
 import fs from "fs";
+import { createHmac, timingSafeEqual } from "crypto";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const INTERNAL_API_KEY = process.env["INTERNAL_API_KEY"] ?? "";
 const DEFAULT_SKIN_PATH = path.resolve(process.cwd(), "default-skin.png");
 const TITLE_ICONS_DIR = path.resolve(process.cwd(), "title-icons");
+
+// ── Admin auth ───────────────────────────────────────────────────────────────
+const authAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_AUTH_ATTEMPTS = 5;
+const AUTH_WINDOW_MS = 15 * 60 * 1000;
+let cachedTheme = "cosmic";
+const VALID_THEMES = new Set([
+  "cosmic", "summer", "christmas", "winter", "raining",
+  "cherry_blossom", "blossom", "moon", "april_fool", "halloween",
+]);
+
+function checkRateLimit(ip: string): { ok: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const entry = authAttempts.get(ip);
+  if (!entry || entry.resetAt < now) {
+    authAttempts.set(ip, { count: 1, resetAt: now + AUTH_WINDOW_MS });
+    return { ok: true };
+  }
+  if (entry.count >= MAX_AUTH_ATTEMPTS) {
+    return { ok: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
+  }
+  entry.count++;
+  return { ok: true };
+}
+
+function makeAdminToken(): string {
+  const secret = process.env["ADMIN_PASSWORD"] ?? "";
+  const day = Math.floor(Date.now() / 86400000);
+  return createHmac("sha256", secret + "ct-admin-v1").update(`admin:${day}`).digest("hex");
+}
+
+function verifyAdminToken(token: string): boolean {
+  const secret = process.env["ADMIN_PASSWORD"] ?? "";
+  if (!secret || !token || !/^[0-9a-f]{64}$/i.test(token)) return false;
+  const day = Math.floor(Date.now() / 86400000);
+  for (const d of [day, day - 1]) {
+    try {
+      const expected = createHmac("sha256", secret + "ct-admin-v1")
+        .update(`admin:${d}`)
+        .digest("hex");
+      if (timingSafeEqual(Buffer.from(token, "hex"), Buffer.from(expected, "hex"))) return true;
+    } catch {}
+  }
+  return false;
+}
+
+function adminAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+  const auth = req.headers["authorization"] as string | undefined;
+  if (!auth?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (!verifyAdminToken(auth.slice(7))) {
+    res.status(401).json({ error: "Invalid or expired session" });
+    return;
+  }
+  next();
+}
 
 const MC_USERNAME_RE = /^[a-zA-Z0-9_]{1,16}$/;
 const MOJANG_HEAD_TTL_MS = 60 * 60 * 1000;
@@ -477,6 +538,87 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.error("[top-players]", err);
       res.status(500).json({ error: "Internal server error" });
     }
+  });
+
+  // ── Load theme from DB on startup ────────────────────────────────────────────
+  try {
+    const rows = await db.execute(sql`SELECT value FROM site_settings WHERE key = 'theme' LIMIT 1`);
+    const row = (rows as any).rows?.[0] ?? (Array.isArray(rows) ? rows[0] : null);
+    if (row?.value && VALID_THEMES.has(row.value)) {
+      cachedTheme = row.value;
+    }
+  } catch (e) {
+    console.warn("[theme] DB init failed:", (e as Error).message);
+  }
+
+  // ── Public: get active theme ─────────────────────────────────────────────────
+  app.get("/api/theme", (_req, res) => {
+    res.json({ theme: cachedTheme });
+  });
+
+  // ── Admin: authenticate ──────────────────────────────────────────────────────
+  app.post("/api/admin/auth", (req, res) => {
+    const adminPassword = process.env["ADMIN_PASSWORD"] ?? "";
+    if (!adminPassword) {
+      res.status(503).json({ error: "Admin access not configured on this server." });
+      return;
+    }
+
+    const ip = String(
+      (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0].trim() ??
+      req.socket.remoteAddress ?? "unknown"
+    ).slice(0, 64);
+
+    const rate = checkRateLimit(ip);
+    if (!rate.ok) {
+      res.status(429).json({ error: `Too many attempts. Retry in ${rate.retryAfter}s.` });
+      return;
+    }
+
+    const { password } = (req.body ?? {}) as { password?: unknown };
+    let match = false;
+    try {
+      if (typeof password === "string" && password.length > 0 && password.length <= 256) {
+        const padLen = Math.max(password.length, adminPassword.length, 32);
+        const a = Buffer.alloc(padLen);
+        const b = Buffer.alloc(padLen);
+        Buffer.from(password).copy(a);
+        Buffer.from(adminPassword).copy(b);
+        match = timingSafeEqual(a, b);
+      }
+    } catch {}
+
+    if (!match) {
+      res.status(401).json({ error: "Incorrect password." });
+      return;
+    }
+
+    authAttempts.delete(ip);
+    res.json({ token: makeAdminToken(), expiresIn: 172800, currentTheme: cachedTheme });
+  });
+
+  // ── Admin: get theme (protected) ─────────────────────────────────────────────
+  app.get("/api/admin/theme", adminAuthMiddleware, (_req, res) => {
+    res.json({ theme: cachedTheme });
+  });
+
+  // ── Admin: set theme (protected) ─────────────────────────────────────────────
+  app.post("/api/admin/theme", adminAuthMiddleware, async (req, res) => {
+    const { theme } = (req.body ?? {}) as { theme?: unknown };
+    if (typeof theme !== "string" || !VALID_THEMES.has(theme)) {
+      res.status(400).json({ error: "Invalid theme." });
+      return;
+    }
+    cachedTheme = theme;
+    try {
+      await db.execute(sql`
+        INSERT INTO site_settings (key, value) VALUES ('theme', ${theme})
+        ON CONFLICT (key) DO UPDATE SET value = ${theme}
+      `);
+    } catch (e) {
+      console.warn("[theme] Persist to DB failed:", (e as Error).message);
+    }
+    res.json({ ok: true, theme: cachedTheme });
   });
 
   return httpServer;
