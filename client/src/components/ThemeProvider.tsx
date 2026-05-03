@@ -15,6 +15,8 @@ interface ThemeContextType {
   setSoundEnabled: (v: boolean) => void;
   ambientEnabled: boolean;
   setAmbientEnabled: (v: boolean) => void;
+  backgroundAppearanceEnabled: boolean;
+  setBackgroundAppearanceEnabled: (v: boolean) => void;
   playClick: () => void;
   playHover: () => void;
 }
@@ -31,6 +33,8 @@ const ThemeContext = createContext<ThemeContextType>({
   setSoundEnabled: () => {},
   ambientEnabled: false,
   setAmbientEnabled: () => {},
+  backgroundAppearanceEnabled: true,
+  setBackgroundAppearanceEnabled: () => {},
   playClick: () => {},
   playHover: () => {},
 });
@@ -59,6 +63,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
   const [ambientEnabled, setAmbientEnabledState] = useState(() =>
     safeGet("ct_ambient", "false") === "true"
+  );
+  const [backgroundAppearanceEnabled, setBackgroundAppearanceEnabledState] = useState(() =>
+    safeGet("ct_bg_appearance", "true") !== "false"
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -151,6 +158,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     else audioManager.stopAmbient();
   }, [themeId]);
 
+  const setBackgroundAppearanceEnabled = useCallback((v: boolean) => {
+    setBackgroundAppearanceEnabledState(v);
+    safeSet("ct_bg_appearance", String(v));
+  }, []);
+
   const playClick = useCallback(() => audioManager.playClick(), []);
   const playHover = useCallback(() => audioManager.playHover(), []);
 
@@ -161,6 +173,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       particleDensity, setParticleDensity,
       soundEnabled, setSoundEnabled,
       ambientEnabled, setAmbientEnabled,
+      backgroundAppearanceEnabled, setBackgroundAppearanceEnabled,
       playClick, playHover,
     }}>
       <div

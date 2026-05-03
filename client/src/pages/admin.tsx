@@ -140,6 +140,7 @@ export default function AdminPage() {
     particleDensity, setParticleDensity,
     soundEnabled, setSoundEnabled,
     ambientEnabled, setAmbientEnabled,
+    backgroundAppearanceEnabled, setBackgroundAppearanceEnabled,
   } = useTheme();
 
   useEffect(() => {
@@ -489,6 +490,21 @@ export default function AdminPage() {
                 </div>
               </div>
               <Switch data-testid="switch-ambient" checked={ambientEnabled} onCheckedChange={setAmbientEnabled} />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(167,139,250,0.11)" }}>
+                  <Sparkles className="h-4 w-4 text-violet-400" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">Theme Background</div>
+                  <div className="text-xs" style={{ color: "rgba(255,255,255,0.38)" }}>
+                    Show theme-specific leaderboard backgrounds
+                  </div>
+                </div>
+              </div>
+              <Switch data-testid="switch-background-appearance" checked={backgroundAppearanceEnabled} onCheckedChange={setBackgroundAppearanceEnabled} />
             </div>
           </div>
 

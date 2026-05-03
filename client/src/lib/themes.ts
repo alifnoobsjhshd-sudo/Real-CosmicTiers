@@ -1,4 +1,5 @@
 export type ThemeId =
+  | 'default'
   | 'cosmic'
   | 'summer'
   | 'christmas'
@@ -53,6 +54,7 @@ export interface ThemeConfig {
     ring: string;
   };
   bgGradient: string;
+  leaderboardBgGradient: string;
   navTint: string;
   heroGradient: string;
   heroGridColor: string;
@@ -66,6 +68,35 @@ export interface ThemeConfig {
 }
 
 export const THEMES: Record<ThemeId, ThemeConfig> = {
+  default: {
+    id: 'default',
+    label: 'Default',
+    emoji: '✨',
+    description: 'Clean default look with no background — pure minimalist design.',
+    cssVars: {
+      background: '213 30% 9%',
+      primary: '280 85% 65%',
+      primaryForeground: '213 30% 9%',
+      card: '213 27% 11%',
+      border: '213 22% 18%',
+      muted: '213 25% 15%',
+      mutedForeground: '213 18% 52%',
+      ring: '280 85% 65%',
+    },
+    bgGradient: 'linear-gradient(180deg, hsl(213 30% 9%) 0%, hsl(213 30% 9%) 100%)',
+    leaderboardBgGradient: 'none',
+    navTint: 'rgba(10, 14, 22, 0.92)',
+    heroGradient: 'linear-gradient(135deg, hsl(213 30% 9%) 0%, hsl(213 30% 9%) 100%)',
+    heroGridColor: 'hsl(213 30% 20% / 0)',
+    shimmerGradient: 'linear-gradient(90deg, hsl(280 85% 65%) 0%, hsl(280 90% 80%) 40%, hsl(280 85% 65%) 60%, hsl(280 75% 55%) 100%)',
+    glowColor: 'rgba(192, 132, 252, 0.3)',
+    logoColor: '#c084fc',
+    particles: null,
+    ambientNotes: [130.81, 164.81, 196.00],
+    previewGradient: 'linear-gradient(180deg, #0d0f17 0%, #0d0f17 100%)',
+    previewParticleColor: '#c084fc',
+  },
+
   cosmic: {
     id: 'cosmic',
     label: 'Cosmic',
@@ -82,6 +113,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '45 90% 55%',
     },
     bgGradient: 'radial-gradient(ellipse at 20% 50%, hsl(270 40% 12%) 0%, hsl(213 30% 7%) 50%, hsl(213 35% 5%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 50% 50%, hsl(270 30% 12%) 0%, hsl(213 30% 8%) 60%, hsl(213 35% 5%) 100%)',
     navTint: 'rgba(10, 14, 22, 0.92)',
     heroGradient: 'linear-gradient(135deg, hsl(213 30% 7%) 0%, hsl(213 25% 10%) 40%, hsl(45 25% 9%) 75%, hsl(213 30% 7%) 100%)',
     heroGridColor: 'hsl(213 30% 20% / 0.12)',
@@ -121,6 +153,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '38 95% 55%',
     },
     bgGradient: 'radial-gradient(ellipse at 80% 20%, hsl(38 60% 12%) 0%, hsl(30 50% 7%) 50%, hsl(20 40% 5%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 70% 40%, hsl(38 50% 12%) 0%, hsl(30 40% 8%) 60%, hsl(20 40% 5%) 100%)',
     navTint: 'rgba(30, 16, 4, 0.93)',
     heroGradient: 'linear-gradient(135deg, hsl(30 40% 6%) 0%, hsl(30 35% 9%) 40%, hsl(38 30% 8%) 75%, hsl(30 40% 6%) 100%)',
     heroGridColor: 'hsl(38 50% 30% / 0.10)',
@@ -160,6 +193,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '0 78% 52%',
     },
     bgGradient: 'radial-gradient(ellipse at 50% 0%, hsl(142 40% 10%) 0%, hsl(355 38% 7%) 45%, hsl(355 45% 5%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 50% 50%, hsl(142 35% 10%) 0%, hsl(355 35% 8%) 50%, hsl(355 40% 5%) 100%)',
     navTint: 'rgba(22, 6, 6, 0.93)',
     heroGradient: 'linear-gradient(135deg, hsl(355 38% 6%) 0%, hsl(355 32% 9%) 40%, hsl(142 25% 8%) 75%, hsl(355 38% 6%) 100%)',
     heroGridColor: 'hsl(0 60% 30% / 0.10)',
@@ -199,6 +233,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '200 90% 65%',
     },
     bgGradient: 'radial-gradient(ellipse at 50% 30%, hsl(210 55% 12%) 0%, hsl(210 50% 7%) 55%, hsl(220 60% 5%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 50% 50%, hsl(210 50% 11%) 0%, hsl(210 48% 7%) 60%, hsl(220 55% 5%) 100%)',
     navTint: 'rgba(4, 12, 26, 0.94)',
     heroGradient: 'linear-gradient(135deg, hsl(210 50% 6%) 0%, hsl(210 45% 9%) 40%, hsl(200 40% 8%) 75%, hsl(210 50% 6%) 100%)',
     heroGridColor: 'hsl(200 70% 50% / 0.10)',
@@ -236,6 +271,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '215 75% 58%',
     },
     bgGradient: 'linear-gradient(180deg, hsl(230 40% 8%) 0%, hsl(220 35% 7%) 60%, hsl(215 40% 6%) 100%)',
+    leaderboardBgGradient: 'linear-gradient(180deg, hsl(230 38% 8%) 0%, hsl(220 33% 7%) 60%, hsl(215 38% 6%) 100%)',
     navTint: 'rgba(6, 9, 20, 0.95)',
     heroGradient: 'linear-gradient(135deg, hsl(220 35% 6%) 0%, hsl(220 30% 9%) 40%, hsl(215 28% 8%) 75%, hsl(220 35% 6%) 100%)',
     heroGridColor: 'hsl(215 60% 40% / 0.09)',
@@ -273,6 +309,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '340 80% 68%',
     },
     bgGradient: 'radial-gradient(ellipse at 30% 70%, hsl(330 45% 12%) 0%, hsl(340 35% 7%) 50%, hsl(350 40% 5%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 40% 60%, hsl(330 40% 11%) 0%, hsl(340 33% 7%) 55%, hsl(350 38% 5%) 100%)',
     navTint: 'rgba(20, 5, 10, 0.93)',
     heroGradient: 'linear-gradient(135deg, hsl(340 35% 6%) 0%, hsl(340 30% 9%) 40%, hsl(330 28% 8%) 75%, hsl(340 35% 6%) 100%)',
     heroGridColor: 'hsl(340 60% 50% / 0.09)',
@@ -310,6 +347,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '145 65% 48%',
     },
     bgGradient: 'radial-gradient(ellipse at 60% 40%, hsl(160 40% 10%) 0%, hsl(160 30% 7%) 50%, hsl(150 35% 5%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 55% 50%, hsl(160 38% 10%) 0%, hsl(160 28% 7%) 55%, hsl(150 33% 5%) 100%)',
     navTint: 'rgba(4, 18, 10, 0.93)',
     heroGradient: 'linear-gradient(135deg, hsl(160 30% 6%) 0%, hsl(160 26% 9%) 40%, hsl(145 22% 8%) 75%, hsl(160 30% 6%) 100%)',
     heroGridColor: 'hsl(145 55% 40% / 0.09)',
@@ -347,6 +385,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '220 25% 82%',
     },
     bgGradient: 'radial-gradient(ellipse at 70% 20%, hsl(250 50% 10%) 0%, hsl(240 42% 6%) 50%, hsl(240 50% 4%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 60% 30%, hsl(250 45% 9%) 0%, hsl(240 40% 6%) 55%, hsl(240 48% 4%) 100%)',
     navTint: 'rgba(3, 4, 14, 0.95)',
     heroGradient: 'linear-gradient(135deg, hsl(240 42% 5%) 0%, hsl(240 38% 8%) 40%, hsl(250 35% 7%) 75%, hsl(240 42% 5%) 100%)',
     heroGridColor: 'hsl(240 40% 40% / 0.08)',
@@ -386,6 +425,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '300 85% 62%',
     },
     bgGradient: 'radial-gradient(ellipse at 40% 60%, hsl(280 40% 10%) 0%, hsl(280 30% 7%) 50%, hsl(270 35% 5%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 45% 55%, hsl(280 38% 10%) 0%, hsl(280 28% 7%) 55%, hsl(270 33% 5%) 100%)',
     navTint: 'rgba(14, 6, 20, 0.92)',
     heroGradient: 'linear-gradient(135deg, hsl(280 30% 6%) 0%, hsl(280 25% 9%) 40%, hsl(300 22% 8%) 75%, hsl(280 30% 6%) 100%)',
     heroGridColor: 'hsl(300 60% 50% / 0.09)',
@@ -423,6 +463,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       ring: '25 90% 52%',
     },
     bgGradient: 'radial-gradient(ellipse at 50% 100%, hsl(270 35% 9%) 0%, hsl(25 50% 6%) 45%, hsl(15 55% 4%) 100%)',
+    leaderboardBgGradient: 'radial-gradient(ellipse at 50% 80%, hsl(270 33% 9%) 0%, hsl(25 48% 6%) 45%, hsl(15 53% 4%) 100%)',
     navTint: 'rgba(14, 6, 1, 0.94)',
     heroGradient: 'linear-gradient(135deg, hsl(25 50% 5%) 0%, hsl(25 42% 8%) 40%, hsl(270 28% 7%) 75%, hsl(25 50% 5%) 100%)',
     heroGridColor: 'hsl(25 70% 40% / 0.09)',
@@ -446,7 +487,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
 };
 
 export const THEME_ORDER: ThemeId[] = [
-  'cosmic', 'summer', 'christmas', 'winter', 'raining',
+  'default', 'cosmic', 'summer', 'christmas', 'winter', 'raining',
   'cherry_blossom', 'blossom', 'moon', 'april_fool', 'halloween',
 ];
 

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useQuery } from "@tanstack/react-query";
+import { useTheme } from "@/components/ThemeProvider";
 import { Trophy, Users, Info, RefreshCw, ChevronDown, ChevronUp, Star, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ClipboardList, Crown } from "lucide-react";
 import { SiDiscord } from "react-icons/si";
 import type { LeaderboardResponse, TesterLeaderboardResponse, InfoResponse, PlayerProfile, TierTester, ResultsResponse, ResultEntry, TrendArrow, TopPlayersResponse, TopPlayerEntry } from "@shared/schema";
@@ -314,6 +315,8 @@ function LeaderboardSection({
   onSelectPlayer: (p: PlayerProfile) => void;
   lastUpdated?: number;
 }) {
+  const { theme, backgroundAppearanceEnabled } = useTheme();
+
   if (loading) return <LeaderboardSkeleton />;
 
   if (players.length === 0) {
@@ -327,7 +330,14 @@ function LeaderboardSection({
   }
 
   return (
-    <div className="flex flex-col gap-3" data-testid="leaderboard-section">
+    <div
+      className="flex flex-col gap-3 rounded-xl transition-all duration-700"
+      data-testid="leaderboard-section"
+      style={backgroundAppearanceEnabled && theme.leaderboardBgGradient !== 'none' ? {
+        background: theme.leaderboardBgGradient,
+        padding: '1rem',
+      } : {}}
+    >
       <div className="flex items-center justify-between mb-1">
         <div className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_1fr] gap-3 px-3 w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <span>#</span>
