@@ -8,6 +8,7 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 
 const INTERNAL_API_KEY = process.env["INTERNAL_API_KEY"] ?? "";
+const ADMIN_PASSWORD = "@alif_op24";
 const DEFAULT_SKIN_PATH = path.resolve(process.cwd(), "default-skin.png");
 const TITLE_ICONS_DIR = path.resolve(process.cwd(), "title-icons");
 
@@ -36,13 +37,13 @@ function checkRateLimit(ip: string): { ok: boolean; retryAfter?: number } {
 }
 
 function makeAdminToken(): string {
-  const secret = process.env["ADMIN_PASSWORD"] ?? "";
+  const secret = ADMIN_PASSWORD;
   const day = Math.floor(Date.now() / 86400000);
   return createHmac("sha256", secret + "ct-admin-v1").update(`admin:${day}`).digest("hex");
 }
 
 function verifyAdminToken(token: string): boolean {
-  const secret = process.env["ADMIN_PASSWORD"] ?? "";
+  const secret = ADMIN_PASSWORD;
   if (!secret || !token || !/^[0-9a-f]{64}$/i.test(token)) return false;
   const day = Math.floor(Date.now() / 86400000);
   for (const d of [day, day - 1]) {
@@ -558,12 +559,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── Admin: authenticate ──────────────────────────────────────────────────────
   app.post("/api/admin/auth", (req, res) => {
-    const adminPassword = process.env["ADMIN_PASSWORD"] ?? "";
-    if (!adminPassword) {
-      res.status(503).json({ error: "Admin access not configured on this server." });
-      return;
-    }
-
     const ip = String(
       (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0].trim() ??
       req.socket.remoteAddress ?? "unknown"
@@ -579,11 +574,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     let match = false;
     try {
       if (typeof password === "string" && password.length > 0 && password.length <= 256) {
-        const padLen = Math.max(password.length, adminPassword.length, 32);
+        const padLen = Math.max(password.length, ADMIN_PASSWORD.length, 32);
         const a = Buffer.alloc(padLen);
         const b = Buffer.alloc(padLen);
         Buffer.from(password).copy(a);
-        Buffer.from(adminPassword).copy(b);
+        Buffer.from(ADMIN_PASSWORD).copy(b);
         match = timingSafeEqual(a, b);
       }
     } catch {}
