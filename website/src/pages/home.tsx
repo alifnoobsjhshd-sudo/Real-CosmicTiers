@@ -1294,7 +1294,7 @@ function ProfileDrawer({
 
   return (
     <div
-      className={`fixed inset-0 z-[150] flex justify-end transition-[opacity,visibility] duration-300 ${
+      className={`fixed inset-0 z-[150] flex items-center justify-center transition-[opacity,visibility] duration-300 ${
         open ? "opacity-100 visible" : "opacity-0 invisible"
       }`}
       aria-modal={open}
@@ -1303,14 +1303,14 @@ function ProfileDrawer({
       {/* Backdrop */}
       <div
         className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.58)", backdropFilter: "blur(3px)" }}
+        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
 
-      {/* Panel — slides from right */}
+      {/* Centered modal panel */}
       <div
-        className={`relative w-full sm:max-w-[440px] flex flex-col transition-transform duration-300 ease-out ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`relative w-full max-w-[480px] mx-4 flex flex-col max-h-[90vh] rounded-xl overflow-hidden transition-[transform,opacity] duration-300 ease-out ${
+          open ? "scale-100 opacity-100" : "scale-95 opacity-0"
         } ${isTop3 ? "profile-bg-underwater" : ""}`}
         style={{ backgroundColor: "hsl(213 30% 9%)" }}
         onClick={(e) => e.stopPropagation()}
@@ -1322,9 +1322,9 @@ function ProfileDrawer({
           </div>
         )}
 
-        {/* Sticky header */}
+        {/* Header */}
         <div
-          className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-border/40 flex-shrink-0"
+          className="flex items-center justify-between px-4 py-3 border-b border-border/40 flex-shrink-0"
           style={{ background: "rgba(8,13,20,0.88)", backdropFilter: "blur(12px)" }}
         >
           <span className="text-sm font-semibold text-foreground/75 truncate pr-3">
@@ -1341,7 +1341,7 @@ function ProfileDrawer({
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto profile-drawer-scroll px-4 pt-4 pb-10">
+        <div className="overflow-y-auto profile-drawer-scroll px-4 pt-4 pb-10">
           {player && <ProfileCard player={player} rankTier={rankTier} />}
         </div>
       </div>
