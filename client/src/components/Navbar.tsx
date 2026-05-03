@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Search, Menu, X } from "lucide-react";
 import { SiDiscord } from "react-icons/si";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface NavbarProps {
   onSearch: (q: string) => void;
@@ -8,6 +9,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ onSearch, discordLink }: NavbarProps) {
+  const { theme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchVal, setSearchVal] = useState("");
 
@@ -18,20 +20,17 @@ export function Navbar({ onSearch, discordLink }: NavbarProps) {
 
   return (
     <nav
-      className="sticky top-0 z-50 w-full border-b border-border"
-      style={{ backgroundColor: "hsl(213 30% 7%)", backdropFilter: "blur(12px)" }}
+      className="sticky top-0 z-50 w-full border-b border-border transition-all duration-700"
+      style={{ backgroundColor: theme.navTint, backdropFilter: "blur(12px)" }}
       data-testid="navbar"
     >
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
         <a href="/" className="flex items-center gap-2.5 flex-shrink-0" data-testid="link-logo">
           <div className="flex items-center">
             <span
-              className="font-extrabold text-xl tracking-tight"
+              className="font-extrabold text-xl tracking-tight transition-all duration-700"
               style={{
-                background: "linear-gradient(135deg, #9B59B6 0%, #8E44AD 50%, #7D3C98 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
+                color: theme.logoColor,
               }}
             >
               COSMIC
@@ -80,7 +79,7 @@ export function Navbar({ onSearch, discordLink }: NavbarProps) {
       </div>
 
       {mobileOpen && (
-        <div className="sm:hidden border-t border-border px-4 py-3 flex flex-col gap-3" style={{ backgroundColor: "hsl(213 30% 7%)" }}>
+        <div className="sm:hidden border-t border-border px-4 py-3 flex flex-col gap-3 transition-all duration-700" style={{ backgroundColor: theme.navTint }}>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input

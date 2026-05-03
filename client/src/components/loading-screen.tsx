@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTheme } from "@/components/ThemeProvider";
 
 const GAME_MODE_IMAGES = [
   { src: '/Sword-PvP.png',   left: '6%',  top: '14%', dur: '4.0s', delay: '0.0s', size: 64, opacity: 0.90 },
@@ -40,6 +41,7 @@ interface LoadingScreenProps {
 }
 
 export function LoadingScreen({ duration = 1800, tabName, onHide }: LoadingScreenProps) {
+  const { theme } = useTheme();
   const [progress, setProgress] = useState(0);
   const [fading, setFading] = useState(false);
 
@@ -70,7 +72,7 @@ export function LoadingScreen({ duration = 1800, tabName, onHide }: LoadingScree
         fading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{
-        background: 'linear-gradient(135deg, hsl(270 65% 6%) 0%, hsl(270 50% 10%) 40%, hsl(280 42% 8%) 75%, hsl(265 65% 5%) 100%)',
+        background: theme.bgGradient,
       }}
       data-testid="loading-screen"
     >
@@ -186,7 +188,17 @@ export function LoadingScreen({ duration = 1800, tabName, onHide }: LoadingScree
           className="text-4xl sm:text-5xl xl:text-6xl font-black tracking-tight mc-animate-fade-up"
           style={{ animationDelay: '0.08s' }}
         >
-          <span className="mc-shimmer-text-purple">Cosmic</span>
+          <span
+            className="inline-block transition-all duration-700"
+            style={{
+              background: theme.shimmerGradient,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            Cosmic
+          </span>
           <span className="text-white">Tiers</span>
         </h1>
 
