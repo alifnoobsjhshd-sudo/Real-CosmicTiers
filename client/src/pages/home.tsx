@@ -72,6 +72,7 @@ export default function Home() {
   const [loadingDuration, setLoadingDuration] = useState(1800);
   const [loadingTab, setLoadingTab] = useState('');
 
+  const { theme } = useTheme();
   const [, navigate] = useLocation();
   const switchTab = (newTab: Tab) => {
     setTab(newTab);
