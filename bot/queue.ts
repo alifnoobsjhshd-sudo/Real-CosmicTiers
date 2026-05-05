@@ -176,6 +176,11 @@ async function buildQueueEmbed(guild: Guild, info: QueueInfo): Promise<EmbedBuil
 
   embed.addFields({ name: `👥 ${modeDisplay} Testers Online`, value: testerLine, inline: false });
 
+  // Show the tier tester role mention so it's visible in the embed
+  if (config.tierTesterRoleId) {
+    embed.addFields({ name: '📢 Tier Testers', value: `<@&${config.tierTesterRoleId}>`, inline: false });
+  }
+
   embed.setFooter({ text: 'Queue System — Cosmic Tiers' }).setTimestamp();
 
   return embed;
@@ -282,19 +287,26 @@ export async function createQueueChannel(
 
   const overwrites: OverwriteResolvable[] = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    // Player: view-only — cannot type in the queue channel
     {
       id: playerId,
-      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles],
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+      deny: [PermissionFlagsBits.SendMessages],
     },
   ];
+  // Tier testers: can see the queue but cannot type (read-only)
   if (config.tierTesterRoleId) overwrites.push({
     id: config.tierTesterRoleId,
-    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+    deny: [PermissionFlagsBits.SendMessages],
   });
+  // Game-mode-specific tester role: same — view only
   if (gameModeRole && gameModeRole.id !== config.tierTesterRoleId) overwrites.push({
     id: gameModeRole.id,
-    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+    deny: [PermissionFlagsBits.SendMessages],
   });
+  // Managers and mods: full access including sending messages
   if (config.staffRoleId) overwrites.push({
     id: config.staffRoleId,
     allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],

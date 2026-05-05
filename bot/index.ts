@@ -3272,6 +3272,12 @@ async function handleTierSelect(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
+  // The player being tested can NEVER select their own tier, regardless of any roles they hold
+  if (interaction.user.id === info.playerId) {
+    await interaction.reply({ content: '⛔ You cannot select your own tier result. Only the assigned tester can do this.', ephemeral: true });
+    return;
+  }
+
   // Permission check: only the accepting tester, or staff/mod/admin
   const isAcceptingTester = interaction.user.id === info.testerId;
   const hasMod   = config.modRoleId   ? member.roles.cache.has(config.modRoleId)   : false;
