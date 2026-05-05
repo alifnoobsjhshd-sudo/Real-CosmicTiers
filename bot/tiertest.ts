@@ -24,17 +24,19 @@ export const TIER_TEST_YELLOW = 0xFFBF00;
 const WEBSITE_API_URL = (process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000').replace(/\/$/, '');
 
 // ─── Button / Modal IDs ───────────────────────────────────────────────────────
-export const BUTTON_ID           = 'start_tier_test';
-export const PANEL_REGISTER_ID   = 'panel_register';
-export const MODAL_ID            = 'tier_test_modal';
-export const CLOSE_TICKET_ID     = 'close_ticket';
-export const DELETE_TICKET_ID    = 'delete_ticket';
-export const APPLY_TESTER_ID     = 'apply_tester';
-export const SELECT_GM_PREFIX    = 'select_gm';
+export const BUTTON_ID              = 'start_tier_test';
+export const PANEL_REGISTER_ID      = 'panel_register';
+export const MODAL_ID               = 'tier_test_modal';
+export const CLOSE_TICKET_ID        = 'close_ticket';
+export const DELETE_TICKET_ID       = 'delete_ticket';
+export const APPLY_TESTER_ID        = 'apply_tester';
+export const SELECT_GM_PREFIX       = 'select_gm';
+export const SELECT_AIM_TIER_PREFIX = 'select_aim_tier';
 
 export const INPUT_GAMEMODE = 'game_mode';
 
-const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP', 'cartpvp'];
+// Tiers highest → lowest for aiming tier selection
+const AIM_TIERS_HIGHEST_TO_LOWEST = ['HT1','LT1','HT2','LT2','HT3','LT3','HT4','LT4','HT5','LT5'];
 
 function displayGameMode(gameMode: string): string {
   return gameMode === 'cartpvp' ? 'Cart-PvP' : gameMode;
@@ -88,10 +90,10 @@ async function buildPanelEmbed(guild: Guild): Promise<EmbedBuilder> {
         name: '📌 How to Apply',
         value:
           '**1.** First, click **Register** to register your Minecraft account\n' +
-          '**2.** Once registered, click **Start Tier Test**\n' +
+          '**2.** Once registered, click **Get Tested**\n' +
           '**3.** Select your **Game Mode** from the buttons shown\n' +
-          '**4.** A private ticket will be created just for you\n' +
-          '**5.** A Tier Tester will join and conduct your test\n' +
+          '**4.** Select your **Aiming Tier** to enter the queue\n' +
+          '**5.** A Tier Tester will accept and conduct your test\n' +
           '**6.** Your result will be posted in the results channel',
       },
       {
@@ -105,7 +107,7 @@ async function buildPanelEmbed(guild: Guild): Promise<EmbedBuilder> {
       },
       { name: '👥 Tier Testers', value: testerLine },
     )
-    .setFooter({ text: 'Register first, then click Start Tier Test to open your ticket' })
+    .setFooter({ text: 'Register first, then click Get Tested to enter the queue' })
     .setTimestamp();
 
   const websiteLink = process.env['WEBSITE_LINK'] ?? '';
@@ -286,6 +288,22 @@ function buildGameModeRows(): ActionRowBuilder<ButtonBuilder>[] {
   return [row1, row2];
 }
 
+// ─── Aiming Tier Selection Rows ───────────────────────────────────────────────
+
+function buildAimingTierRows(gameMode: string): ActionRowBuilder<ButtonBuilder>[] {
+  const buttons = AIM_TIERS_HIGHEST_TO_LOWEST.map(tier =>
+    new ButtonBuilder()
+      .setCustomId(`${SELECT_AIM_TIER_PREFIX}:${gameMode}:${tier}`)
+      .setLabel(tier)
+      .setStyle(ButtonStyle.Secondary),
+  );
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons.slice(i, i + 5)));
+  }
+  return rows;
+}
+
 // ─── Start Tier Test Button ───────────────────────────────────────────────────
 
 export async function handleStartButton(interaction: ButtonInteraction): Promise<void> {
@@ -312,8 +330,7 @@ export async function handleStartButton(interaction: ButtonInteraction): Promise
         .setColor(TIER_TEST_YELLOW)
         .setTitle('🎮 Select Game Mode')
         .setDescription(
-          `Hi **${reg.mcUsername}**! Select the game mode you want to be tested in.\n\n` +
-          `A private ticket will be created and the appropriate testers will be notified.`,
+          `Hi **${reg.mcUsername}**! Select the game mode you want to be tested in.`,
         ),
     ],
     components: buildGameModeRows(),
@@ -325,7 +342,7 @@ function sanitizeChannelName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 20);
 }
 
-// ─── Game Mode Selected ───────────────────────────────────────────────────────
+// ─── Game Mode Selected — show aiming tier selection ─────────────────────────
 
 export async function handleGameModeSelect(interaction: ButtonInteraction, gameMode: string): Promise<void> {
   await interaction.deferUpdate();
@@ -346,15 +363,51 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
     return;
   }
 
-  // Delegate queue channel creation to queue.ts
-  await createQueueChannel(interaction, guild, gameMode, interaction.user.id, reg.mcUsername, reg.region);
+  const modeDisplay = displayGameMode(gameMode);
+
+  // Show aiming tier selection
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(TIER_TEST_YELLOW)
+        .setTitle('🎯 Select Aiming Tier')
+        .setDescription(
+          `Game mode: **${modeDisplay}**\n\nSelect the tier you are aiming for (highest → lowest).`,
+        ),
+    ],
+    components: buildAimingTierRows(gameMode),
+  });
+}
+
+// ─── Aiming Tier Selected — create queue channel ──────────────────────────────
+
+export async function handleAimingTierSelect(interaction: ButtonInteraction, gameMode: string, aimingTier: string): Promise<void> {
+  await interaction.deferUpdate();
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply({ content: '❌ This can only be used inside a server.', components: [], embeds: [] });
+    return;
+  }
+
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+  if (!reg) {
+    await interaction.editReply({
+      content: '❌ You must register first. Click the **📋 Register** button on the panel.',
+      components: [],
+      embeds: [],
+    });
+    return;
+  }
+
+  await createQueueChannel(interaction, guild, gameMode, interaction.user.id, reg.mcUsername, reg.region, aimingTier);
 }
 
 // ─── Legacy Modal Handler (kept for backward-compat if any existing modal is open) ──
 
 export async function handleTierTestModal(interaction: ModalSubmitInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
-  await interaction.editReply('❌ This form is outdated. Please use the **⚔️ Start Tier Test** button and select a game mode from the buttons shown.');
+  await interaction.editReply('❌ This form is outdated. Please use the **🎮 Get Tested** button and select a game mode from the buttons shown.');
 }
 
 // ─── Apply for Tier Tester ────────────────────────────────────────────────────

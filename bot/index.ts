@@ -72,9 +72,11 @@ import {
   DELETE_TICKET_ID,
   APPLY_TESTER_ID,
   SELECT_GM_PREFIX,
+  SELECT_AIM_TIER_PREFIX,
   TIER_TEST_YELLOW,
   handleStartButton,
   handleGameModeSelect,
+  handleAimingTierSelect,
   handleTierTestModal,
   handleCloseTicket,
   handleDeleteTicket,
@@ -3519,6 +3521,13 @@ client.on('interactionCreate', async interaction => {
       if (id.startsWith(SELECT_GM_PREFIX + ':')) {
         const gameMode = id.slice(SELECT_GM_PREFIX.length + 1);
         return await handleGameModeSelect(interaction as ButtonInteraction, gameMode);
+      }
+
+      if (id.startsWith(SELECT_AIM_TIER_PREFIX + ':')) {
+        const parts      = id.slice(SELECT_AIM_TIER_PREFIX.length + 1).split(':');
+        const gameMode   = parts[0];
+        const aimingTier = parts[1];
+        return await handleAimingTierSelect(interaction as ButtonInteraction, gameMode, aimingTier);
       }
 
       if (id.startsWith(TL_PREV_ID + ':') || id.startsWith(TL_NEXT_ID + ':')) {

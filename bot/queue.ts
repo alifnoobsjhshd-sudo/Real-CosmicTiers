@@ -38,6 +38,7 @@ export interface QueueInfo {
   mcUsername: string;
   region: string;
   gameMode: string;
+  aimingTier?: string;
 }
 
 export interface TierTestInfo {
@@ -48,6 +49,7 @@ export interface TierTestInfo {
   mcUsername: string;
   region: string;
   gameMode: string;
+  aimingTier?: string;
 }
 
 // ─── In-memory state ──────────────────────────────────────────────────────────
@@ -69,16 +71,29 @@ export function removeTierTestEntry(channelId: string): void {
 
 // ─── Topic parsing (for bot-restart resilience) ───────────────────────────────
 
-export function parseQueueTopic(topic: string): { playerId: string; mcUsername: string; region: string; gameMode: string } | null {
+export function parseQueueTopic(topic: string): { playerId: string; mcUsername: string; region: string; gameMode: string; aimingTier?: string } | null {
   const parts = topic.split('|');
   if (parts.length < 5 || parts[0] !== 'QUEUE') return null;
-  return { playerId: parts[1], mcUsername: parts[2], region: parts[3], gameMode: parts[4] };
+  return {
+    playerId: parts[1],
+    mcUsername: parts[2],
+    region: parts[3],
+    gameMode: parts[4],
+    aimingTier: parts[5] ?? undefined,
+  };
 }
 
-export function parseTierTestTopic(topic: string): { playerId: string; testerId: string; mcUsername: string; region: string; gameMode: string } | null {
+export function parseTierTestTopic(topic: string): { playerId: string; testerId: string; mcUsername: string; region: string; gameMode: string; aimingTier?: string } | null {
   const parts = topic.split('|');
   if (parts.length < 6 || parts[0] !== 'TIERTEST') return null;
-  return { playerId: parts[1], testerId: parts[2], mcUsername: parts[3], region: parts[4], gameMode: parts[5] };
+  return {
+    playerId: parts[1],
+    testerId: parts[2],
+    mcUsername: parts[3],
+    region: parts[4],
+    gameMode: parts[5],
+    aimingTier: parts[6] ?? undefined,
+  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -144,24 +159,26 @@ async function buildQueueEmbed(guild: Guild, info: QueueInfo): Promise<EmbedBuil
     testerLine = `🟢 **${online}** online  ·  👥 **${total}** total`;
   }
 
-  return new EmbedBuilder()
-    .setTitle(`🎮 Queue — ${modeLabel} Tier Test`)
+  const embed = new EmbedBuilder()
+    .setTitle(`Queue Open <@${info.playerId}> You are on queue.`)
     .setColor(QUEUE_YELLOW)
     .setThumbnail(`${WEBSITE_API_URL}/api/skin/${info.playerId}`)
-    .setDescription(
-      `**${info.mcUsername}** — you are now in the queue!\n\n` +
-      `Please **wait** — a Tier Tester will accept your test shortly.\n\n` +
-      `*If you are a Tier Tester, click **▶️ Next** to start the test.*`,
-    )
     .addFields(
-      { name: '👤 Player',    value: `<@${info.playerId}>`,   inline: true },
+      { name: '👤 Player',    value: `<@${info.playerId}>`,    inline: true },
       { name: '🎮 IGN',       value: `\`${info.mcUsername}\``, inline: true },
       { name: '🌍 Region',    value: `\`${info.region}\``,     inline: true },
       { name: '⚔️ Game Mode', value: modeLabel,                inline: true },
-      { name: `👥 ${modeDisplay} Testers Online`, value: testerLine, inline: false },
-    )
-    .setFooter({ text: 'Queue System — Cosmic Tiers' })
-    .setTimestamp();
+    );
+
+  if (info.aimingTier) {
+    embed.addFields({ name: '🎯 Aiming Tier', value: `\`${info.aimingTier}\``, inline: true });
+  }
+
+  embed.addFields({ name: `👥 ${modeDisplay} Testers Online`, value: testerLine, inline: false });
+
+  embed.setFooter({ text: 'Queue System — Cosmic Tiers' }).setTimestamp();
+
+  return embed;
 }
 
 async function buildTierTestEmbed(guild: Guild, info: TierTestInfo): Promise<EmbedBuilder> {
@@ -176,7 +193,7 @@ async function buildTierTestEmbed(guild: Guild, info: TierTestInfo): Promise<Emb
   const playerStatus = getMemberOnlineStatus(guild, info.playerId);
   const testerStatus = getMemberOnlineStatus(guild, info.testerId);
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle(`⚔️ Tier Test — ${modeLabel}`)
     .setColor(QUEUE_YELLOW)
     .setThumbnail(`${WEBSITE_API_URL}/api/skin/${info.playerId}`)
@@ -191,9 +208,15 @@ async function buildTierTestEmbed(guild: Guild, info: TierTestInfo): Promise<Emb
       { name: '⚔️ Game Mode',     value: modeLabel,                inline: true },
       { name: '📶 Player Status', value: playerStatus,             inline: true },
       { name: '📶 Tester Status', value: testerStatus,             inline: true },
-    )
-    .setFooter({ text: 'Tier Test System — Cosmic Tiers' })
-    .setTimestamp();
+    );
+
+  if (info.aimingTier) {
+    embed.addFields({ name: '🎯 Aiming Tier', value: `\`${info.aimingTier}\``, inline: true });
+  }
+
+  embed.setFooter({ text: 'Tier Test System — Cosmic Tiers' }).setTimestamp();
+
+  return embed;
 }
 
 // ─── Button row builders (exported for index.ts) ──────────────────────────────
@@ -201,7 +224,7 @@ async function buildTierTestEmbed(guild: Guild, info: TierTestInfo): Promise<Emb
 function buildQueueButtons(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(QUEUE_LEAVE_ID).setLabel('🚪 Leave').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId(QUEUE_NEXT_ID).setLabel('▶️ Next').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(QUEUE_NEXT_ID).setLabel('▶️ Start').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(QUEUE_END_ID).setLabel('⏹️ End').setStyle(ButtonStyle.Secondary),
   );
 }
@@ -236,6 +259,7 @@ export async function createQueueChannel(
   playerId: string,
   mcUsername: string,
   region: string,
+  aimingTier?: string,
 ): Promise<void> {
   const config = getConfig();
   const modeDisplay  = displayGameMode(gameMode);
@@ -286,7 +310,9 @@ export async function createQueueChannel(
       name: queueName,
       type: ChannelType.GuildText,
       permissionOverwrites: overwrites,
-      topic: `QUEUE|${playerId}|${mcUsername}|${region}|${gameMode}`,
+      topic: aimingTier
+        ? `QUEUE|${playerId}|${mcUsername}|${region}|${gameMode}|${aimingTier}`
+        : `QUEUE|${playerId}|${mcUsername}|${region}|${gameMode}`,
       reason: `Queue for ${mcUsername} (${modeDisplay})`,
     }) as TextChannel;
   } catch (err) {
@@ -295,7 +321,7 @@ export async function createQueueChannel(
     return;
   }
 
-  const tmpInfo: QueueInfo = { channelId: queueChannel.id, messageId: '', playerId, mcUsername, region, gameMode };
+  const tmpInfo: QueueInfo = { channelId: queueChannel.id, messageId: '', playerId, mcUsername, region, gameMode, aimingTier };
   const embed = await buildQueueEmbed(guild, tmpInfo);
 
   const testerMention = config.tierTesterRoleId ? `<@&${config.tierTesterRoleId}>` : '';
@@ -309,6 +335,9 @@ export async function createQueueChannel(
     embeds: [embed],
     components: [buildQueueButtons()],
   });
+
+  // Hint message for testers after the embed
+  await queueChannel.send('🧪 if you are a tester click **start** button to start the tier test');
 
   _activeQueues.set(queueChannel.id, { ...tmpInfo, messageId: msg.id });
 
@@ -374,6 +403,12 @@ export async function handleQueueNext(interaction: ButtonInteraction): Promise<v
     return;
   }
 
+  // Prevent the player who opened the queue from starting their own test
+  if (interaction.user.id === info.playerId) {
+    await interaction.reply({ content: '⛔ You cannot start your own tier test. A different tester must click **Start**.', ephemeral: true });
+    return;
+  }
+
   await interaction.deferUpdate();
   await _createTierTestChannel(guild, interaction.user.id, info, channel.id);
 }
@@ -383,11 +418,11 @@ export async function handleQueueNext(interaction: ButtonInteraction): Promise<v
 async function _createTierTestChannel(
   guild: Guild,
   testerId: string,
-  queueInfo: { playerId: string; mcUsername: string; region: string; gameMode: string },
+  queueInfo: { playerId: string; mcUsername: string; region: string; gameMode: string; aimingTier?: string },
   queueChannelId: string,
 ): Promise<void> {
   const config = getConfig();
-  const { playerId, mcUsername, region, gameMode } = queueInfo;
+  const { playerId, mcUsername, region, gameMode, aimingTier } = queueInfo;
   const modeDisplay  = displayGameMode(gameMode);
   const gmRoleName   = `${modeDisplay} Tester`;
   const gameModeRole = guild.roles.cache.find(r => r.name === gmRoleName);
@@ -434,7 +469,9 @@ async function _createTierTestChannel(
       name: ttName,
       type: ChannelType.GuildText,
       permissionOverwrites: overwrites,
-      topic: `TIERTEST|${playerId}|${testerId}|${mcUsername}|${region}|${gameMode}`,
+      topic: aimingTier
+        ? `TIERTEST|${playerId}|${testerId}|${mcUsername}|${region}|${gameMode}|${aimingTier}`
+        : `TIERTEST|${playerId}|${testerId}|${mcUsername}|${region}|${gameMode}`,
       reason: `Tier test — ${mcUsername} tested by ${testerId}`,
     }) as TextChannel;
   } catch (err) {
@@ -444,7 +481,7 @@ async function _createTierTestChannel(
     return;
   }
 
-  const info: TierTestInfo = { channelId: ttChannel.id, messageId: '', playerId, testerId, mcUsername, region, gameMode };
+  const info: TierTestInfo = { channelId: ttChannel.id, messageId: '', playerId, testerId, mcUsername, region, gameMode, aimingTier };
 
   // Message 1: status embed + Close button
   const embed    = await buildTierTestEmbed(guild, info);
@@ -457,7 +494,7 @@ async function _createTierTestChannel(
   await ttChannel.send(`<@${playerId}> → <@${testerId}>`);
 
   // Message 3: tier select buttons
-  await ttChannel.send({ content: '**Select the tested tier:**', components: buildTierButtonRows(gameMode) });
+  await ttChannel.send({ content: '**Select the tested tier:** 🎯', components: buildTierButtonRows(gameMode) });
 
   // Delete the queue channel
   _activeQueues.delete(queueChannelId);
