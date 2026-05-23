@@ -17,7 +17,7 @@ import {
 import { getConfig, setConfig } from './config.js';
 import { getRegistrationByDiscordId } from './registration.js';
 import { getGameModeEmoji, parseEmojiForButton } from './emojis.js';
-import { createQueueChannel } from './queue.js';
+import { createQueueChannel, createDirectTicketChannel } from './queue.js';
 
 export const TIER_TEST_YELLOW = 0xFFBF00;
 
@@ -400,7 +400,12 @@ export async function handleAimingTierSelect(interaction: ButtonInteraction, gam
     return;
   }
 
-  await createQueueChannel(interaction, guild, gameMode, interaction.user.id, reg.mcUsername, reg.region, aimingTier);
+  const config = getConfig();
+  if (config.queueEnabled === false) {
+    await createDirectTicketChannel(interaction, guild, gameMode, interaction.user.id, reg.mcUsername, reg.region, aimingTier);
+  } else {
+    await createQueueChannel(interaction, guild, gameMode, interaction.user.id, reg.mcUsername, reg.region, aimingTier);
+  }
 }
 
 // ─── Legacy Modal Handler (kept for backward-compat if any existing modal is open) ──

@@ -579,6 +579,21 @@ export const editProfileCommand = new SlashCommandBuilder()
       .setRequired(false)
   );
 
+export const toggleQueueCommand = new SlashCommandBuilder()
+  .setName('toggle-queue')
+  .setDescription('Enable or disable the queue system for tier tests (admin only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+  .addStringOption(option =>
+    option
+      .setName('status')
+      .setDescription('Turn the queue system on or off')
+      .setRequired(true)
+      .addChoices(
+        { name: 'on  — players join a queue first',              value: 'on' },
+        { name: 'off — players get a direct ticket immediately', value: 'off' },
+      )
+  );
+
 export const editProfileOtherCommand = new SlashCommandBuilder()
   .setName('edit-profile-others')
   .setDescription('Edit another registered player\'s profile (staff only)')

@@ -62,6 +62,7 @@ import {
   setModRoleCommand,
   editProfileCommand,
   editProfileOtherCommand,
+  toggleQueueCommand,
 } from './commands.js';
 import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
@@ -91,10 +92,14 @@ import {
   QUEUE_END_ID,
   TIER_SELECT_PREFIX,
   TT_CLOSE_ID,
+  TICKET_LEAVE_ID,
+  TICKET_CLOSE_ID,
   handleQueueLeave,
   handleQueueNext,
   handleQueueEnd,
   handleTtClose,
+  handleTicketLeave,
+  handleTicketClose,
   scheduleQueueRefresh,
   getActiveTierTest,
   parseTierTestTopic,
@@ -2986,6 +2991,33 @@ async function handleSetModRole(interaction: ChatInputCommandInteraction) {
   );
 }
 
+// ─── /toggle-queue Command ───────────────────────────────────────────────────
+
+async function handleToggleQueue(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const member = interaction.member as GuildMember;
+  if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
+    await interaction.editReply('❌ Only administrators can use `/toggle-queue`.');
+    return;
+  }
+
+  const status  = interaction.options.getString('status', true);
+  const enabled = status === 'on';
+  setConfig({ queueEnabled: enabled });
+
+  const embed = new EmbedBuilder()
+    .setColor(TIER_TEST_YELLOW)
+    .setTitle(enabled ? '✅ Queue System Enabled' : '✅ Queue System Disabled')
+    .setDescription(
+      enabled
+        ? 'The queue system is now **ON**.\nPlayers clicking **Get Tested** will be placed in a queue channel. A tester must click **▶️ Start** to begin the tier test.'
+        : 'The queue system is now **OFF**.\nPlayers clicking **Get Tested** will receive a **direct ticket channel** immediately. Tier testers and staff can close it when done.',
+    );
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
 // ─── Command Registration ─────────────────────────────────────────────────────
 
 async function registerCommands(clientId: string) {
@@ -3029,6 +3061,7 @@ async function registerCommands(clientId: string) {
         setModRoleCommand.toJSON(),
         editProfileCommand.toJSON(),
         editProfileOtherCommand.toJSON(),
+        toggleQueueCommand.toJSON(),
       ],
     });
     console.log('Slash commands registered!');
@@ -3461,6 +3494,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'edit-profile')               return await handleEditProfile(interaction);
       if (interaction.commandName === 'edit-profile-others')        return await handleEditProfileOther(interaction);
       if (interaction.commandName === 'edit-profile-other')         return await handleEditProfileOther(interaction);
+      if (interaction.commandName === 'toggle-queue')               return await handleToggleQueue(interaction);
       return;
     }
 
@@ -3474,10 +3508,12 @@ client.on('interactionCreate', async interaction => {
       if (id === APPLY_TESTER_ID)  return await handleApplyTesterButton(interaction);
 
       // ── Queue system ────────────────────────────────────────────────────────
-      if (id === QUEUE_LEAVE_ID)  return await handleQueueLeave(interaction as ButtonInteraction);
-      if (id === QUEUE_NEXT_ID)   return await handleQueueNext(interaction as ButtonInteraction);
-      if (id === QUEUE_END_ID)    return await handleQueueEnd(interaction as ButtonInteraction);
-      if (id === TT_CLOSE_ID)     return await handleTtClose(interaction as ButtonInteraction);
+      if (id === QUEUE_LEAVE_ID)   return await handleQueueLeave(interaction as ButtonInteraction);
+      if (id === QUEUE_NEXT_ID)    return await handleQueueNext(interaction as ButtonInteraction);
+      if (id === QUEUE_END_ID)     return await handleQueueEnd(interaction as ButtonInteraction);
+      if (id === TT_CLOSE_ID)      return await handleTtClose(interaction as ButtonInteraction);
+      if (id === TICKET_LEAVE_ID)  return await handleTicketLeave(interaction as ButtonInteraction);
+      if (id === TICKET_CLOSE_ID)  return await handleTicketClose(interaction as ButtonInteraction);
       if (id.startsWith(TIER_SELECT_PREFIX + ':')) return await handleTierSelect(interaction as ButtonInteraction);
 
       if (id === PANEL_REGISTER_ID) {

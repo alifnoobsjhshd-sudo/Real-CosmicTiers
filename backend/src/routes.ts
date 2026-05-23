@@ -10,6 +10,7 @@ import { sql } from "drizzle-orm";
 const INTERNAL_API_KEY = process.env["INTERNAL_API_KEY"] ?? "";
 const ADMIN_PASSWORD = "@alif_op24";
 const DEFAULT_SKIN_PATH = path.resolve(process.cwd(), "default-skin.png");
+const DEFAULT_SKIN_HEAD_PATH = path.resolve(process.cwd(), "default-skin-head.png");
 const TITLE_ICONS_DIR = path.resolve(process.cwd(), "title-icons");
 
 // ── Admin auth ───────────────────────────────────────────────────────────────
@@ -76,9 +77,11 @@ const MOJANG_HEAD_FETCH_TIMEOUT_MS = 4000;
 const mojangHeadCache = new Map<string, { buffer: Buffer; expires: number }>();
 
 function sendDefaultSkin(res: Response) {
-  if (fs.existsSync(DEFAULT_SKIN_PATH)) {
+  const headPath = fs.existsSync(DEFAULT_SKIN_HEAD_PATH) ? DEFAULT_SKIN_HEAD_PATH : null;
+  const fallbackPath = headPath ?? (fs.existsSync(DEFAULT_SKIN_PATH) ? DEFAULT_SKIN_PATH : null);
+  if (fallbackPath) {
     res.setHeader("Cache-Control", "public, max-age=86400");
-    res.sendFile(DEFAULT_SKIN_PATH);
+    res.sendFile(fallbackPath);
     return;
   }
   res.status(404).json({ error: "Default skin not found" });

@@ -22,6 +22,8 @@ export const QUEUE_NEXT_ID      = 'queue_next';
 export const QUEUE_END_ID       = 'queue_end';
 export const TIER_SELECT_PREFIX = 'tier_select';
 export const TT_CLOSE_ID        = 'tt_close';
+export const TICKET_LEAVE_ID    = 'ticket_leave';
+export const TICKET_CLOSE_ID    = 'ticket_close';
 
 const QUEUE_YELLOW   = 0xFFBF00;
 const WEBSITE_API_URL = (process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000').replace(/\/$/, '');
@@ -52,10 +54,21 @@ export interface TierTestInfo {
   aimingTier?: string;
 }
 
+export interface TicketInfo {
+  channelId:  string;
+  messageId:  string;
+  playerId:   string;
+  mcUsername: string;
+  region:     string;
+  gameMode:   string;
+  aimingTier?: string;
+}
+
 // ─── In-memory state ──────────────────────────────────────────────────────────
 
 const _activeQueues    = new Map<string, QueueInfo>();
 const _activeTierTests = new Map<string, TierTestInfo>();
+const _activeTickets   = new Map<string, TicketInfo>();
 
 export function getActiveQueue(channelId: string): QueueInfo | undefined {
   return _activeQueues.get(channelId);
@@ -67,6 +80,10 @@ export function getActiveTierTest(channelId: string): TierTestInfo | undefined {
 
 export function removeTierTestEntry(channelId: string): void {
   _activeTierTests.delete(channelId);
+}
+
+export function getActiveTicket(channelId: string): TicketInfo | undefined {
+  return _activeTickets.get(channelId);
 }
 
 // ─── Topic parsing (for bot-restart resilience) ───────────────────────────────
@@ -93,6 +110,18 @@ export function parseTierTestTopic(topic: string): { playerId: string; testerId:
     region: parts[4],
     gameMode: parts[5],
     aimingTier: parts[6] ?? undefined,
+  };
+}
+
+export function parseTicketTopic(topic: string): Omit<TicketInfo, 'channelId' | 'messageId'> | null {
+  const parts = topic.split('|');
+  if (parts.length < 5 || parts[0] !== 'TICKET') return null;
+  return {
+    playerId:   parts[1],
+    mcUsername: parts[2],
+    region:     parts[3],
+    gameMode:   parts[4],
+    aimingTier: parts[5] ?? undefined,
   };
 }
 
@@ -240,6 +269,64 @@ function buildCloseRow(): ActionRowBuilder<ButtonBuilder> {
   );
 }
 
+async function buildTicketEmbed(guild: Guild, info: TicketInfo): Promise<EmbedBuilder> {
+  const config      = getConfig();
+  const modeDisplay = displayGameMode(info.gameMode);
+  const modeEmoji   = getGameModeEmoji(info.gameMode);
+  const modeLabel   = modeEmoji ? `${modeEmoji} ${modeDisplay}` : modeDisplay;
+
+  if (guild.members.cache.size < 2) {
+    try { await guild.members.fetch(); } catch { /* ignore */ }
+  }
+
+  const playerStatus = getMemberOnlineStatus(guild, info.playerId);
+
+  let testerLine = '`Not configured`';
+  const gmRoleName = `${modeDisplay} Tester`;
+  const gmRole     = guild.roles.cache.find(r => r.name === gmRoleName);
+  const roleForCount = gmRole?.id ?? config.tierTesterRoleId;
+  if (roleForCount) {
+    const { online, total } = await countOnlineTestersByRole(guild, roleForCount);
+    testerLine = `🟢 **${online}** online  ·  👥 **${total}** total`;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(`🎟️ Tier Test Ticket — ${modeLabel}`)
+    .setColor(QUEUE_YELLOW)
+    .setThumbnail(`${WEBSITE_API_URL}/api/skin/${info.playerId}`)
+    .setDescription(
+      `<@${info.playerId}> is waiting for a tier tester.\n` +
+      `A tester will claim this ticket shortly. Please **stay online** and be patient.`,
+    )
+    .addFields(
+      { name: '👤 Player',    value: `<@${info.playerId}>`,    inline: true },
+      { name: '🎮 IGN',       value: `\`${info.mcUsername}\``, inline: true },
+      { name: '🌍 Region',    value: `\`${info.region}\``,     inline: true },
+      { name: '⚔️ Game Mode', value: modeLabel,                inline: true },
+      { name: '📶 Status',    value: playerStatus,             inline: true },
+    );
+
+  if (info.aimingTier) {
+    embed.addFields({ name: '🎯 Aiming Tier', value: `\`${info.aimingTier}\``, inline: true });
+  }
+
+  embed.addFields({ name: `👥 ${modeDisplay} Testers Online`, value: testerLine, inline: false });
+
+  if (config.tierTesterRoleId) {
+    embed.addFields({ name: '📢 Tier Testers', value: `<@&${config.tierTesterRoleId}>`, inline: false });
+  }
+
+  embed.setFooter({ text: 'Direct Ticket System — Cosmic Tiers' }).setTimestamp();
+  return embed;
+}
+
+function buildTicketButtons(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(TICKET_LEAVE_ID).setLabel('🚪 Leave').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId(TICKET_CLOSE_ID).setLabel('🔒 Close').setStyle(ButtonStyle.Secondary),
+  );
+}
+
 export function buildTierButtonRows(gameMode: string): ActionRowBuilder<ButtonBuilder>[] {
   const modeDisplay = displayGameMode(gameMode);
   const buttons = TIERS_HIGHEST_TO_LOWEST.map(tier =>
@@ -358,6 +445,133 @@ export async function createQueueChannel(
     components: [],
     embeds: [],
   });
+}
+
+// ─── Create Direct Ticket Channel (queue disabled mode) ──────────────────────
+
+export async function createDirectTicketChannel(
+  interaction: ButtonInteraction,
+  guild: Guild,
+  gameMode: string,
+  playerId: string,
+  mcUsername: string,
+  region: string,
+  aimingTier?: string,
+): Promise<void> {
+  const config      = getConfig();
+  const modeDisplay = displayGameMode(gameMode);
+  const gmRoleName  = `${modeDisplay} Tester`;
+  const gameModeRole = guild.roles.cache.find(r => r.name === gmRoleName);
+
+  const ticketName = `${sanitize(mcUsername)}-tt`;
+  const existing   = guild.channels.cache.find(c => c.name === ticketName);
+  if (existing) {
+    await interaction.editReply({ content: `❌ You already have an active ticket: <#${existing.id}>. Please leave it first.`, components: [], embeds: [] });
+    return;
+  }
+
+  const overwrites: OverwriteResolvable[] = [
+    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: playerId,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles],
+    },
+  ];
+  if (config.tierTesterRoleId) overwrites.push({
+    id: config.tierTesterRoleId,
+    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+  });
+  if (gameModeRole && gameModeRole.id !== config.tierTesterRoleId) overwrites.push({
+    id: gameModeRole.id,
+    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+  });
+  if (config.staffRoleId) overwrites.push({
+    id: config.staffRoleId,
+    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+  });
+  if (config.modRoleId && config.modRoleId !== config.staffRoleId) overwrites.push({
+    id: config.modRoleId,
+    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+  });
+
+  let ticketChannel: TextChannel;
+  try {
+    ticketChannel = await guild.channels.create({
+      name: ticketName,
+      type: ChannelType.GuildText,
+      permissionOverwrites: overwrites,
+      topic: aimingTier
+        ? `TICKET|${playerId}|${mcUsername}|${region}|${gameMode}|${aimingTier}`
+        : `TICKET|${playerId}|${mcUsername}|${region}|${gameMode}`,
+      reason: `Tier test ticket for ${mcUsername} (${modeDisplay})`,
+    }) as TextChannel;
+  } catch (err) {
+    console.error('[ticket] Failed to create ticket channel:', err);
+    await interaction.editReply({ content: '❌ Failed to create ticket channel. Make sure the bot has **Manage Channels** permission.', components: [], embeds: [] });
+    return;
+  }
+
+  const tmpInfo: TicketInfo = { channelId: ticketChannel.id, messageId: '', playerId, mcUsername, region, gameMode, aimingTier };
+  const embed = await buildTicketEmbed(guild, tmpInfo);
+
+  const testerMention = config.tierTesterRoleId ? `<@&${config.tierTesterRoleId}>` : '';
+  const gmMention     = gameModeRole && gameModeRole.id !== config.tierTesterRoleId ? ` <@&${gameModeRole.id}>` : '';
+  const staffMention  = config.staffRoleId ? ` <@&${config.staffRoleId}>` : '';
+  const modMention    = config.modRoleId   ? ` <@&${config.modRoleId}>` : '';
+  const notifyContent = `${testerMention}${gmMention}${staffMention}${modMention}`.trim();
+
+  const msg = await ticketChannel.send({
+    content: notifyContent ? `${notifyContent} — **${mcUsername}** needs a **${modeDisplay}** tier test!` : undefined,
+    embeds: [embed],
+    components: [buildTicketButtons()],
+  });
+
+  _activeTickets.set(ticketChannel.id, { ...tmpInfo, messageId: msg.id });
+
+  await interaction.editReply({
+    content: `✅ Your tier test ticket has been created! Head to <#${ticketChannel.id}> and wait for a Tier Tester.`,
+    components: [],
+    embeds: [],
+  });
+}
+
+// ─── Ticket Button Handlers ───────────────────────────────────────────────────
+
+export async function handleTicketLeave(interaction: ButtonInteraction): Promise<void> {
+  const channel = interaction.channel as TextChannel;
+  const info    = parseTicketTopic(channel.topic ?? '') ?? getActiveTicket(channel.id);
+
+  if (!info) {
+    await interaction.reply({ content: '❌ Could not identify this ticket. Contact an admin.', ephemeral: true });
+    return;
+  }
+
+  const isPlayer = info.playerId === interaction.user.id;
+  if (!isPlayer) {
+    await interaction.reply({ content: '⛔ Only the player who opened this ticket can use **Leave**.', ephemeral: true });
+    return;
+  }
+
+  _activeTickets.delete(channel.id);
+  await interaction.update({ components: [] });
+  await channel.send({ embeds: [new EmbedBuilder().setColor(0xFF4444).setDescription(`🚪 **Ticket closed** — <@${interaction.user.id}> left the queue.`).setTimestamp()] });
+  setTimeout(() => channel.delete('Player left ticket').catch(console.error), 1500);
+}
+
+export async function handleTicketClose(interaction: ButtonInteraction): Promise<void> {
+  const member  = interaction.member as GuildMember;
+  const channel = interaction.channel as TextChannel;
+
+  const canClose = isTester(member) || isStaffOrAdmin(member);
+  if (!canClose) {
+    await interaction.reply({ content: '⛔ Only tier testers or staff can close this ticket.', ephemeral: true });
+    return;
+  }
+
+  _activeTickets.delete(channel.id);
+  await interaction.update({ components: [] });
+  await channel.send({ embeds: [new EmbedBuilder().setColor(0xFF4444).setDescription(`🔒 **Ticket closed** — Closed by <@${interaction.user.id}>.`).setTimestamp()] });
+  setTimeout(() => channel.delete('Ticket closed by staff').catch(console.error), 1500);
 }
 
 // ─── Queue Button Handlers ────────────────────────────────────────────────────
@@ -572,6 +786,17 @@ async function _refreshAll(client: Client): Promise<void> {
       if (!msg) { _activeTierTests.delete(channelId); continue; }
       const embed = await buildTierTestEmbed(guild, info);
       await msg.edit({ embeds: [embed], components: [buildCloseRow()] });
+    } catch { /* ignore */ }
+  }
+
+  for (const [channelId, info] of _activeTickets) {
+    try {
+      const ch = guild.channels.cache.get(channelId) as TextChannel | undefined;
+      if (!ch) { _activeTickets.delete(channelId); continue; }
+      const msg = await ch.messages.fetch(info.messageId).catch(() => null);
+      if (!msg) { _activeTickets.delete(channelId); continue; }
+      const embed = await buildTicketEmbed(guild, info);
+      await msg.edit({ embeds: [embed], components: [buildTicketButtons()] });
     } catch { /* ignore */ }
   }
 }
