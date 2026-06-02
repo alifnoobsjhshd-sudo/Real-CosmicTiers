@@ -605,6 +605,11 @@ export const toggleQueueCommand = new SlashCommandBuilder()
       )
   );
 
+export const reloadCommand = new SlashCommandBuilder()
+  .setName('reload')
+  .setDescription('Reload bot config and refresh all panels (admin only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
 export const editProfileOtherCommand = new SlashCommandBuilder()
   .setName('edit-profile-others')
   .setDescription('Edit another registered player\'s profile (staff only)')

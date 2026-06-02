@@ -64,6 +64,7 @@ import {
   editProfileOtherCommand,
   toggleQueueCommand,
   reloadUserCommand,
+  reloadCommand,
 } from './commands.js';
 import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
@@ -3050,6 +3051,43 @@ async function handleReloadUser(interaction: ChatInputCommandInteraction) {
   }
 }
 
+// ─── /reload Command ─────────────────────────────────────────────────────────
+
+async function handleReload(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const member = interaction.member as GuildMember;
+  if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
+    await interaction.editReply('❌ Only administrators can use `/reload`.');
+    return;
+  }
+
+  try {
+    await loadConfigFromApi();
+    await loadRegistrationsFromApi();
+
+    const client = interaction.client as Client;
+    await Promise.allSettled([
+      refreshTierTestPanel(client),
+      refreshTesterListPanel(client),
+      refreshLeaderboardPanel(client),
+    ]);
+
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(TIER_TEST_YELLOW)
+          .setTitle('✅ Bot Reloaded')
+          .setDescription('Config reloaded, registrations synced, and all panels refreshed.')
+          .setTimestamp(),
+      ],
+    });
+  } catch (err) {
+    console.error('[reload]', err);
+    await interaction.editReply('❌ Reload failed — check bot logs for details.');
+  }
+}
+
 // ─── /toggle-queue Command ───────────────────────────────────────────────────
 
 async function handleToggleQueue(interaction: ChatInputCommandInteraction) {
@@ -3122,6 +3160,7 @@ async function registerCommands(clientId: string) {
         editProfileOtherCommand.toJSON(),
         reloadUserCommand.toJSON(),
         toggleQueueCommand.toJSON(),
+        reloadCommand.toJSON(),
       ],
     });
     console.log('Slash commands registered!');
@@ -3711,6 +3750,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'edit-profile-other')         return await handleEditProfileOther(interaction);
       if (interaction.commandName === 'reload-user')                return await handleReloadUser(interaction);
       if (interaction.commandName === 'toggle-queue')               return await handleToggleQueue(interaction);
+      if (interaction.commandName === 'reload')                     return await handleReload(interaction);
       return;
     }
 

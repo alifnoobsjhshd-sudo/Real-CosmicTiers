@@ -290,6 +290,15 @@ async function buildTicketEmbed(guild: Guild, info: TicketInfo): Promise<EmbedBu
     testerLine = `🟢 **${online}** online  ·  👥 **${total}** total`;
   }
 
+  const baseFields = [
+    { name: '👤 Player',    value: `<@${info.playerId}>`,    inline: true },
+    { name: '🎮 IGN',       value: `\`${info.mcUsername}\``, inline: true },
+    { name: '🌍 Region',    value: `\`${info.region}\``,     inline: true },
+    { name: '⚔️ Game Mode', value: modeLabel,                inline: true },
+    ...(info.aimingTier ? [{ name: '🎯 Aiming Tier', value: `\`${info.aimingTier}\``, inline: true }] : []),
+    { name: '📶 Status',    value: playerStatus,             inline: true },
+  ];
+
   const embed = new EmbedBuilder()
     .setTitle(`🎟️ Tier Test Ticket — ${modeLabel}`)
     .setColor(QUEUE_YELLOW)
@@ -298,23 +307,9 @@ async function buildTicketEmbed(guild: Guild, info: TicketInfo): Promise<EmbedBu
       `<@${info.playerId}> is waiting for a tier tester.\n` +
       `A tester will claim this ticket shortly. Please **stay online** and be patient.`,
     )
-    .addFields(
-      { name: '👤 Player',    value: `<@${info.playerId}>`,    inline: true },
-      { name: '🎮 IGN',       value: `\`${info.mcUsername}\``, inline: true },
-      { name: '🌍 Region',    value: `\`${info.region}\``,     inline: true },
-      { name: '⚔️ Game Mode', value: modeLabel,                inline: true },
-      { name: '📶 Status',    value: playerStatus,             inline: true },
-    );
-
-  if (info.aimingTier) {
-    embed.addFields({ name: '🎯 Aiming Tier', value: `\`${info.aimingTier}\``, inline: true });
-  }
+    .addFields(...baseFields);
 
   embed.addFields({ name: `👥 ${modeDisplay} Testers Online`, value: testerLine, inline: false });
-
-  if (config.tierTesterRoleId) {
-    embed.addFields({ name: '📢 Tier Testers', value: `<@&${config.tierTesterRoleId}>`, inline: false });
-  }
 
   embed.setFooter({ text: 'Direct Ticket System — Cosmic Tiers' }).setTimestamp();
   return embed;
@@ -463,8 +458,11 @@ export async function createDirectTicketChannel(
   const gmRoleName  = `${modeDisplay} Tester`;
   const gameModeRole = guild.roles.cache.find(r => r.name === gmRoleName);
 
-  const ticketName = `${sanitize(mcUsername)}-tt`;
-  const existing   = guild.channels.cache.find(c => c.name === ticketName);
+  const ticketName = `${sanitize(gameMode)}-test`;
+  const existing   = guild.channels.cache.find(c =>
+    c.type === ChannelType.GuildText &&
+    (c as TextChannel).topic?.startsWith(`TICKET|${playerId}|`),
+  );
   if (existing) {
     await interaction.editReply({ content: `❌ You already have an active ticket: <#${existing.id}>. Please leave it first.`, components: [], embeds: [] });
     return;
@@ -514,11 +512,11 @@ export async function createDirectTicketChannel(
   const tmpInfo: TicketInfo = { channelId: ticketChannel.id, messageId: '', playerId, mcUsername, region, gameMode, aimingTier };
   const embed = await buildTicketEmbed(guild, tmpInfo);
 
-  const testerMention = config.tierTesterRoleId ? `<@&${config.tierTesterRoleId}>` : '';
-  const gmMention     = gameModeRole && gameModeRole.id !== config.tierTesterRoleId ? ` <@&${gameModeRole.id}>` : '';
+  const gameMentionId = gameModeRole?.id ?? config.tierTesterRoleId;
+  const gmMention     = gameMentionId ? `<@&${gameMentionId}>` : '';
   const staffMention  = config.staffRoleId ? ` <@&${config.staffRoleId}>` : '';
   const modMention    = config.modRoleId   ? ` <@&${config.modRoleId}>` : '';
-  const notifyContent = `${testerMention}${gmMention}${staffMention}${modMention}`.trim();
+  const notifyContent = `${gmMention}${staffMention}${modMention}`.trim();
 
   const msg = await ticketChannel.send({
     content: notifyContent ? `${notifyContent} — **${mcUsername}** needs a **${modeDisplay}** tier test!` : undefined,
