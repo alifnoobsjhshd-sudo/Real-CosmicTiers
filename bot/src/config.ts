@@ -28,6 +28,7 @@ export interface BotConfig {
   usernameChangeTimestamps?: Record<string, number>;
   titleRoleIds?: Record<string, string>;
   emojiStrings?: Record<string, string>;
+  queueEnabled?: boolean;
 }
 
 let _memConfig: BotConfig = {};

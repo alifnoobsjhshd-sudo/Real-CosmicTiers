@@ -59,6 +59,7 @@ import {
   createTitleCommand,
   giveTitleCommand,
   removeTitleCommand,
+  toggleQueueCommand,
 } from './commands.js';
 import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
@@ -69,9 +70,11 @@ import {
   DELETE_TICKET_ID,
   APPLY_TESTER_ID,
   SELECT_GM_PREFIX,
+  TT_TIER_SELECT_PREFIX,
   TIER_TEST_YELLOW,
   handleStartButton,
   handleGameModeSelect,
+  handleTierSelect,
   handleTierTestModal,
   handleCloseTicket,
   handleDeleteTicket,
@@ -2471,6 +2474,7 @@ async function registerCommands(clientId: string) {
         createTitleCommand.toJSON(),
         giveTitleCommand.toJSON(),
         removeTitleCommand.toJSON(),
+        toggleQueueCommand.toJSON(),
       ],
     });
     console.log('Slash commands registered!');
@@ -2727,6 +2731,19 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'create-title')               return await handleCreateTitle(interaction);
       if (interaction.commandName === 'give-title')                 return await handleGiveTitle(interaction);
       if (interaction.commandName === 'remove-title')               return await handleRemoveTitle(interaction);
+      if (interaction.commandName === 'toggle-queue') {
+        const config = getConfig();
+        const newValue = !(config.queueEnabled ?? false);
+        setConfig({ queueEnabled: newValue });
+        await interaction.reply({
+          content: `✅ Queue system is now **${newValue ? 'ENABLED' : 'DISABLED'}**.\n` +
+            (newValue
+              ? '• Ticket flow uses the **queue system**.'
+              : '• Ticket flow creates tickets directly with game-mode ping only.'),
+          ephemeral: true,
+        });
+        return;
+      }
       return;
     }
 
@@ -2786,6 +2803,13 @@ client.on('interactionCreate', async interaction => {
       if (id.startsWith(SELECT_GM_PREFIX + ':')) {
         const gameMode = id.slice(SELECT_GM_PREFIX.length + 1);
         return await handleGameModeSelect(interaction as ButtonInteraction, gameMode);
+      }
+
+      if (id.startsWith(TT_TIER_SELECT_PREFIX + ':')) {
+        const parts = id.split(':');
+        const gameMode  = parts[1] ?? '';
+        const aimingTier = parts[2] ?? '';
+        return await handleTierSelect(interaction as ButtonInteraction, gameMode, aimingTier);
       }
 
       if (id.startsWith(TL_FILTER_ID + ':')) {

@@ -23,13 +23,14 @@ export const TIER_TEST_YELLOW = 0xFFBF00;
 const WEBSITE_API_URL = (process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000').replace(/\/$/, '');
 
 // ─── Button / Modal IDs ───────────────────────────────────────────────────────
-export const BUTTON_ID           = 'start_tier_test';
-export const PANEL_REGISTER_ID   = 'panel_register';
-export const MODAL_ID            = 'tier_test_modal';
-export const CLOSE_TICKET_ID     = 'close_ticket';
-export const DELETE_TICKET_ID    = 'delete_ticket';
-export const APPLY_TESTER_ID     = 'apply_tester';
-export const SELECT_GM_PREFIX    = 'select_gm';
+export const BUTTON_ID              = 'start_tier_test';
+export const PANEL_REGISTER_ID      = 'panel_register';
+export const MODAL_ID               = 'tier_test_modal';
+export const CLOSE_TICKET_ID        = 'close_ticket';
+export const DELETE_TICKET_ID       = 'delete_ticket';
+export const APPLY_TESTER_ID        = 'apply_tester';
+export const SELECT_GM_PREFIX       = 'select_gm';
+export const TT_TIER_SELECT_PREFIX  = 'tt_tier';
 
 export const INPUT_GAMEMODE = 'game_mode';
 
@@ -324,6 +325,24 @@ function sanitizeChannelName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 20);
 }
 
+// ─── Aiming Tier Selection Buttons ───────────────────────────────────────────
+
+const AIMING_TIERS = ['HT1', 'LT1', 'HT2', 'LT2', 'HT3', 'LT3', 'HT4', 'LT4', 'HT5', 'LT5'];
+
+function buildAimingTierRows(gameMode: string): ActionRowBuilder<ButtonBuilder>[] {
+  const row1 = new ActionRowBuilder<ButtonBuilder>();
+  const row2 = new ActionRowBuilder<ButtonBuilder>();
+  AIMING_TIERS.forEach((tier, i) => {
+    const btn = new ButtonBuilder()
+      .setCustomId(`${TT_TIER_SELECT_PREFIX}:${gameMode}:${tier}`)
+      .setLabel(tier)
+      .setStyle(ButtonStyle.Secondary);
+    if (i < 5) row1.addComponents(btn);
+    else row2.addComponents(btn);
+  });
+  return [row1, row2];
+}
+
 // ─── Game Mode Selected ───────────────────────────────────────────────────────
 
 export async function handleGameModeSelect(interaction: ButtonInteraction, gameMode: string): Promise<void> {
@@ -345,8 +364,27 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
     return;
   }
 
-  const { mcUsername, region } = reg;
   const config = getConfig();
+
+  // ── Queue DISABLED path: show aiming-tier selection ──────────────────────────
+  if (!config.queueEnabled) {
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(TIER_TEST_YELLOW)
+          .setTitle('🎯 Select Aiming Tier')
+          .setDescription(
+            `You selected **${displayGameMode(gameMode)}**.\n\n` +
+            `Now choose the **tier you are aiming for**:`,
+          ),
+      ],
+      components: buildAimingTierRows(gameMode),
+    });
+    return;
+  }
+
+  // ── Queue ENABLED path: original behavior (no changes) ───────────────────────
+  const { mcUsername, region } = reg;
 
   const existingName = `tt-${sanitizeChannelName(mcUsername)}`;
   const existing = guild.channels.cache.find(c => c.name === existingName);
@@ -359,7 +397,6 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
     return;
   }
 
-  // Find game-mode-specific tester role (e.g. "Nethpot Tester")
   const gameModeRoleName = `${displayGameMode(gameMode)} Tester`;
   const gameModeRole = guild.roles.cache.find(r => r.name === gameModeRoleName);
 
@@ -430,6 +467,138 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
 
   await ticketChannel.send({
     content: `${generalTesterMention}${gmTesterMention}${staffMention} — a new **${displayGameMode(gameMode)}** tier test request has arrived!`,
+    embeds: [ticketEmbed],
+    components: [buildTicketActionRow()],
+  });
+
+  await interaction.editReply({
+    content: `✅ Your tier test ticket has been created: <#${ticketChannel.id}>\nA Tier Tester will be with you shortly!`,
+    components: [],
+    embeds: [],
+  });
+}
+
+// ─── Tier Selected (queue-disabled path) ─────────────────────────────────────
+
+export async function handleTierSelect(interaction: ButtonInteraction, gameMode: string, aimingTier: string): Promise<void> {
+  await interaction.deferUpdate();
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply({ content: '❌ This can only be used inside a server.', components: [], embeds: [] });
+    return;
+  }
+
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+  if (!reg) {
+    await interaction.editReply({
+      content: '❌ Registration not found. Please register first.',
+      components: [],
+      embeds: [],
+    });
+    return;
+  }
+
+  const { mcUsername, region } = reg;
+  const config = getConfig();
+
+  // Check if user already has an open ticket (search by discord ID in channel topic)
+  const existing = guild.channels.cache.find(c => {
+    const ch = c as any;
+    return typeof ch.topic === 'string' &&
+      (ch.topic as string).startsWith('Tier test ticket') &&
+      (ch.topic as string).includes(interaction.user.id);
+  });
+  if (existing) {
+    await interaction.editReply({
+      content: `❌ You already have an open ticket: <#${existing.id}>. Please use it or wait for it to be closed.`,
+      components: [],
+      embeds: [],
+    });
+    return;
+  }
+
+  // Game-mode-specific tester role (e.g. "Nethpot Tester")
+  const gameModeRoleName = `${displayGameMode(gameMode)} Tester`;
+  const gameModeRole = guild.roles.cache.find(r => r.name === gameModeRoleName);
+
+  // Channel name: e.g. "nethpot-test", "sword-pvp-test"
+  const channelName = displayGameMode(gameMode).toLowerCase().replace(/[^a-z0-9_-]/g, '-') + '-test';
+
+  // Permissions — general tier tester role can VIEW but we only PING the game-mode role
+  const overwrites: OverwriteResolvable[] = [
+    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: interaction.user.id,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles],
+    },
+  ];
+  // All tier testers can see the channel
+  if (config.tierTesterRoleId) {
+    overwrites.push({
+      id: config.tierTesterRoleId,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+    });
+  }
+  // Game-mode role gets view access too (may overlap — Discord deduplicates)
+  if (gameModeRole && gameModeRole.id !== config.tierTesterRoleId) {
+    overwrites.push({
+      id: gameModeRole.id,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+    });
+  }
+
+  let ticketChannel: TextChannel;
+  try {
+    ticketChannel = await guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      permissionOverwrites: overwrites,
+      reason: `Tier test ticket for ${interaction.user.username}`,
+      topic: `Tier test ticket — ${interaction.user.id} (${mcUsername}) · Region: ${region} · Mode: ${displayGameMode(gameMode)}`,
+    }) as TextChannel;
+  } catch (err) {
+    console.error('Failed to create ticket channel:', err);
+    await interaction.editReply({
+      content: '❌ Failed to create ticket channel. Make sure the bot has **Manage Channels** permission.',
+      components: [],
+      embeds: [],
+    });
+    return;
+  }
+
+  // Tester online status for the game-mode role (or general role as fallback)
+  const statusRoleId = gameModeRole?.id ?? config.tierTesterRoleId;
+  let testerStatusValue = '*No tester role configured*';
+  if (statusRoleId) {
+    const { online, total } = await countOnlineTesters(guild, statusRoleId);
+    testerStatusValue = `🟢 **${online}** online  ·  👥 **${total}** total`;
+  }
+
+  const ticketEmbed = new EmbedBuilder()
+    .setTitle('🎫 New Tier Test Request')
+    .setColor(TIER_TEST_YELLOW)
+    .setThumbnail(`${WEBSITE_API_URL}/api/skin/${interaction.user.id}`)
+    .addFields(
+      { name: '👤 Player',            value: `<@${interaction.user.id}>`,      inline: true },
+      { name: '🎮 IGN',               value: `\`${mcUsername}\``,              inline: true },
+      { name: '🌍 Region',            value: `\`${region}\``,                  inline: true },
+      { name: '⚔️ Game Mode',         value: `\`${displayGameMode(gameMode)}\``, inline: true },
+      { name: '🎯 Aiming Tier',       value: `\`${aimingTier}\``,              inline: true },
+      { name: '📋 Status',            value: '⏳ Waiting for tester',           inline: true },
+      { name: '🟢 Tester Online',     value: testerStatusValue,                inline: false },
+    )
+    .setFooter({ text: `Ticket created by ${interaction.user.username}` })
+    .setTimestamp();
+
+  // Only ping the game-mode-specific tester role (not the general tier tester role)
+  const pingMention = gameModeRole
+    ? `<@&${gameModeRole.id}>`
+    : (config.tierTesterRoleId ? `<@&${config.tierTesterRoleId}>` : '**Tier Testers**');
+  const staffMention = config.staffRoleId ? ` <@&${config.staffRoleId}>` : '';
+
+  await ticketChannel.send({
+    content: `${pingMention}${staffMention} — a new **${displayGameMode(gameMode)}** tier test request has arrived!`,
     embeds: [ticketEmbed],
     components: [buildTicketActionRow()],
   });

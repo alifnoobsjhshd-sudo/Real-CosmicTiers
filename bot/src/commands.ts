@@ -488,6 +488,11 @@ export const removeTitleCommand = new SlashCommandBuilder()
       .setAutocomplete(true)
   );
 
+export const toggleQueueCommand = new SlashCommandBuilder()
+  .setName('toggle-queue')
+  .setDescription('Enable or disable the queue system for tier test tickets (staff only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles);
+
 export const addTesterCommand = new SlashCommandBuilder()
   .setName('add-tester')
   .setDescription('Grant the Tier Tester role to a registered player (staff only)')
