@@ -84,6 +84,8 @@ import {
   isTierRoleName as isTierRoleNameForTesterList,
   TL_PREV_ID,
   TL_NEXT_ID,
+  TL_FILTER_ID,
+  type TesterFilter,
   buildTesterMessage,
   postTesterListPanel,
   refreshTesterListPanel,
@@ -2318,10 +2320,17 @@ async function handleClearUser(interaction: ChatInputCommandInteraction) {
 
 // ─── Pagination Button Handlers ───────────────────────────────────────────────
 
-async function handleTesterListPage(interaction: ButtonInteraction, newPage: number): Promise<void> {
+async function handleTesterListPage(interaction: ButtonInteraction, newPage: number, filter: TesterFilter = 'month'): Promise<void> {
   const guild = interaction.guild;
   if (!guild) { await interaction.reply({ content: '❌ Server not found.', ephemeral: true }); return; }
-  const message = await buildTesterMessage(guild, newPage);
+  const message = await buildTesterMessage(guild, newPage, filter);
+  await interaction.update(message);
+}
+
+async function handleTesterListFilter(interaction: ButtonInteraction, filter: TesterFilter): Promise<void> {
+  const guild = interaction.guild;
+  if (!guild) { await interaction.reply({ content: '❌ Server not found.', ephemeral: true }); return; }
+  const message = await buildTesterMessage(guild, 0, filter);
   await interaction.update(message);
 }
 
@@ -2779,11 +2788,26 @@ client.on('interactionCreate', async interaction => {
         return await handleGameModeSelect(interaction as ButtonInteraction, gameMode);
       }
 
+      if (id.startsWith(TL_FILTER_ID + ':')) {
+        const parts = id.split(':');
+        const filter = (parts[1] ?? 'month') as TesterFilter;
+        return await handleTesterListFilter(interaction as ButtonInteraction, filter);
+      }
+
       if (id.startsWith(TL_PREV_ID + ':') || id.startsWith(TL_NEXT_ID + ':')) {
-        const [prefix, pageStr] = id.split(':');
-        const currentPage = parseInt(pageStr, 10);
-        const newPage     = prefix === TL_PREV_ID ? currentPage - 1 : currentPage + 1;
-        return await handleTesterListPage(interaction as ButtonInteraction, newPage);
+        const parts = id.split(':');
+        const prefix = parts[0];
+        let filter: TesterFilter = 'month';
+        let currentPage: number;
+        if (parts.length === 3) {
+          filter = (parts[1] ?? 'month') as TesterFilter;
+          currentPage = parseInt(parts[2] ?? '0', 10);
+        } else {
+          filter = 'alltime';
+          currentPage = parseInt(parts[1] ?? '0', 10);
+        }
+        const newPage = prefix === TL_PREV_ID ? currentPage - 1 : currentPage + 1;
+        return await handleTesterListPage(interaction as ButtonInteraction, newPage, filter);
       }
 
       if (id.startsWith(LB_PREV_ID + ':') || id.startsWith(LB_NEXT_ID + ':')) {
