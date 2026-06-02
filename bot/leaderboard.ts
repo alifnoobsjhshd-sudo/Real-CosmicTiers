@@ -17,6 +17,8 @@ import { getTitleEmoji, formatTierWithEmoji, getEmojiString, sanitizeToEmojiName
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const WEBSITE_LINK = process.env['WEBSITE_LINK'] ?? '';
+const API_BASE = (process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000').replace(/\/$/, '');
+const INTERNAL_API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
 const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP', 'cartpvp'];
 
@@ -188,21 +190,56 @@ interface LeaderboardEntry {
 }
 
 async function getLeaderboardEntries(guild: Guild): Promise<LeaderboardEntry[]> {
-  if (guild.members.cache.size < 2) await guild.members.fetch();
-
-  return guild.members.cache
-    .filter(m => !m.user.bot)
-    .map(member => ({
-      id: member.id,
-      points: getMemberPoints(member),
-      tierRoles: member.roles.cache
-        .filter(r => getRolePoints(r.name) > 0)
-        .map(r => r.name)
-        .sort((a, b) => getRolePoints(b) - getRolePoints(a)),
-      mcUsername: getRegistrationByDiscordId(member.id)?.mcUsername,
-    }))
-    .filter(e => e.points > 0)
-    .sort((a, b) => b.points - a.points || a.id.localeCompare(b.id));
+  try {
+    const res = await fetch(`${API_BASE}/api/bot/leaderboard`, {
+      headers: { 'x-internal-api-key': INTERNAL_API_KEY },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    const data = await res.json() as {
+      entries: Array<{
+        discordId: string;
+        mcUsername: string;
+        totalPoints: number;
+        pointDelta: number;
+        tiers: Record<string, string>;
+        retiredTiers: string[];
+      }>;
+    };
+    return (data.entries ?? []).map(e => {
+      const tierRoles: string[] = [];
+      for (const [gameMode, tier] of Object.entries(e.tiers)) {
+        const roleName = e.retiredTiers.includes(gameMode)
+          ? `${displayGameMode(gameMode)} R${tier}`
+          : `${displayGameMode(gameMode)} ${tier}`;
+        tierRoles.push(roleName);
+      }
+      tierRoles.sort((a, b) => getRolePoints(b) - getRolePoints(a));
+      return {
+        id: e.discordId,
+        points: e.totalPoints,
+        pointDelta: e.pointDelta,
+        tierRoles,
+        mcUsername: e.mcUsername,
+      };
+    });
+  } catch (err) {
+    console.error('[leaderboard] API fetch failed, falling back to guild scan:', err);
+    if (guild.members.cache.size < 2) await guild.members.fetch();
+    return guild.members.cache
+      .filter(m => !m.user.bot)
+      .map(member => ({
+        id: member.id,
+        points: getMemberPoints(member),
+        tierRoles: member.roles.cache
+          .filter(r => getRolePoints(r.name) > 0)
+          .map(r => r.name)
+          .sort((a, b) => getRolePoints(b) - getRolePoints(a)),
+        mcUsername: getRegistrationByDiscordId(member.id)?.mcUsername,
+      }))
+      .filter(e => e.points > 0)
+      .sort((a, b) => b.points - a.points || a.id.localeCompare(b.id));
+  }
 }
 
 // ─── Embed / Components Builders ──────────────────────────────────────────────

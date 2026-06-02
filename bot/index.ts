@@ -63,6 +63,7 @@ import {
   editProfileCommand,
   editProfileOtherCommand,
   toggleQueueCommand,
+  reloadUserCommand,
 } from './commands.js';
 import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
@@ -2991,6 +2992,64 @@ async function handleSetModRole(interaction: ChatInputCommandInteraction) {
   );
 }
 
+// ─── /reload-user Command ────────────────────────────────────────────────────
+
+async function handleReloadUser(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply('❌ This command can only be used in a server.');
+    return;
+  }
+
+  const config = getConfig();
+  const invoker = interaction.member;
+  const isManager = config.staffRoleId
+    ? (invoker as any)?.roles?.cache?.has?.(config.staffRoleId)
+    : false;
+  const isAdmin = (invoker as any)?.permissions?.has?.(PermissionFlagsBits.Administrator);
+  const isManageRoles = (invoker as any)?.permissions?.has?.(PermissionFlagsBits.ManageRoles);
+
+  if (!isAdmin && !isManageRoles && !isManager) {
+    await interaction.editReply('❌ You need the **Manage Roles** permission (or Staff role) to use `/reload-user`.');
+    return;
+  }
+
+  const targetUser = interaction.options.getUser('user', true);
+
+  let member: GuildMember;
+  try {
+    member = await guild.members.fetch(targetUser.id);
+  } catch {
+    await interaction.editReply(`❌ Could not find <@${targetUser.id}> in this server. Are they still in the server?`);
+    return;
+  }
+
+  try {
+    const { added, removed } = await syncMemberRoles(guild, member, `/reload-user by ${interaction.user.username}`);
+
+    const lines: string[] = [];
+    if (added.length > 0)   lines.push(`✅ **Added:** ${added.map(r => `\`${r}\``).join(', ')}`);
+    if (removed.length > 0) lines.push(`🗑️ **Removed:** ${removed.map(r => `\`${r}\``).join(', ')}`);
+    if (lines.length === 0) lines.push('✅ Roles are already in sync — nothing changed.');
+
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x57F287)
+          .setTitle(`🔄 Role Sync — ${targetUser.username}`)
+          .setDescription(lines.join('\n'))
+          .setFooter({ text: `Requested by ${interaction.user.username}` })
+          .setTimestamp(),
+      ],
+    });
+  } catch (err) {
+    console.error('[reload-user] Error:', err);
+    await interaction.editReply('❌ An error occurred while syncing roles. Check the bot logs.');
+  }
+}
+
 // ─── /toggle-queue Command ───────────────────────────────────────────────────
 
 async function handleToggleQueue(interaction: ChatInputCommandInteraction) {
@@ -3061,6 +3120,7 @@ async function registerCommands(clientId: string) {
         setModRoleCommand.toJSON(),
         editProfileCommand.toJSON(),
         editProfileOtherCommand.toJSON(),
+        reloadUserCommand.toJSON(),
         toggleQueueCommand.toJSON(),
       ],
     });
@@ -3091,13 +3151,168 @@ client.once('clientReady', async () => {
   }, 5 * 60 * 1000);
 });
 
+// ─── Role Sync Helper ─────────────────────────────────────────────────────────
+
+async function syncMemberRoles(
+  guild: Guild,
+  member: GuildMember,
+  reason = 'Role sync',
+): Promise<{ added: string[]; removed: string[] }> {
+  const added: string[] = [];
+  const removed: string[] = [];
+  const config = getConfig();
+
+  // Fetch full player data from backend
+  let playerData: {
+    discordId: string;
+    mcUsername: string;
+    region: string;
+    tiers: Array<{ gameMode: string; tier: string; retired: boolean }>;
+    isTester: boolean;
+    testerGameModes: string[];
+    specialTitleRoleId: string | null;
+  } | null = null;
+
+  try {
+    const res = await fetch(
+      `${WEBSITE_API_URL.replace(/\/$/, '')}/api/bot/player-full/${encodeURIComponent(member.id)}`,
+      {
+        headers: { 'x-internal-api-key': INTERNAL_API_KEY },
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (res.ok) {
+      const body = await res.json();
+      playerData = body.player ?? null;
+    }
+  } catch (err) {
+    console.error(`[sync-roles] Failed to fetch player data for ${member.id}:`, err);
+  }
+
+  if (!playerData) {
+    // Not registered — ensure unranked role; strip registered + tester
+    const unrankedRole = await getOrCreateUnrankedRole(guild);
+    if (!member.roles.cache.has(unrankedRole.id)) {
+      await member.roles.add(unrankedRole, reason);
+      added.push('Unranked');
+    }
+    if (config.registeredRoleId && member.roles.cache.has(config.registeredRoleId)) {
+      await member.roles.remove(config.registeredRoleId, reason);
+      removed.push('Registered');
+    }
+    if (config.tierTesterRoleId && member.roles.cache.has(config.tierTesterRoleId)) {
+      await member.roles.remove(config.tierTesterRoleId, reason);
+      removed.push('Tier Tester');
+    }
+    return { added, removed };
+  }
+
+  // ── Registered player ────────────────────────────────────────────────────────
+
+  // Registered role
+  const registeredRole = await getOrCreateRegisteredRole(guild);
+  if (!member.roles.cache.has(registeredRole.id)) {
+    await member.roles.add(registeredRole, reason);
+    added.push('Registered');
+  }
+
+  // Build the set of role names this player should have
+  const expectedRoleNames = new Set<string>();
+  for (const t of playerData.tiers) {
+    expectedRoleNames.add(
+      t.retired ? `${displayGameMode(t.gameMode)} R${t.tier}` : buildRoleName(t.gameMode, t.tier),
+    );
+  }
+
+  // Remove stale tier roles
+  for (const mode of GAME_MODES) {
+    for (const tier of ALL_TIERS) {
+      for (const roleName of [buildRoleName(mode, tier), `${displayGameMode(mode)} R${tier}`]) {
+        if (expectedRoleNames.has(roleName)) continue;
+        const role = guild.roles.cache.find(r => r.name === roleName);
+        if (role && member.roles.cache.has(role.id)) {
+          await member.roles.remove(role, reason);
+          removed.push(roleName);
+        }
+      }
+    }
+  }
+
+  // Add missing tier roles
+  for (const t of playerData.tiers) {
+    const roleName = t.retired
+      ? `${displayGameMode(t.gameMode)} R${t.tier}`
+      : buildRoleName(t.gameMode, t.tier);
+    const color = getTierColor(t.tier);
+    const role = await findOrCreateRole(guild, roleName, color);
+    if (!member.roles.cache.has(role.id)) {
+      await member.roles.add(role, reason);
+      added.push(roleName);
+    }
+  }
+
+  // Remove unranked role once they have tiers
+  if (playerData.tiers.length > 0) {
+    const unrankedRole = await getOrCreateUnrankedRole(guild);
+    if (member.roles.cache.has(unrankedRole.id)) {
+      await member.roles.remove(unrankedRole, reason);
+      removed.push('Unranked');
+    }
+  }
+
+  // Sync Tier Tester role
+  if (config.tierTesterRoleId) {
+    const hasTesterRole = member.roles.cache.has(config.tierTesterRoleId);
+    if (playerData.isTester && !hasTesterRole) {
+      await member.roles.add(config.tierTesterRoleId, reason);
+      added.push('Tier Tester');
+    } else if (!playerData.isTester && hasTesterRole) {
+      await member.roles.remove(config.tierTesterRoleId, reason);
+      removed.push('Tier Tester');
+    }
+  }
+
+  // Sync special title role
+  if (playerData.specialTitleRoleId) {
+    if (!member.roles.cache.has(playerData.specialTitleRoleId)) {
+      try {
+        await member.roles.add(playerData.specialTitleRoleId, reason);
+        added.push('Special Title');
+      } catch (err) {
+        console.error(`[sync-roles] Failed to add special title role for ${member.id}:`, err);
+      }
+    }
+  }
+
+  // Refresh member so assignTitleRole sees the updated tier roles
+  try {
+    const freshMember = await guild.members.fetch(member.id);
+    await assignTitleRole(guild, freshMember);
+  } catch (err) {
+    console.error(`[sync-roles] Failed to assign title role for ${member.id}:`, err);
+  }
+
+  return { added, removed };
+}
+
 client.on('guildMemberAdd', async member => {
   try {
-    const unrankedRole = await getOrCreateUnrankedRole(member.guild);
-    await member.roles.add(unrankedRole, 'New member — assigned Unranked role');
-    await assignTitleRole(member.guild, member);
+    const result = await syncMemberRoles(member.guild, member, 'Member rejoined — restoring CosmicTiers roles');
+    if (result.added.length > 0 || result.removed.length > 0) {
+      console.log(`[rejoin] Synced roles for ${member.user.tag}: +[${result.added.join(', ')}] -[${result.removed.join(', ')}]`);
+    } else {
+      // Not registered — assign unranked role + title only (already done inside syncMemberRoles)
+      console.log(`[rejoin] ${member.user.tag} is not registered — assigned Unranked role.`);
+    }
   } catch (err) {
-    console.error('Failed to assign roles to new member:', err);
+    console.error('Failed to sync roles for new member:', err);
+    // Fallback: at minimum give unranked role
+    try {
+      const unrankedRole = await getOrCreateUnrankedRole(member.guild);
+      if (!member.roles.cache.has(unrankedRole.id)) {
+        await member.roles.add(unrankedRole, 'Fallback Unranked assignment');
+      }
+    } catch { /* ignore */ }
   }
 });
 
@@ -3494,6 +3709,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'edit-profile')               return await handleEditProfile(interaction);
       if (interaction.commandName === 'edit-profile-others')        return await handleEditProfileOther(interaction);
       if (interaction.commandName === 'edit-profile-other')         return await handleEditProfileOther(interaction);
+      if (interaction.commandName === 'reload-user')                return await handleReloadUser(interaction);
       if (interaction.commandName === 'toggle-queue')               return await handleToggleQueue(interaction);
       return;
     }

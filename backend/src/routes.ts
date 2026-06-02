@@ -534,6 +534,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/bot/player-full/:discordId", botAuth, async (req, res) => {
+    try {
+      const player = await storage.getPlayerFull(String(req.params.discordId));
+      res.json({ player });
+    } catch (err) {
+      console.error("[bot/player-full]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/bot/leaderboard", botAuth, async (_req, res) => {
+    try {
+      const entries = await storage.getBotLeaderboard();
+      res.json({ entries });
+    } catch (err) {
+      console.error("[bot/leaderboard]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/top-players", async (_req, res) => {
     try {
       const data = await storage.getTopPlayers();

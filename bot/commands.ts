@@ -579,6 +579,17 @@ export const editProfileCommand = new SlashCommandBuilder()
       .setRequired(false)
   );
 
+export const reloadUserCommand = new SlashCommandBuilder()
+  .setName('reload-user')
+  .setDescription('Re-sync all CosmicTiers roles for a user from the database (staff only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+  .addUserOption(option =>
+    option
+      .setName('user')
+      .setDescription('The Discord user to reload')
+      .setRequired(true)
+  );
+
 export const toggleQueueCommand = new SlashCommandBuilder()
   .setName('toggle-queue')
   .setDescription('Enable or disable the queue system for tier tests (admin only)')
