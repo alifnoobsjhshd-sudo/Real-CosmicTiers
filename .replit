@@ -55,10 +55,6 @@ externalPort = 3000
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 8081
-externalPort = 8081
-
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "./dist/index.cjs"]
