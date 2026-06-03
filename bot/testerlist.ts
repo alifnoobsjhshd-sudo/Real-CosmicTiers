@@ -13,6 +13,7 @@ import { formatTierWithEmoji, getGameModeEmoji } from './emojis.js';
 
 const WEBSITE_LINK = process.env['WEBSITE_LINK'] ?? '';
 const WEBSITE_API_URL = process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000';
+const INTERNAL_API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
 const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP', 'cartpvp'];
 
@@ -24,6 +25,13 @@ const PAGE_SIZE = 5;
 
 export const TL_PREV_ID = 'tl_prev';
 export const TL_NEXT_ID = 'tl_next';
+export const TL_PERIOD_ID = 'tl_period';
+
+const PERIOD_LABELS: Record<string, string> = {
+  month:   'This Month',
+  year:    'This Year',
+  alltime: 'All Time',
+};
 
 export function isTierRoleName(name: string): boolean {
   return GAME_MODES.some(mode =>
@@ -48,6 +56,20 @@ async function fetchTesterGameModes(): Promise<Record<string, string[]>> {
   }
 }
 
+async function fetchTesterStats(period: string): Promise<Record<string, number>> {
+  try {
+    const resp = await fetch(`${WEBSITE_API_URL}/api/bot/tester-stats?period=${period}`, {
+      headers: { 'x-internal-api-key': INTERNAL_API_KEY },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!resp.ok) return {};
+    const data = await resp.json() as { stats?: Record<string, number> };
+    return data.stats ?? {};
+  } catch {
+    return {};
+  }
+}
+
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 interface TesterEntry {
@@ -57,9 +79,8 @@ interface TesterEntry {
   gameModes: string[];
 }
 
-async function getTesterList(guild: Guild): Promise<TesterEntry[]> {
+async function getTesterList(guild: Guild, period: string): Promise<TesterEntry[]> {
   const config = getConfig();
-  const stats = config.testerStats ?? {};
 
   if (!config.tierTesterRoleId) return [];
   if (guild.members.cache.size < 2) await guild.members.fetch();
@@ -67,7 +88,10 @@ async function getTesterList(guild: Guild): Promise<TesterEntry[]> {
   const role = guild.roles.cache.get(config.tierTesterRoleId);
   if (!role || role.members.size === 0) return [];
 
-  const gameModeMap = await fetchTesterGameModes();
+  const [stats, gameModeMap] = await Promise.all([
+    fetchTesterStats(period),
+    fetchTesterGameModes(),
+  ]);
 
   return role.members
     .map(member => ({
@@ -84,7 +108,7 @@ async function getTesterList(guild: Guild): Promise<TesterEntry[]> {
 
 // ─── Embed Builder ────────────────────────────────────────────────────────────
 
-function buildTesterEmbed(testers: TesterEntry[], page: number): EmbedBuilder {
+function buildTesterEmbed(testers: TesterEntry[], page: number, period: string): EmbedBuilder {
   const totalPages = Math.max(1, Math.ceil(testers.length / PAGE_SIZE));
   const start = page * PAGE_SIZE;
   const slice = testers.slice(start, start + PAGE_SIZE);
@@ -118,7 +142,8 @@ function buildTesterEmbed(testers: TesterEntry[], page: number): EmbedBuilder {
     if (i < slice.length - 1) description += '\n';
   });
 
-  const footerText = `Page ${page + 1} / ${totalPages} · ${testers.length} tier tester(s) · Sorted by tests completed`;
+  const periodLabel = PERIOD_LABELS[period] ?? 'All Time';
+  const footerText = `Page ${page + 1} / ${totalPages} · ${testers.length} tester(s) · Tests: ${periodLabel}`;
 
   const embed = new EmbedBuilder()
     .setColor(0xFFBF00)
@@ -129,12 +154,12 @@ function buildTesterEmbed(testers: TesterEntry[], page: number): EmbedBuilder {
   return embed;
 }
 
-function buildTesterRows(testers: TesterEntry[], page: number): ActionRowBuilder<ButtonBuilder>[] {
+function buildTesterRows(testers: TesterEntry[], page: number, period: string): ActionRowBuilder<ButtonBuilder>[] {
   const totalPages = Math.max(1, Math.ceil(testers.length / PAGE_SIZE));
 
   const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${TL_PREV_ID}:${page}`)
+      .setCustomId(`${TL_PREV_ID}:${page}:${period}`)
       .setLabel('◀ Prev')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page === 0),
@@ -144,10 +169,25 @@ function buildTesterRows(testers: TesterEntry[], page: number): ActionRowBuilder
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(true),
     new ButtonBuilder()
-      .setCustomId(`${TL_NEXT_ID}:${page}`)
+      .setCustomId(`${TL_NEXT_ID}:${page}:${period}`)
       .setLabel('Next ▶')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages - 1),
+  );
+
+  const periodRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${TL_PERIOD_ID}:month`)
+      .setLabel('This Month')
+      .setStyle(period === 'month' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`${TL_PERIOD_ID}:year`)
+      .setLabel('This Year')
+      .setStyle(period === 'year' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`${TL_PERIOD_ID}:alltime`)
+      .setLabel('All Time')
+      .setStyle(period === 'alltime' ? ButtonStyle.Primary : ButtonStyle.Secondary),
   );
 
   const applyRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -157,22 +197,22 @@ function buildTesterRows(testers: TesterEntry[], page: number): ActionRowBuilder
       .setStyle(ButtonStyle.Success),
   );
 
-  return [navRow, applyRow];
+  return [navRow, periodRow, applyRow];
 }
 
 // ─── Build Full Message ───────────────────────────────────────────────────────
 
-export async function buildTesterMessage(guild: Guild, page: number): Promise<{
+export async function buildTesterMessage(guild: Guild, page: number, period: string = 'alltime'): Promise<{
   embeds: EmbedBuilder[];
   components: ActionRowBuilder<ButtonBuilder>[];
 }> {
-  const testers = await getTesterList(guild);
+  const testers = await getTesterList(guild, period);
   const totalPages = Math.max(1, Math.ceil(testers.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
 
   return {
-    embeds: [buildTesterEmbed(testers, safePage)],
-    components: buildTesterRows(testers, safePage),
+    embeds: [buildTesterEmbed(testers, safePage, period)],
+    components: buildTesterRows(testers, safePage, period),
   };
 }
 

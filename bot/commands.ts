@@ -338,8 +338,8 @@ export const removeTesterCommand = new SlashCommandBuilder()
   .setName('remove-tester')
   .setDescription('Remove a user from being a tier tester — removes all tester roles and test history (staff only)')
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-  .addUserOption(option =>
-    option.setName('user').setDescription('The tier tester to remove').setRequired(true)
+  .addStringOption(option =>
+    option.setName('player').setDescription('The registered player to remove (Minecraft username)').setRequired(true).setAutocomplete(true)
   );
 
 export const setLeaderboardChannelCommand = new SlashCommandBuilder()
@@ -452,8 +452,8 @@ export const addTesterCommand = new SlashCommandBuilder()
   .setName('add-tester')
   .setDescription('Grant the Tier Tester role to a registered player (staff only)')
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-  .addUserOption(option =>
-    option.setName('user').setDescription('The registered Discord user to promote').setRequired(true)
+  .addStringOption(option =>
+    option.setName('player').setDescription('The registered player to promote (Minecraft username)').setRequired(true).setAutocomplete(true)
   )
   .addStringOption(option =>
     option
@@ -609,6 +609,13 @@ export const reloadCommand = new SlashCommandBuilder()
   .setName('reload')
   .setDescription('Reload bot config and refresh all panels (admin only)')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
+export const profileUserCommand = new SlashCommandBuilder()
+  .setName('profile-user')
+  .setDescription('View any Discord member\'s profile — shows their stats, or "not registered" if they haven\'t joined')
+  .addUserOption(option =>
+    option.setName('user').setDescription('The Discord member to look up').setRequired(true)
+  );
 
 export const editProfileOtherCommand = new SlashCommandBuilder()
   .setName('edit-profile-others')

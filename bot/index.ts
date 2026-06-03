@@ -65,6 +65,7 @@ import {
   toggleQueueCommand,
   reloadUserCommand,
   reloadCommand,
+  profileUserCommand,
 } from './commands.js';
 import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
@@ -111,6 +112,7 @@ import {
   isTierRoleName as isTierRoleNameForTesterList,
   TL_PREV_ID,
   TL_NEXT_ID,
+  TL_PERIOD_ID,
   buildTesterMessage,
   postTesterListPanel,
   refreshTesterListPanel,
@@ -1385,10 +1387,10 @@ async function handleSetStaffRole(interaction: ChatInputCommandInteraction) {
 async function handleAddTester(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
 
-  const guild    = interaction.guild!;
-  const target   = interaction.options.getUser('user', true);
-  const gameMode = interaction.options.getString('game-mode', true);
-  const config   = getConfig();
+  const guild      = interaction.guild!;
+  const mcUsername = interaction.options.getString('player', true).trim();
+  const gameMode   = interaction.options.getString('game-mode', true);
+  const config     = getConfig();
 
   // ── Admin-only guard ────────────────────────────────────────────────────────
   const caller = interaction.member as GuildMember;
@@ -1402,10 +1404,10 @@ async function handleAddTester(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  const reg = getRegistrationByDiscordId(target.id);
+  const reg = getRegistrationByMcUsername(mcUsername);
   if (!reg) {
     await interaction.editReply(
-      `❌ <@${target.id}> is not registered. Only registered players can be granted the Tier Tester role.\n` +
+      `❌ No registered player found with Minecraft username \`${mcUsername}\`.\n` +
       `Ask them to use \`/register\` first.`,
     );
     return;
@@ -1413,9 +1415,9 @@ async function handleAddTester(interaction: ChatInputCommandInteraction) {
 
   let member: GuildMember;
   try {
-    member = await guild.members.fetch(target.id);
+    member = await guild.members.fetch(reg.discordId);
   } catch {
-    await interaction.editReply(`❌ Could not find <@${target.id}> in this server.`);
+    await interaction.editReply(`❌ Could not find <@${reg.discordId}> in this server.`);
     return;
   }
 
@@ -1442,7 +1444,7 @@ async function handleAddTester(interaction: ChatInputCommandInteraction) {
     }
 
     // ── Update game modes in DB (append if already a tester) ─────────────────
-    await callApi('/api/bot/tester-role', { discordId: target.id, action: 'add' });
+    await callApi('/api/bot/tester-role', { discordId: reg.discordId, action: 'add' });
 
     // Determine current game modes stored in DB by fetching leaderboard/testers
     // We accumulate game modes from each /add-tester call
@@ -1450,11 +1452,11 @@ async function handleAddTester(interaction: ChatInputCommandInteraction) {
     let existingModes: string[] = [];
     if (existingRes.ok) {
       const data = await existingRes.json() as { testers: Array<{ discordId: string; gameModes?: string[] }> };
-      const tester = data.testers.find((t) => t.discordId === target.id);
+      const tester = data.testers.find((t) => t.discordId === reg.discordId);
       existingModes = tester?.gameModes ?? [];
     }
     const updatedModes = existingModes.includes(gameMode) ? existingModes : [...existingModes, gameMode];
-    await callApi('/api/bot/tester-game-modes', { discordId: target.id, gameModes: updatedModes });
+    await callApi('/api/bot/tester-game-modes', { discordId: reg.discordId, gameModes: updatedModes });
 
     scheduleTesterListRefresh(client);
 
@@ -1462,7 +1464,7 @@ async function handleAddTester(interaction: ChatInputCommandInteraction) {
       .setColor(TIER_TEST_YELLOW)
       .setTitle('✅ Tier Tester Roles Granted')
       .setDescription(
-        `<@${target.id}> (\`${reg.mcUsername}\`) has been granted:\n` +
+        `<@${reg.discordId}> (\`${reg.mcUsername}\`) has been granted:\n` +
         `• <@&${config.tierTesterRoleId}> (general Tier Tester)\n` +
         `• <@&${gmRole.id}> (\`${gmRoleName}\`)\n\n` +
         `**Game modes they now test:** ${updatedModes.join(', ')}`,
@@ -1888,20 +1890,20 @@ async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  const guild  = interaction.guild!;
-  const target = interaction.options.getUser('user', true);
-  const reg    = getRegistrationByDiscordId(target.id);
+  const guild      = interaction.guild!;
+  const mcUsername = interaction.options.getString('player', true).trim();
+  const reg        = getRegistrationByMcUsername(mcUsername);
 
   if (!reg) {
-    await interaction.editReply(`❌ <@${target.id}> is not registered in the system.`);
+    await interaction.editReply(`❌ No registered player found with Minecraft username \`${mcUsername}\`.`);
     return;
   }
 
   let member: GuildMember;
   try {
-    member = await guild.members.fetch(target.id);
+    member = await guild.members.fetch(reg.discordId);
   } catch {
-    await interaction.editReply(`❌ Could not find <@${target.id}> in this server.`);
+    await interaction.editReply(`❌ Could not find <@${reg.discordId}> in this server.`);
     return;
   }
 
@@ -1928,11 +1930,11 @@ async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
   }
 
   // Clear test count from config
-  clearTesterStat(target.id);
+  clearTesterStat(reg.discordId);
 
   // Notify website API: remove tester role and clear game modes
-  await callApi('/api/bot/tester-role', { discordId: target.id, action: 'remove' });
-  await callApi('/api/bot/tester-game-modes', { discordId: target.id, gameModes: [] });
+  await callApi('/api/bot/tester-role', { discordId: reg.discordId, action: 'remove' });
+  await callApi('/api/bot/tester-game-modes', { discordId: reg.discordId, gameModes: [] });
 
   scheduleTesterListRefresh(client);
   schedulePanelRefresh(client);
@@ -1941,10 +1943,102 @@ async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
     .setColor(0xFF4444)
     .setTitle('🗑️ Tier Tester Removed')
     .setDescription(
-      `<@${target.id}> (\`${reg.mcUsername}\`) has been removed as a Tier Tester.\n\n` +
+      `<@${reg.discordId}> (\`${reg.mcUsername}\`) has been removed as a Tier Tester.\n\n` +
       `**Roles removed:** ${removedRoles.length > 0 ? removedRoles.map(r => `\`${r}\``).join(', ') : 'None found'}\n` +
       `**Test count:** Reset to 0`,
     );
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+// ─── /profile-user Command ─────────────────────────────────────────────────────
+
+async function handleProfileUser(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: false });
+
+  const target = interaction.options.getUser('user', true);
+  const reg    = getRegistrationByDiscordId(target.id);
+
+  if (!reg) {
+    const embed = new EmbedBuilder()
+      .setColor(0xFF4444)
+      .setTitle('❌ Not Registered')
+      .setDescription(`<@${target.id}> has not registered in the Cosmic Tiers system.`)
+      .addFields({ name: 'How to register', value: 'Use `/register` to link your Minecraft account.', inline: false })
+      .setFooter({ text: 'Cosmic Tiers System' })
+      .setTimestamp();
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply('❌ This command must be used inside a server.');
+    return;
+  }
+
+  let member: GuildMember;
+  try {
+    member = await guild.members.fetch(reg.discordId);
+  } catch {
+    await interaction.editReply(`❌ Could not find <@${reg.discordId}> in this server.`);
+    return;
+  }
+
+  const totalPoints = getMemberPoints(member);
+  const tierRoles   = member.roles.cache
+    .filter(r => {
+      const parts = r.name.split(' ');
+      if (parts.length < 2) return false;
+      const tier = parts[parts.length - 1];
+      const mode = parts.slice(0, -1).join(' ');
+      const isRetired = tier.startsWith('R') && ALL_TIERS.includes(tier.slice(1));
+      return GAME_MODES.map(displayGameMode).includes(mode) && (ALL_TIERS.includes(tier) || isRetired);
+    })
+    .map(r => r.name)
+    .sort();
+
+  const title        = getTitleForPoints(totalPoints);
+  const titleEmoji   = getEmojiString(sanitizeToEmojiName(title.name));
+  const titleDisplay = titleEmoji ? `${titleEmoji} ${title.name}` : title.name;
+
+  const registeredDate = new Date(reg.registeredAt).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  const tiersDisplay = tierRoles.length > 0
+    ? tierRoles.map(roleName => {
+        const parts    = roleName.split(' ');
+        const tier     = parts[parts.length - 1];
+        const mode     = parts.slice(0, -1).join(' ');
+        const modeEmoji = getGameModeEmoji(mode);
+        return modeEmoji ? `${modeEmoji} **${tier}** (${mode})` : `**${tier}** (${mode})`;
+      }).join('\n')
+    : '*No tiers yet*';
+
+  const websiteLinkField = getWebsiteLinkField();
+
+  const embedFields: { name: string; value: string; inline?: boolean }[] = [
+    { name: '🎮 IGN',        value: `\`${reg.mcUsername}\``, inline: true },
+    { name: '🌍 Region',     value: reg.region,              inline: true },
+    { name: '💎 Points',     value: `${totalPoints} pts`,    inline: true },
+    { name: '⭐ Title',      value: titleDisplay,            inline: true },
+    { name: '📅 Registered', value: registeredDate,          inline: true },
+    { name: '🏆 Tiers',      value: tiersDisplay,            inline: false },
+  ];
+
+  if (websiteLinkField) {
+    embedFields.push({ name: websiteLinkField.name, value: websiteLinkField.value, inline: false });
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(`👤 Profile — ${reg.mcUsername}`)
+    .setColor(title.color)
+    .setDescription(`<@${reg.discordId}>`)
+    .setThumbnail(getBackendSkinUrl(reg.discordId))
+    .addFields(...embedFields)
+    .setFooter({ text: 'Cosmic Tiers System' })
+    .setTimestamp();
 
   await interaction.editReply({ embeds: [embed] });
 }
@@ -2577,10 +2671,10 @@ async function handleClearUser(interaction: ChatInputCommandInteraction) {
 
 // ─── Pagination Button Handlers ───────────────────────────────────────────────
 
-async function handleTesterListPage(interaction: ButtonInteraction, newPage: number): Promise<void> {
+async function handleTesterListPage(interaction: ButtonInteraction, newPage: number, period: string = 'alltime'): Promise<void> {
   const guild = interaction.guild;
   if (!guild) { await interaction.reply({ content: '❌ Server not found.', ephemeral: true }); return; }
-  const message = await buildTesterMessage(guild, newPage);
+  const message = await buildTesterMessage(guild, newPage, period);
   await interaction.update(message);
 }
 
@@ -2684,6 +2778,16 @@ async function handleUploadEmoji(interaction: ChatInputCommandInteraction) {
 // ─── /retired Command (staff only) ────────────────────────────────────────────
 
 async function handleRetiredAutocomplete(interaction: AutocompleteInteraction) {
+  const focused = interaction.options.getFocused().toLowerCase();
+  const all     = getAllRegistrations();
+  const choices = all
+    .filter(r => r.mcUsername.toLowerCase().includes(focused))
+    .slice(0, 25)
+    .map(r => ({ name: r.mcUsername, value: r.mcUsername }));
+  await interaction.respond(choices);
+}
+
+async function handleTesterPlayerAutocomplete(interaction: AutocompleteInteraction) {
   const focused = interaction.options.getFocused().toLowerCase();
   const all     = getAllRegistrations();
   const choices = all
@@ -3161,6 +3265,7 @@ async function registerCommands(clientId: string) {
         reloadUserCommand.toJSON(),
         toggleQueueCommand.toJSON(),
         reloadCommand.toJSON(),
+        profileUserCommand.toJSON(),
       ],
     });
     console.log('Slash commands registered!');
@@ -3704,9 +3809,11 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'add-test')     return handleAddTestAutocomplete(interaction);
       if (interaction.commandName === 'give-title')   return handleGiveTitleAutocomplete(interaction);
       if (interaction.commandName === 'remove-title') return handleProfileAutocomplete(interaction);
-      if (interaction.commandName === 'retired')      return handleRetiredAutocomplete(interaction);
+      if (interaction.commandName === 'retired')       return handleRetiredAutocomplete(interaction);
       if (interaction.commandName === 'unretired')    return handleRetiredAutocomplete(interaction);
       if (interaction.commandName === 'remove-tier')  return handleRetiredAutocomplete(interaction);
+      if (interaction.commandName === 'add-tester')   return handleTesterPlayerAutocomplete(interaction);
+      if (interaction.commandName === 'remove-tester') return handleTesterPlayerAutocomplete(interaction);
       return;
     }
 
@@ -3731,6 +3838,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'set-leaderboard-channel')    return await handleSetLeaderboardChannel(interaction);
       if (interaction.commandName === 'set-staff-role')             return await handleSetStaffRole(interaction);
       if (interaction.commandName === 'add-tester')                 return await handleAddTester(interaction);
+      if (interaction.commandName === 'profile-user')               return await handleProfileUser(interaction);
       if (interaction.commandName === 'clear-tester')               return await handleClearTierTest(interaction);
       if (interaction.commandName === 'clear-user')                 return await handleClearUser(interaction);
       if (interaction.commandName === 'remove-tier')                return await handleRemoveTier(interaction);
@@ -3828,11 +3936,18 @@ client.on('interactionCreate', async interaction => {
         return await handleAimingTierSelect(interaction as ButtonInteraction, gameMode, aimingTier);
       }
 
+      if (id.startsWith(TL_PERIOD_ID + ':')) {
+        const period = id.slice(TL_PERIOD_ID.length + 1);
+        return await handleTesterListPage(interaction as ButtonInteraction, 0, period);
+      }
+
       if (id.startsWith(TL_PREV_ID + ':') || id.startsWith(TL_NEXT_ID + ':')) {
-        const [prefix, pageStr] = id.split(':');
-        const currentPage = parseInt(pageStr, 10);
+        const parts       = id.split(':');
+        const prefix      = parts[0];
+        const currentPage = parseInt(parts[1], 10);
+        const period      = parts[2] ?? 'alltime';
         const newPage     = prefix === TL_PREV_ID ? currentPage - 1 : currentPage + 1;
-        return await handleTesterListPage(interaction as ButtonInteraction, newPage);
+        return await handleTesterListPage(interaction as ButtonInteraction, newPage, period);
       }
 
       if (id.startsWith(LB_PREV_ID + ':') || id.startsWith(LB_NEXT_ID + ':')) {
