@@ -400,65 +400,98 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTesters(period?: string): Promise<TierTester[]> {
-    // Include players who have isTester=true OR who appear as a tester in result_entries.
-    // This makes the tester list self-healing: even if isTester was never synced from the
-    // bot, anyone who has actually conducted a tier test will still appear on the website.
-    const testerIdsFromResults = await db
-      .selectDistinct({ discordId: resultEntriesTable.testerDiscordId })
-      .from(resultEntriesTable);
-    const testerDiscordIds = testerIdsFromResults.map(r => r.discordId);
+    // Pull every tester who ever ran a test, along with their most-recent MC username.
+    // result_entries stores testerDiscordId + testerMcUsername on every submission,
+    // so this is the authoritative source of "who has actually tested".
+    const fromResults = await db
+      .select({
+        discordId: resultEntriesTable.testerDiscordId,
+        mcUsername: sql<string>`max(${resultEntriesTable.testerMcUsername})`,
+      })
+      .from(resultEntriesTable)
+      .groupBy(resultEntriesTable.testerDiscordId);
 
-    let allPlayers;
+    const testerDiscordIds = fromResults.map(r => r.discordId);
+    const usernameFromResults: Record<string, string> = {};
+    for (const r of fromResults) {
+      usernameFromResults[r.discordId] = r.mcUsername ?? r.discordId;
+    }
+
+    // Also grab players explicitly marked isTester=true (may not have result_entries yet)
+    let registeredPlayers;
     if (testerDiscordIds.length > 0) {
-      allPlayers = await db
+      registeredPlayers = await db
         .select()
         .from(playersTable)
         .where(or(eq(playersTable.isTester, true), inArray(playersTable.discordId, testerDiscordIds)));
     } else {
-      allPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
+      registeredPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
     }
+    const registeredIds = new Set(registeredPlayers.map(p => p.discordId));
 
     const allTiers = await db.select().from(playerTiersTable);
     const allRetired = await db.select().from(retiredPlayerTiersTable);
 
-    const tiersForTesters: Record<string, Record<string, string>> = {};
+    const tiersMap: Record<string, Record<string, string>> = {};
     for (const t of allTiers) {
-      if (!tiersForTesters[t.discordId]) tiersForTesters[t.discordId] = {};
-      tiersForTesters[t.discordId][t.gameMode] = t.tier;
+      if (!tiersMap[t.discordId]) tiersMap[t.discordId] = {};
+      tiersMap[t.discordId][t.gameMode] = t.tier;
     }
 
-    const retiredByPlayer: Record<string, string[]> = {};
+    const retiredMap: Record<string, string[]> = {};
     for (const r of allRetired) {
-      if (!retiredByPlayer[r.discordId]) retiredByPlayer[r.discordId] = [];
-      retiredByPlayer[r.discordId].push(r.gameMode);
+      if (!retiredMap[r.discordId]) retiredMap[r.discordId] = [];
+      retiredMap[r.discordId].push(r.gameMode);
     }
 
     const effectivePeriod = period ?? 'alltime';
     const periodStats = await this.getTesterStatsByPeriod(effectivePeriod);
 
-    const testers: TierTester[] = allPlayers
-      .map(p => {
-        const tiers = tiersForTesters[p.discordId] ?? {};
-        const totalPoints = calcPoints(tiers);
-        const pointDelta = totalPoints - (p.previousPoints ?? 0);
-        return {
-          discordId: p.discordId,
-          mcUsername: p.mcUsername,
-          region: p.region,
-          testCount: periodStats[p.discordId] ?? 0,
-          tiers,
-          retiredTiers: retiredByPlayer[p.discordId] ?? [],
-          totalPoints,
-          title: getTitleForPoints(totalPoints),
-          trend: calcTrend(pointDelta),
-          skinUrl: getPlayerSkinUrl(p.discordId),
-          renderedSkinPath: getPlayerSkinUrl(p.discordId),
-          rank: 0,
-          gameModes: p.testerGameModes ?? [],
-        } as TierTester;
-      })
-      .sort((a, b) => (b.testCount ?? 0) - (a.testCount ?? 0));
+    // Build profiles for testers who have a players row
+    const testers: TierTester[] = registeredPlayers.map(p => {
+      const tiers = tiersMap[p.discordId] ?? {};
+      const totalPoints = calcPoints(tiers);
+      const pointDelta = totalPoints - (p.previousPoints ?? 0);
+      return {
+        discordId: p.discordId,
+        mcUsername: p.mcUsername,
+        region: p.region,
+        testCount: periodStats[p.discordId] ?? 0,
+        tiers,
+        retiredTiers: retiredMap[p.discordId] ?? [],
+        totalPoints,
+        title: getTitleForPoints(totalPoints),
+        trend: calcTrend(pointDelta),
+        skinUrl: getPlayerSkinUrl(p.discordId),
+        renderedSkinPath: getPlayerSkinUrl(p.discordId),
+        rank: 0,
+        gameModes: p.testerGameModes ?? [],
+      } as TierTester;
+    });
 
+    // Add ghost testers: appeared in result_entries but were never registered in players.
+    // The bot shows them because it reads Discord role members directly; the website
+    // must also show them using the username recorded at test-submission time.
+    for (const r of fromResults) {
+      if (registeredIds.has(r.discordId)) continue;
+      testers.push({
+        discordId: r.discordId,
+        mcUsername: usernameFromResults[r.discordId] ?? r.discordId,
+        region: 'Unknown',
+        testCount: periodStats[r.discordId] ?? 0,
+        tiers: {},
+        retiredTiers: [],
+        totalPoints: 0,
+        title: null,
+        trend: null,
+        skinUrl: getPlayerSkinUrl(r.discordId),
+        renderedSkinPath: getPlayerSkinUrl(r.discordId),
+        rank: 0,
+        gameModes: [],
+      } as TierTester);
+    }
+
+    testers.sort((a, b) => (b.testCount ?? 0) - (a.testCount ?? 0));
     testers.forEach((t, i) => { t.rank = i + 1; });
     return testers;
   }
