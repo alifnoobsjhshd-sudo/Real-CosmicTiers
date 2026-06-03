@@ -18,7 +18,7 @@ import {
   type User,
   type InsertUser,
 } from "@shared/schema";
-import { eq, desc, and, gte, sql } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 function calcPoints(tiers: Record<string, string>): number {
@@ -44,13 +44,6 @@ function calcTrend(pointDelta: number): TrendArrow {
 
 function getPlayerSkinUrl(discordId: string): string {
   return `/api/skin/${encodeURIComponent(discordId)}`;
-}
-
-function getPeriodStartMs(period: string): number | null {
-  const now = new Date();
-  if (period === "month") return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
-  if (period === "year")  return new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0).getTime();
-  return null;
 }
 
 export interface IStorage {
@@ -84,8 +77,7 @@ export interface IStorage {
   retireTier(discordId: string, gameMode: string): Promise<void>;
   unretireTier(discordId: string, gameMode: string): Promise<void>;
   getLeaderboard(): Promise<PlayerProfile[]>;
-  getTesters(period?: string): Promise<TierTester[]>;
-  getTesterStatsByPeriod(period: string): Promise<Record<string, number>>;
+  getTesters(): Promise<TierTester[]>;
   getResults(limit?: number): Promise<ResultEntry[]>;
   getSkin(discordId: string): Promise<string | null>;
 
@@ -377,26 +369,7 @@ export class DatabaseStorage implements IStorage {
     return profiles;
   }
 
-  async getTesterStatsByPeriod(period: string): Promise<Record<string, number>> {
-    const periodStartMs = getPeriodStartMs(period);
-    if (periodStartMs === null) {
-      const rows = await db.select({ discordId: playersTable.discordId, testCount: playersTable.testCount })
-        .from(playersTable).where(eq(playersTable.isTester, true));
-      const stats: Record<string, number> = {};
-      for (const r of rows) stats[r.discordId] = r.testCount ?? 0;
-      return stats;
-    }
-    const rows = await db
-      .select({ testerDiscordId: resultEntriesTable.testerDiscordId, cnt: sql<number>`cast(count(*) as int)` })
-      .from(resultEntriesTable)
-      .where(gte(resultEntriesTable.timestamp, periodStartMs))
-      .groupBy(resultEntriesTable.testerDiscordId);
-    const stats: Record<string, number> = {};
-    for (const r of rows) stats[r.testerDiscordId] = r.cnt;
-    return stats;
-  }
-
-  async getTesters(period?: string): Promise<TierTester[]> {
+  async getTesters(): Promise<TierTester[]> {
     const allPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
     const allTiers = await db.select().from(playerTiersTable);
     const allRetired = await db.select().from(retiredPlayerTiersTable);
@@ -413,9 +386,6 @@ export class DatabaseStorage implements IStorage {
       retiredByPlayer[r.discordId].push(r.gameMode);
     }
 
-    const effectivePeriod = period ?? "alltime";
-    const periodStats = await this.getTesterStatsByPeriod(effectivePeriod);
-
     const testers: TierTester[] = allPlayers
       .map(p => {
         const tiers = tiersForTesters[p.discordId] ?? {};
@@ -425,7 +395,7 @@ export class DatabaseStorage implements IStorage {
           discordId: p.discordId,
           mcUsername: p.mcUsername,
           region: p.region,
-          testCount: periodStats[p.discordId] ?? 0,
+          testCount: p.testCount ?? 0,
           tiers,
           retiredTiers: retiredByPlayer[p.discordId] ?? [],
           totalPoints,
