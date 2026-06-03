@@ -18,7 +18,7 @@ import {
   type User,
   type InsertUser,
 } from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, sql, or, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 function calcPoints(tiers: Record<string, string>): number {
@@ -44,6 +44,17 @@ function calcTrend(pointDelta: number): TrendArrow {
 
 function getPlayerSkinUrl(discordId: string): string {
   return `/api/skin/${encodeURIComponent(discordId)}`;
+}
+
+function getPeriodStartMs(period: string): number | null {
+  const now = new Date();
+  if (period === 'month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
+  }
+  if (period === 'year') {
+    return new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0).getTime();
+  }
+  return null;
 }
 
 export interface IStorage {
@@ -77,7 +88,8 @@ export interface IStorage {
   retireTier(discordId: string, gameMode: string): Promise<void>;
   unretireTier(discordId: string, gameMode: string): Promise<void>;
   getLeaderboard(): Promise<PlayerProfile[]>;
-  getTesters(): Promise<TierTester[]>;
+  getTesters(period?: string): Promise<TierTester[]>;
+  getTesterStatsByPeriod(period: string): Promise<Record<string, number>>;
   getResults(limit?: number): Promise<ResultEntry[]>;
   getSkin(discordId: string): Promise<string | null>;
 
@@ -369,8 +381,43 @@ export class DatabaseStorage implements IStorage {
     return profiles;
   }
 
-  async getTesters(): Promise<TierTester[]> {
-    const allPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
+  async getTesterStatsByPeriod(period: string): Promise<Record<string, number>> {
+    const periodStartMs = getPeriodStartMs(period);
+    const baseQuery = db
+      .select({
+        testerDiscordId: resultEntriesTable.testerDiscordId,
+        cnt: sql<number>`cast(count(*) as int)`,
+      })
+      .from(resultEntriesTable);
+
+    const rows = periodStartMs !== null
+      ? await baseQuery.where(gte(resultEntriesTable.timestamp, periodStartMs)).groupBy(resultEntriesTable.testerDiscordId)
+      : await baseQuery.groupBy(resultEntriesTable.testerDiscordId);
+
+    const stats: Record<string, number> = {};
+    for (const r of rows) stats[r.testerDiscordId] = r.cnt;
+    return stats;
+  }
+
+  async getTesters(period?: string): Promise<TierTester[]> {
+    // Include players who have isTester=true OR who appear as a tester in result_entries.
+    // This makes the tester list self-healing: even if isTester was never synced from the
+    // bot, anyone who has actually conducted a tier test will still appear on the website.
+    const testerIdsFromResults = await db
+      .selectDistinct({ discordId: resultEntriesTable.testerDiscordId })
+      .from(resultEntriesTable);
+    const testerDiscordIds = testerIdsFromResults.map(r => r.discordId);
+
+    let allPlayers;
+    if (testerDiscordIds.length > 0) {
+      allPlayers = await db
+        .select()
+        .from(playersTable)
+        .where(or(eq(playersTable.isTester, true), inArray(playersTable.discordId, testerDiscordIds)));
+    } else {
+      allPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
+    }
+
     const allTiers = await db.select().from(playerTiersTable);
     const allRetired = await db.select().from(retiredPlayerTiersTable);
 
@@ -386,6 +433,9 @@ export class DatabaseStorage implements IStorage {
       retiredByPlayer[r.discordId].push(r.gameMode);
     }
 
+    const effectivePeriod = period ?? 'alltime';
+    const periodStats = await this.getTesterStatsByPeriod(effectivePeriod);
+
     const testers: TierTester[] = allPlayers
       .map(p => {
         const tiers = tiersForTesters[p.discordId] ?? {};
@@ -395,7 +445,7 @@ export class DatabaseStorage implements IStorage {
           discordId: p.discordId,
           mcUsername: p.mcUsername,
           region: p.region,
-          testCount: p.testCount ?? 0,
+          testCount: periodStats[p.discordId] ?? 0,
           tiers,
           retiredTiers: retiredByPlayer[p.discordId] ?? [],
           totalPoints,

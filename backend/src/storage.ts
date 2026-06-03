@@ -19,7 +19,7 @@ import {
   type User,
   type InsertUser,
 } from "../shared/schema";
-import { eq, desc, and, gte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, sql, or, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 function calcPoints(tiers: Record<string, string>): number {
@@ -415,29 +415,46 @@ export class DatabaseStorage implements IStorage {
 
   async getTesterStatsByPeriod(period: string): Promise<Record<string, number>> {
     const periodStartMs = getPeriodStartMs(period);
-    if (periodStartMs === null) {
-      const rows = await db.select({ discordId: playersTable.discordId, testCount: playersTable.testCount })
-        .from(playersTable)
-        .where(eq(playersTable.isTester, true));
-      const stats: Record<string, number> = {};
-      for (const r of rows) stats[r.discordId] = r.testCount ?? 0;
-      return stats;
-    }
-    const rows = await db
+    // Always derive counts from result_entries for accuracy across all periods.
+    // This ensures "alltime" reflects the true number of tests recorded,
+    // not the potentially stale testCount column on the players table.
+    const baseQuery = db
       .select({
         testerDiscordId: resultEntriesTable.testerDiscordId,
         cnt: sql<number>`cast(count(*) as int)`,
       })
-      .from(resultEntriesTable)
-      .where(gte(resultEntriesTable.timestamp, periodStartMs))
-      .groupBy(resultEntriesTable.testerDiscordId);
+      .from(resultEntriesTable);
+
+    const rows = periodStartMs !== null
+      ? await baseQuery.where(gte(resultEntriesTable.timestamp, periodStartMs)).groupBy(resultEntriesTable.testerDiscordId)
+      : await baseQuery.groupBy(resultEntriesTable.testerDiscordId);
+
     const stats: Record<string, number> = {};
     for (const r of rows) stats[r.testerDiscordId] = r.cnt;
     return stats;
   }
 
   async getTesters(period?: string): Promise<TierTester[]> {
-    const allPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
+    // Collect tester discord IDs from two sources:
+    // 1. Players explicitly marked isTester=true (via /add-tester command)
+    // 2. Players who appear as a testerDiscordId in result_entries (they actually ran tests)
+    // This makes the list self-healing — even if the isTester flag was never synced,
+    // anyone who has actually conducted a tier test will still appear on the website.
+    const testerIdsFromResults = await db
+      .selectDistinct({ discordId: resultEntriesTable.testerDiscordId })
+      .from(resultEntriesTable);
+    const testerDiscordIds = testerIdsFromResults.map(r => r.discordId);
+
+    let allPlayers;
+    if (testerDiscordIds.length > 0) {
+      allPlayers = await db
+        .select()
+        .from(playersTable)
+        .where(or(eq(playersTable.isTester, true), inArray(playersTable.discordId, testerDiscordIds)));
+    } else {
+      allPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
+    }
+
     const allTiers = await db.select().from(playerTiersTable);
     const allRetired = await db.select().from(retiredPlayerTiersTable);
 

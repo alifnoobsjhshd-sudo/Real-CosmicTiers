@@ -127,10 +127,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.get("/api/testers", async (_req, res) => {
+  app.get("/api/testers", async (req, res) => {
     try {
-      const testers = await storage.getTesters();
-      res.json({ testers, lastUpdated: Date.now() });
+      const period = typeof req.query.period === "string" ? req.query.period : "alltime";
+      const testers = await storage.getTesters(period);
+      res.json({ testers, period, lastUpdated: Date.now() });
     } catch (err) {
       console.error("[testers]", err);
       res.status(500).json({ error: "Internal server error" });
