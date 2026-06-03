@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Trophy, Users, Info, RefreshCw, ChevronDown, ChevronUp, Star, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ClipboardList, Crown, Search, X } from "lucide-react";
 import { SiDiscord } from "react-icons/si";
 import type { LeaderboardResponse, TesterLeaderboardResponse, InfoResponse, PlayerProfile, TierTester, ResultsResponse, ResultEntry, TrendArrow, TopPlayersResponse, TopPlayerEntry } from "@shared/schema";
@@ -134,8 +135,7 @@ export default function Home() {
   const { data: testersData, isLoading: testLoading } = useQuery<TesterLeaderboardResponse>({
     queryKey: ["/api/testers", testerPeriod],
     queryFn: async () => {
-      const res = await fetch(`/api/testers?period=${testerPeriod}`);
-      if (!res.ok) throw new Error(await res.text());
+      const res = await apiRequest("GET", `/api/testers?period=${testerPeriod}`);
       return res.json();
     },
   });
