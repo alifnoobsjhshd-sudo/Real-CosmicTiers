@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development tsx index.ts",
-    "start": "tsx index.ts",
+    "dev": "NODE_ENV=development npx tsx index.ts",
+    "start": "npx tsx index.ts",
     "build": "echo 'no build step required (tsx runs TypeScript directly)'"
   },
   "dependencies": {
