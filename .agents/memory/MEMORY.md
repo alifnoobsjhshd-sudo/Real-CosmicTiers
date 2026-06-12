@@ -1,0 +1,3 @@
+- [Dual-server architecture](dual-server-arch.md) — bot calls `backend/src/routes.ts` (Render), not `server/routes.ts` (local dev); keep both in sync.
+- [Schema sync](schema-sync.md) — root `shared/schema.ts` and `backend/shared/schema.ts` are separate files but use the same DB; both must be updated together.
+- [Tester list source of truth](tester-list-source.md) — website tester list must only show `isTester=true` players; ghost tester / result_entries fallback causes discord/website drift.

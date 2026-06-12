@@ -3317,19 +3317,8 @@ function buildProfileChannelComponents() {
 function buildProfileChannelEmbed(): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0xFFBF00)
-    .setTitle('Cosmic Tiers — Player Hub')
-    .setDescription(
-      `Welcome to the **Cosmic Tiers Player Hub** — your central command center for everything related to your Minecraft PvP ranking journey.\n\n` +
-      `Whether you are registering for the first time, tracking your progress, or managing your account, you will find everything you need here.\n\n` +
-      `**Getting Started**\n` +
-      `If this is your first time here, click **Register** to link your Minecraft account and join the ranked system.\n\n` +
-      `**Account Management**\n` +
-      `Update your in-game name, region, and skin at any time using the buttons below.\n\n` +
-      `**Explore the Community**\n` +
-      `View your own profile or search for any player on the server to see their tiers, points, and achievements.\n\n` +
-      `**Need Assistance?**\n` +
-      `Our team is always here to help. Click **Support** to open a ticket and a staff member will assist you as soon as possible.`,
-    )
+    .setTitle('# 🔮  CosmicTiers - Account')
+    .setDescription('[Visit website](https://CosmicTiers.onrender.com)')
     .setImage(PROFILE_CHANNEL_IMAGE)
     .setFooter({ text: 'Cosmic Tiers • Use the buttons below to get started' })
     .setTimestamp();
@@ -3397,6 +3386,7 @@ async function handleProfileRegister(interaction: ButtonInteraction): Promise<vo
       ],
       ephemeral: true,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
@@ -3476,6 +3466,7 @@ async function handleProfileSupport(interaction: ButtonInteraction): Promise<voi
     components: [row],
     ephemeral: true,
   });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
 }
 
 async function handleProfileSupportSelect(interaction: StringSelectMenuInteraction): Promise<void> {
@@ -3620,10 +3611,11 @@ async function handleProfileSupportSelect(interaction: StringSelectMenuInteracti
     components: [ticketButtons],
   });
 
-  await interaction.followUp({
+  const ticketNotice = await interaction.followUp({
     content: `Your support ticket has been created: <#${ticketChannel.id}>`,
     ephemeral: true,
   });
+  setTimeout(() => ticketNotice.delete().catch(() => {}), 10_000);
 }
 
 // ─── Profile Channel Button: View Profile ─────────────────────────────────────
@@ -3644,22 +3636,26 @@ async function handleProfileView(interaction: ButtonInteraction): Promise<void> 
           ),
       ],
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   const guild = interaction.guild;
   if (!guild) {
     await interaction.editReply('❌ This can only be used inside a server.');
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   const embed = await buildPlayerProfileEmbed(guild, interaction.user.id, reg.mcUsername, true);
   if (!embed) {
     await interaction.editReply('❌ Could not load your profile. Please try again.');
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   await interaction.editReply({ embeds: [embed] });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
 }
 
 // ─── Profile Channel Button: View Others Profile ──────────────────────────────
@@ -3688,6 +3684,7 @@ async function handleProfileViewOthers(interaction: ButtonInteraction): Promise<
     components: [new ActionRowBuilder<ButtonBuilder>().addComponents(findButton)],
     ephemeral: true,
   });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
 }
 
 // ─── Profile Channel Button: Find by Username (opens modal) ──────────────────
@@ -3728,22 +3725,26 @@ async function handleProfileFindModal(interaction: ModalSubmitInteraction): Prom
           ),
       ],
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   const guild = interaction.guild;
   if (!guild) {
     await interaction.editReply('❌ This can only be used inside a server.');
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   const embed = await buildPlayerProfileEmbed(guild, reg.discordId, reg.mcUsername, true);
   if (!embed) {
     await interaction.editReply(`❌ Could not load profile for **\`${reg.mcUsername}\`**. They may have left the server.`);
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   await interaction.editReply({ embeds: [embed] });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
 }
 
 // ─── Profile Channel Button: Change Username ──────────────────────────────────
@@ -3760,6 +3761,7 @@ async function handleProfileUsername(interaction: ButtonInteraction): Promise<vo
       ],
       ephemeral: true,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
@@ -3777,6 +3779,7 @@ async function handleProfileUsername(interaction: ButtonInteraction): Promise<vo
       ],
       ephemeral: true,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
@@ -3803,6 +3806,7 @@ async function handleProfileUsernameModal(interaction: ModalSubmitInteraction): 
   const reg = getRegistrationByDiscordId(interaction.user.id);
   if (!reg) {
     await interaction.editReply('❌ You are not registered. Please use the Register button first.');
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
@@ -3810,29 +3814,34 @@ async function handleProfileUsernameModal(interaction: ModalSubmitInteraction): 
 
   if (!MC_USERNAME_RX.test(newUsername)) {
     await interaction.editReply('❌ Invalid Minecraft username. Must be 3–16 characters, letters/numbers/underscores only.');
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   if (newUsername.toLowerCase() === reg.mcUsername.toLowerCase()) {
     await interaction.editReply('⚠️ That is already your current Minecraft username.');
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   const remaining = getUsernameChangeRemainingMs(interaction.user.id);
   if (remaining > 0) {
     await interaction.editReply(`❌ You can change your username again in **${formatDuration(remaining)}**.`);
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   const taken = getRegistrationByMcUsername(newUsername);
   if (taken && taken.discordId !== interaction.user.id) {
     await interaction.editReply(`❌ The username **\`${newUsername}\`** is already registered by another player.`);
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
   const result = await callApi('/api/bot/update-profile', { discordId: interaction.user.id, mcUsername: newUsername });
   if (!result) {
     await interaction.editReply('❌ Failed to update username — please try again later.');
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
@@ -3853,6 +3862,7 @@ async function handleProfileUsernameModal(interaction: ModalSubmitInteraction): 
         .setTimestamp(),
     ],
   });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
 }
 
 // ─── Profile Channel Button: Change Skin ─────────────────────────────────────
@@ -3869,6 +3879,7 @@ async function handleProfileSkin(interaction: ButtonInteraction): Promise<void> 
       ],
       ephemeral: true,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
@@ -3889,6 +3900,7 @@ async function handleProfileSkin(interaction: ButtonInteraction): Promise<void> 
     ],
     ephemeral: true,
   });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
 }
 
 // ─── Profile Channel Button: Change Region ───────────────────────────────────
@@ -3905,6 +3917,7 @@ async function handleProfileRegion(interaction: ButtonInteraction): Promise<void
       ],
       ephemeral: true,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
     return;
   }
 
@@ -3934,6 +3947,7 @@ async function handleProfileRegion(interaction: ButtonInteraction): Promise<void
     components: rows,
     ephemeral: true,
   });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
 }
 
 async function handleProfileRegionSet(interaction: ButtonInteraction): Promise<void> {
@@ -3943,18 +3957,21 @@ async function handleProfileRegionSet(interaction: ButtonInteraction): Promise<v
   const reg = getRegistrationByDiscordId(interaction.user.id);
 
   if (!reg) {
-    await interaction.followUp({ content: '❌ You are not registered.', ephemeral: true });
+    const m = await interaction.followUp({ content: '❌ You are not registered.', ephemeral: true });
+    setTimeout(() => m.delete().catch(() => {}), 10_000);
     return;
   }
 
   if (newRegion === reg.region) {
-    await interaction.followUp({ content: `That is already your current region (**${newRegion}**).`, ephemeral: true });
+    const m = await interaction.followUp({ content: `That is already your current region (**${newRegion}**).`, ephemeral: true });
+    setTimeout(() => m.delete().catch(() => {}), 10_000);
     return;
   }
 
   const result = await callApi('/api/bot/update-profile', { discordId: interaction.user.id, region: newRegion });
   if (!result) {
-    await interaction.followUp({ content: '❌ Failed to update region. Please try again.', ephemeral: true });
+    const m = await interaction.followUp({ content: '❌ Failed to update region. Please try again.', ephemeral: true });
+    setTimeout(() => m.delete().catch(() => {}), 10_000);
     return;
   }
 
@@ -3982,6 +3999,7 @@ async function handleProfileRegionSet(interaction: ButtonInteraction): Promise<v
     ],
     components: rows,
   });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 10_000);
 }
 
 // ─── /add-test-count Command ──────────────────────────────────────────────────
@@ -4013,6 +4031,12 @@ async function handleAddTestCount(interaction: ChatInputCommandInteraction) {
     await interaction.editReply('❌ Failed to update test count — check backend connection.');
     return;
   }
+
+  // Keep local alltime tester stats in sync so the tester list reflects the bonus immediately
+  const currentConfig = getConfig();
+  const updatedStats = { ...(currentConfig.testerStats ?? {}) };
+  updatedStats[targetUser.id] = Math.max(0, (updatedStats[targetUser.id] ?? 0) + count);
+  setConfig({ testerStats: updatedStats });
 
   scheduleTesterListRefresh(client);
 

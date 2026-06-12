@@ -84,6 +84,7 @@ export interface IStorage {
   setTesterGameModes(discordId: string, gameModes: string[]): Promise<void>;
   incrementTesterStat(discordId: string): Promise<void>;
   clearTesterStat(discordId: string): Promise<void>;
+  addBonusTestCount(discordId: string, count: number): Promise<void>;
   clearPlayerTiers(discordId: string): Promise<void>;
   removePlayerTier(discordId: string, gameMode: string): Promise<void>;
   deletePlayer(discordId: string): Promise<void>;
@@ -309,6 +310,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(playersTable.discordId, discordId));
   }
 
+  async addBonusTestCount(discordId: string, count: number): Promise<void> {
+    const existing = await db.select().from(playersTable).where(eq(playersTable.discordId, discordId)).limit(1);
+    if (existing.length === 0) return;
+    const newValue = Math.max(0, (existing[0].bonusTestCount ?? 0) + count);
+    await db
+      .update(playersTable)
+      .set({ bonusTestCount: newValue })
+      .where(eq(playersTable.discordId, discordId));
+  }
+
   async clearPlayerTiers(discordId: string): Promise<void> {
     const currentTiers = await db.select().from(playerTiersTable).where(eq(playerTiersTable.discordId, discordId));
     const oldPoints = calcPoints(Object.fromEntries(currentTiers.map(t => [t.gameMode, t.tier])));
@@ -435,34 +446,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTesters(period?: string): Promise<TierTester[]> {
-    // Pull every tester who ever ran a test, along with their most-recent MC username.
-    // result_entries stores testerDiscordId + testerMcUsername on every submission,
-    // so this is the authoritative source of "who has actually tested".
-    const fromResults = await db
-      .select({
-        discordId: resultEntriesTable.testerDiscordId,
-        mcUsername: sql<string>`max(${resultEntriesTable.testerMcUsername})`,
-      })
-      .from(resultEntriesTable)
-      .groupBy(resultEntriesTable.testerDiscordId);
-
-    const testerDiscordIds = fromResults.map(r => r.discordId);
-    const usernameFromResults: Record<string, string> = {};
-    for (const r of fromResults) {
-      usernameFromResults[r.discordId] = r.mcUsername ?? r.discordId;
-    }
-
-    // Also grab players explicitly marked isTester=true (may not have result_entries yet)
-    let registeredPlayers;
-    if (testerDiscordIds.length > 0) {
-      registeredPlayers = await db
-        .select()
-        .from(playersTable)
-        .where(or(eq(playersTable.isTester, true), inArray(playersTable.discordId, testerDiscordIds)));
-    } else {
-      registeredPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
-    }
-    const registeredIds = new Set(registeredPlayers.map(p => p.discordId));
+    // Only show players explicitly marked as active testers (isTester=true).
+    // This keeps the website in sync with the bot, which only shows active Discord role members.
+    const registeredPlayers = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.isTester, true));
 
     const allTiers = await db.select().from(playerTiersTable);
     const allRetired = await db.select().from(retiredPlayerTiersTable);
@@ -482,16 +471,16 @@ export class DatabaseStorage implements IStorage {
     const effectivePeriod = period ?? 'alltime';
     const periodStats = await this.getTesterStatsByPeriod(effectivePeriod);
 
-    // Build profiles for testers who have a players row
     const testers: TierTester[] = registeredPlayers.map(p => {
       const tiers = tiersMap[p.discordId] ?? {};
       const totalPoints = calcPoints(tiers);
       const pointDelta = totalPoints - (p.previousPoints ?? 0);
+      const bonus = p.bonusTestCount ?? 0;
       return {
         discordId: p.discordId,
         mcUsername: p.mcUsername,
         region: p.region,
-        testCount: periodStats[p.discordId] ?? 0,
+        testCount: (periodStats[p.discordId] ?? 0) + bonus,
         tiers,
         retiredTiers: retiredMap[p.discordId] ?? [],
         totalPoints,
@@ -503,28 +492,6 @@ export class DatabaseStorage implements IStorage {
         gameModes: p.testerGameModes ?? [],
       } as TierTester;
     });
-
-    // Add ghost testers: appeared in result_entries but were never registered in players.
-    // The bot shows them because it reads Discord role members directly; the website
-    // must also show them using the username recorded at test-submission time.
-    for (const r of fromResults) {
-      if (registeredIds.has(r.discordId)) continue;
-      testers.push({
-        discordId: r.discordId,
-        mcUsername: usernameFromResults[r.discordId] ?? r.discordId,
-        region: 'Unknown',
-        testCount: periodStats[r.discordId] ?? 0,
-        tiers: {},
-        retiredTiers: [],
-        totalPoints: 0,
-        title: null,
-        trend: null,
-        skinUrl: getPlayerSkinUrl(r.discordId),
-        renderedSkinPath: getPlayerSkinUrl(r.discordId),
-        rank: 0,
-        gameModes: [],
-      } as TierTester);
-    }
 
     testers.sort((a, b) => (b.testCount ?? 0) - (a.testCount ?? 0));
     testers.forEach((t, i) => { t.rank = i + 1; });
