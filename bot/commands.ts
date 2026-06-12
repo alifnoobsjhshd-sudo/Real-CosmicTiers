@@ -610,6 +610,33 @@ export const reloadCommand = new SlashCommandBuilder()
   .setDescription('Reload bot config and refresh all panels (admin only)')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
+export const addTestCountCommand = new SlashCommandBuilder()
+  .setName('add-test-count')
+  .setDescription('Add bonus test count to a tester (manager only) — useful for restoring count after account deletion')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+  .addUserOption(option =>
+    option.setName('tester').setDescription('The tester to give bonus count to').setRequired(true)
+  )
+  .addIntegerOption(option =>
+    option
+      .setName('count')
+      .setDescription('Number of tests to add (positive to add, negative to subtract)')
+      .setRequired(true)
+      .setMinValue(-9999)
+      .setMaxValue(9999)
+  );
+
+export const transferOwnershipCommand = new SlashCommandBuilder()
+  .setName('transfer-ownership')
+  .setDescription('Transfer a CosmicTiers account from one Discord user to another (manager only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+  .addUserOption(option =>
+    option.setName('from').setDescription('The current account owner (original Discord user)').setRequired(true)
+  )
+  .addUserOption(option =>
+    option.setName('to').setDescription('The new owner to transfer the account to').setRequired(true)
+  );
+
 export const profileUserCommand = new SlashCommandBuilder()
   .setName('profile-user')
   .setDescription('View any Discord member\'s profile — shows their stats, or "not registered" if they haven\'t joined')

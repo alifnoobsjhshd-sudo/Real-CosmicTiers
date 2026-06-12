@@ -30,6 +30,7 @@ export const players = pgTable("players", {
   previousPoints: integer("previous_points").default(0).notNull(),
   testerGameModes: text("tester_game_modes").array(),
   specialTitle: text("special_title"),
+  bonusTestCount: integer("bonus_test_count").default(0).notNull(),
 });
 
 export const specialTitles = pgTable("special_titles", {

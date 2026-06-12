@@ -66,6 +66,8 @@ import {
   reloadUserCommand,
   reloadCommand,
   profileUserCommand,
+  addTestCountCommand,
+  transferOwnershipCommand,
 } from './commands.js';
 import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
@@ -3219,6 +3221,324 @@ async function handleToggleQueue(interaction: ChatInputCommandInteraction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
+// ─── /add-test-count Command ──────────────────────────────────────────────────
+
+async function handleAddTestCount(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const config = getConfig();
+  const caller = interaction.member as GuildMember;
+  const isManager = config.staffRoleId ? caller.roles.cache.has(config.staffRoleId) : false;
+  const isAdmin = caller.permissions.has(PermissionFlagsBits.ManageRoles);
+
+  if (!isManager && !isAdmin) {
+    await interaction.editReply('❌ You need the **Manage Roles** permission or the **Manager** role to use `/add-test-count`.');
+    return;
+  }
+
+  const targetUser = interaction.options.getUser('tester', true);
+  const count = interaction.options.getInteger('count', true);
+
+  const reg = getRegistrationByDiscordId(targetUser.id);
+  if (!reg) {
+    await interaction.editReply(`❌ <@${targetUser.id}> is not registered in the CosmicTiers system.`);
+    return;
+  }
+
+  const result = await callApi('/api/bot/add-test-count', { discordId: targetUser.id, count });
+  if (!result) {
+    await interaction.editReply('❌ Failed to update test count — check backend connection.');
+    return;
+  }
+
+  scheduleTesterListRefresh(client);
+
+  const sign = count >= 0 ? `+${count}` : `${count}`;
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(TIER_TEST_YELLOW)
+        .setTitle('✅ Bonus Test Count Updated')
+        .setDescription(
+          `Added **${sign}** bonus test${Math.abs(count) === 1 ? '' : 's'} to <@${targetUser.id}> (\`${reg.mcUsername}\`).\n\n` +
+          `Their displayed test count now includes this bonus. This is stored separately from real test history.`,
+        )
+        .setFooter({ text: `Updated by ${interaction.user.username}` })
+        .setTimestamp(),
+    ],
+  });
+}
+
+// ─── /transfer-ownership Command ─────────────────────────────────────────────
+
+const TRANSFER_CONFIRM_PREFIX = 'transfer_confirm:';
+const TRANSFER_CANCEL_PREFIX  = 'transfer_cancel:';
+
+async function handleTransferOwnership(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const config = getConfig();
+  const caller = interaction.member as GuildMember;
+  const isManager = config.staffRoleId ? caller.roles.cache.has(config.staffRoleId) : false;
+  const isAdmin = caller.permissions.has(PermissionFlagsBits.ManageRoles);
+
+  if (!isManager && !isAdmin) {
+    await interaction.editReply('❌ You need the **Manage Roles** permission or the **Manager** role to use `/transfer-ownership`.');
+    return;
+  }
+
+  const fromUser = interaction.options.getUser('from', true);
+  const toUser   = interaction.options.getUser('to', true);
+
+  if (fromUser.id === toUser.id) {
+    await interaction.editReply('❌ The original owner and the new owner cannot be the same person.');
+    return;
+  }
+
+  const fromReg = getRegistrationByDiscordId(fromUser.id);
+  if (!fromReg) {
+    await interaction.editReply(`❌ <@${fromUser.id}> does not have a registered CosmicTiers account.`);
+    return;
+  }
+
+  const toReg = getRegistrationByDiscordId(toUser.id);
+  if (toReg) {
+    await interaction.editReply(
+      `❌ <@${toUser.id}> already has a registered account (\`${toReg.mcUsername}\`).\n` +
+      `You must delete their account first before transferring ownership to them.`,
+    );
+    return;
+  }
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply('❌ This command must be used inside a server.');
+    return;
+  }
+
+  // Fetch account info from backend for the confirmation embed
+  let tiers: string[] = [];
+  try {
+    const resp = await fetch(`${WEBSITE_API_URL}/api/leaderboard`, { signal: AbortSignal.timeout(8_000) });
+    if (resp.ok) {
+      const data = await resp.json() as { players: Array<{ discordId: string; tiers: Record<string, string> }> };
+      const p = data.players.find(p => p.discordId === fromUser.id);
+      if (p) {
+        tiers = Object.entries(p.tiers).map(([mode, tier]) => `${mode}: **${tier}**`);
+      }
+    }
+  } catch { /* non-critical */ }
+
+  const registeredDate = new Date(fromReg.registeredAt).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  const tiersDisplay = tiers.length > 0 ? tiers.join('\n') : '*No active tiers*';
+
+  const confirmId = `${TRANSFER_CONFIRM_PREFIX}${fromUser.id}:${toUser.id}`;
+  const cancelId  = `${TRANSFER_CANCEL_PREFIX}${fromUser.id}:${toUser.id}`;
+
+  const confirmButton = new ButtonBuilder()
+    .setCustomId(confirmId)
+    .setLabel('✅ Confirm Transfer')
+    .setStyle(ButtonStyle.Danger);
+
+  const cancelButton = new ButtonBuilder()
+    .setCustomId(cancelId)
+    .setLabel('❌ Cancel')
+    .setStyle(ButtonStyle.Secondary);
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton, cancelButton);
+
+  const embed = new EmbedBuilder()
+    .setColor(0xFFA500)
+    .setTitle('⚠️ Confirm Ownership Transfer')
+    .setDescription(
+      `You are about to transfer the following CosmicTiers account to <@${toUser.id}>.\n\n` +
+      `**Please verify the account information below before confirming.**`,
+    )
+    .addFields(
+      { name: '👤 Current Owner', value: `<@${fromUser.id}>`, inline: true },
+      { name: '🎮 IGN',           value: `\`${fromReg.mcUsername}\``, inline: true },
+      { name: '🌍 Region',        value: fromReg.region, inline: true },
+      { name: '📅 Registered',    value: registeredDate, inline: true },
+      { name: '➡️ New Owner',     value: `<@${toUser.id}>`, inline: true },
+      { name: '🏆 Current Tiers', value: tiersDisplay, inline: false },
+      { name: '⚠️ Warning',       value: 'This action is **irreversible**. All data, tiers, test history, and roles will be transferred to the new owner.', inline: false },
+    )
+    .setFooter({ text: 'This confirmation expires in 5 minutes.' })
+    .setTimestamp();
+
+  await interaction.editReply({ embeds: [embed], components: [row] });
+
+  // Auto-expire the confirmation after 5 minutes
+  setTimeout(async () => {
+    try {
+      const disabledConfirm = ButtonBuilder.from(confirmButton).setDisabled(true);
+      const disabledCancel  = ButtonBuilder.from(cancelButton).setDisabled(true);
+      const disabledRow = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledConfirm, disabledCancel);
+      await interaction.editReply({ components: [disabledRow] });
+    } catch { /* interaction may have already been handled */ }
+  }, 5 * 60 * 1000);
+}
+
+async function handleTransferConfirm(interaction: ButtonInteraction): Promise<void> {
+  const parts = interaction.customId.split(':');
+  // Format: transfer_confirm:{oldId}:{newId}
+  const oldId = parts[1];
+  const newId  = parts[2];
+
+  const config = getConfig();
+  const caller = interaction.member as GuildMember;
+  const isManager = config.staffRoleId ? caller.roles.cache.has(config.staffRoleId) : false;
+  const isAdmin = caller.permissions.has(PermissionFlagsBits.ManageRoles);
+
+  if (!isManager && !isAdmin) {
+    await interaction.reply({ content: '❌ Only managers can confirm ownership transfers.', ephemeral: true });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  const fromReg = getRegistrationByDiscordId(oldId);
+
+  // Call backend to transfer all DB records
+  const result = await callApi('/api/bot/transfer-ownership', { oldDiscordId: oldId, newDiscordId: newId });
+
+  if (!result) {
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(RESULTS_RED)
+          .setTitle('❌ Transfer Failed')
+          .setDescription(
+            'The transfer could not be completed. Possible reasons:\n' +
+            '• The original account no longer exists in the database.\n' +
+            '• The new user already has a registered account.\n' +
+            'Check the logs or contact a developer.',
+          ),
+      ],
+      components: [],
+    });
+    return;
+  }
+
+  // Update local bot registration: remove old entry, save under new Discord ID
+  if (fromReg) {
+    deleteRegistration(oldId);
+    saveRegistration({ ...fromReg, discordId: newId });
+  }
+
+  const guild = interaction.guild;
+
+  // Move Discord roles from old member to new member
+  if (guild && fromReg) {
+    try {
+      const [oldMember, newMember] = await Promise.allSettled([
+        guild.members.fetch(oldId),
+        guild.members.fetch(newId),
+      ]);
+
+      const oldM = oldMember.status === 'fulfilled' ? oldMember.value : null;
+      const newM = newMember.status === 'fulfilled' ? newMember.value : null;
+
+      if (newM) {
+        // Grant Registered role to new owner
+        const registeredRole = await getOrCreateRegisteredRole(guild);
+        if (!newM.roles.cache.has(registeredRole.id)) {
+          await newM.roles.add(registeredRole, 'Ownership transfer').catch(() => {});
+        }
+
+        // Transfer tier tester role if old owner had it
+        if (oldM && config.tierTesterRoleId && oldM.roles.cache.has(config.tierTesterRoleId)) {
+          if (!newM.roles.cache.has(config.tierTesterRoleId)) {
+            await newM.roles.add(config.tierTesterRoleId, 'Ownership transfer').catch(() => {});
+          }
+        }
+      }
+
+      // Remove Registered role and tester role from old member
+      if (oldM) {
+        if (config.registeredRoleId && oldM.roles.cache.has(config.registeredRoleId)) {
+          await oldM.roles.remove(config.registeredRoleId, 'Ownership transferred away').catch(() => {});
+        }
+        if (config.tierTesterRoleId && oldM.roles.cache.has(config.tierTesterRoleId)) {
+          await oldM.roles.remove(config.tierTesterRoleId, 'Ownership transferred away').catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.error('[transfer-ownership] Role update error:', err);
+    }
+  }
+
+  scheduleTesterListRefresh(client);
+  scheduleLeaderboardRefresh(client);
+
+  // DM the original owner
+  if (fromReg) {
+    try {
+      const oldUser = await client.users.fetch(oldId);
+      const dmEmbed = new EmbedBuilder()
+        .setColor(0xFFA500)
+        .setTitle('📢 CosmicTiers Account Ownership Transferred')
+        .setDescription(
+          `Your **CosmicTiers** account ownership has been transferred to another user.\n\n` +
+          `**New Owner:** <@${newId}>\n\n` +
+          `**Transferred Account Details:**\n` +
+          `• Minecraft Username: \`${fromReg.mcUsername}\`\n` +
+          `• Region: ${fromReg.region}\n\n` +
+          `If you believe this was done in error or have any questions, please contact us on the **CosmicTiers Discord server**.`,
+        )
+        .setFooter({ text: 'CosmicTiers System' })
+        .setTimestamp();
+      await oldUser.send({ embeds: [dmEmbed] });
+    } catch {
+      console.warn(`[transfer-ownership] Could not DM original owner ${oldId} — they may have DMs disabled.`);
+    }
+  }
+
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle('✅ Ownership Transferred Successfully')
+        .setDescription(
+          `The CosmicTiers account for \`${fromReg?.mcUsername ?? oldId}\` has been transferred.\n\n` +
+          `**Original Owner:** <@${oldId}>\n` +
+          `**New Owner:** <@${newId}>\n\n` +
+          `All tiers, test history, and data have been moved. The original owner has been notified via DM (if DMs are open).`,
+        )
+        .setFooter({ text: `Confirmed by ${interaction.user.username}` })
+        .setTimestamp(),
+    ],
+    components: [],
+  });
+}
+
+async function handleTransferCancel(interaction: ButtonInteraction): Promise<void> {
+  const config = getConfig();
+  const caller = interaction.member as GuildMember;
+  const isManager = config.staffRoleId ? caller.roles.cache.has(config.staffRoleId) : false;
+  const isAdmin = caller.permissions.has(PermissionFlagsBits.ManageRoles);
+
+  if (!isManager && !isAdmin) {
+    await interaction.reply({ content: '❌ Only managers can cancel ownership transfers.', ephemeral: true });
+    return;
+  }
+
+  await interaction.update({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x99aab5)
+        .setTitle('❌ Transfer Cancelled')
+        .setDescription('The ownership transfer has been cancelled. No changes were made.')
+        .setFooter({ text: `Cancelled by ${interaction.user.username}` })
+        .setTimestamp(),
+    ],
+    components: [],
+  });
+}
+
 // ─── Command Registration ─────────────────────────────────────────────────────
 
 async function registerCommands(clientId: string) {
@@ -3266,6 +3586,8 @@ async function registerCommands(clientId: string) {
         toggleQueueCommand.toJSON(),
         reloadCommand.toJSON(),
         profileUserCommand.toJSON(),
+        addTestCountCommand.toJSON(),
+        transferOwnershipCommand.toJSON(),
       ],
     });
     console.log('Slash commands registered!');
@@ -3859,6 +4181,8 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'reload-user')                return await handleReloadUser(interaction);
       if (interaction.commandName === 'toggle-queue')               return await handleToggleQueue(interaction);
       if (interaction.commandName === 'reload')                     return await handleReload(interaction);
+      if (interaction.commandName === 'add-test-count')             return await handleAddTestCount(interaction);
+      if (interaction.commandName === 'transfer-ownership')         return await handleTransferOwnership(interaction);
       return;
     }
 
@@ -3879,6 +4203,10 @@ client.on('interactionCreate', async interaction => {
       if (id === TICKET_LEAVE_ID)  return await handleTicketLeave(interaction as ButtonInteraction);
       if (id === TICKET_CLOSE_ID)  return await handleTicketClose(interaction as ButtonInteraction);
       if (id.startsWith(TIER_SELECT_PREFIX + ':')) return await handleTierSelect(interaction as ButtonInteraction);
+
+      // ── Ownership transfer confirmation buttons ──────────────────────────────
+      if (id.startsWith(TRANSFER_CONFIRM_PREFIX)) return await handleTransferConfirm(interaction as ButtonInteraction);
+      if (id.startsWith(TRANSFER_CANCEL_PREFIX))  return await handleTransferCancel(interaction as ButtonInteraction);
 
       if (id === PANEL_REGISTER_ID) {
         const existing = getRegistrationByDiscordId(interaction.user.id);

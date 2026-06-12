@@ -401,6 +401,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/bot/add-test-count", botAuth, async (req, res) => {
+    try {
+      const { discordId, count } = req.body;
+      if (!discordId || typeof count !== "number") {
+        res.status(400).json({ error: "Missing discordId or count" });
+        return;
+      }
+      await storage.addBonusTestCount(discordId, count);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[bot/add-test-count]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/bot/transfer-ownership", botAuth, async (req, res) => {
+    try {
+      const { oldDiscordId, newDiscordId } = req.body;
+      if (!oldDiscordId || !newDiscordId) {
+        res.status(400).json({ error: "Missing oldDiscordId or newDiscordId" });
+        return;
+      }
+      const result = await storage.transferOwnership(oldDiscordId, newDiscordId);
+      if (!result) {
+        res.status(404).json({ error: "Player not found or new user already has an account" });
+        return;
+      }
+      res.json({ ok: true, player: result.player });
+    } catch (err) {
+      console.error("[bot/transfer-ownership]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.post("/api/bot/tester-game-modes", botAuth, async (req, res) => {
     try {
       const { discordId, gameModes } = req.body;
