@@ -29,6 +29,8 @@ export interface BotConfig {
   titleRoleIds?: Record<string, string>;
   emojiStrings?: Record<string, string>;
   queueEnabled?: boolean;
+  profileChannelId?: string;
+  profileChannelMessageId?: string;
 }
 
 let _memConfig: BotConfig = {};

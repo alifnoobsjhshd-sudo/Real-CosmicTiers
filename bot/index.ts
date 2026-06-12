@@ -13,10 +13,15 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  ChannelType,
+  OverwriteType,
   type ChatInputCommandInteraction,
   type ButtonInteraction,
   type AutocompleteInteraction,
   type ModalSubmitInteraction,
+  type StringSelectMenuInteraction,
   type Guild,
   type GuildMember,
   type Role,
@@ -68,6 +73,7 @@ import {
   profileUserCommand,
   addTestCountCommand,
   transferOwnershipCommand,
+  setProfileChannelCommand,
 } from './commands.js';
 import { getConfig, setConfig, incrementTesterStat, clearTesterStat, loadConfigFromApi } from './config.js';
 import {
@@ -278,6 +284,35 @@ function getWebsiteLinkField(): { name: string; value: string } | null {
 export const REGISTER_MODAL_ID = 'register_modal';
 export const REG_INPUT_MC      = 'reg_mc_username';
 export const REG_INPUT_REGION  = 'reg_region';
+
+// ─── Profile Channel Constants ────────────────────────────────────────────────
+const PROFILE_CHANNEL_IMAGE   = 'https://cdn.discordapp.com/attachments/1470664397742674004/1514886937767579709/IMG_20260612_125932.jpg?ex=6a2cffe7&is=6a2bae67&hm=c107dc4a32e24d8a0129fb810216a36ae9bc7aa16c57de45daf36991b0fe01de&';
+const PROFILE_REGISTER_ID     = 'profile_register';
+const PROFILE_SUPPORT_ID      = 'profile_support';
+const PROFILE_VIEW_ID         = 'profile_view';
+const PROFILE_VIEW_OTHERS_ID  = 'profile_view_others';
+const PROFILE_FIND_USER_ID    = 'profile_find_user';
+const PROFILE_USERNAME_ID     = 'profile_username';
+const PROFILE_SKIN_ID         = 'profile_skin';
+const PROFILE_REGION_ID       = 'profile_region';
+const PROFILE_REGION_SET_PFX  = 'profile_region_set:';
+const PROFILE_SUPPORT_SEL_ID  = 'profile_support_select';
+const PROFILE_FIND_MODAL_ID   = 'profile_find_modal';
+const PROFILE_UNAME_MODAL_ID  = 'profile_uname_modal';
+const PROFILE_FIND_INPUT      = 'profile_find_input';
+const PROFILE_UNAME_INPUT     = 'profile_uname_input';
+
+const PROFILE_REGIONS = [
+  { code: 'AS', label: 'AS — Asia' },
+  { code: 'AF', label: 'AF — Africa' },
+  { code: 'EU', label: 'EU — Europe' },
+  { code: 'NA', label: 'NA — North America' },
+  { code: 'SA', label: 'SA — South America' },
+  { code: 'OC', label: 'OC — Oceania' },
+  { code: 'AN', label: 'AN — Antarctica' },
+] as const;
+
+const SKIN_VALID_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg']);
 
 // ─── Tier / Role Constants ────────────────────────────────────────────────────
 
@@ -756,8 +791,8 @@ async function handleSkinChange(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  if (attachment.contentType !== 'image/png') {
-    await interaction.editReply('❌ The skin file must be a **PNG** image. Please try again with a `.png` file.');
+  if (!SKIN_VALID_TYPES.has(attachment.contentType ?? '')) {
+    await interaction.editReply('❌ The skin file must be a **PNG or JPG** image. No other file types are accepted.');
     return;
   }
 
@@ -1019,73 +1054,13 @@ async function handleProfile(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  let member: GuildMember;
-  try {
-    member = await guild.members.fetch(reg.discordId);
-  } catch {
+  const embed = await buildPlayerProfileEmbed(guild, reg.discordId, mcUsername, true);
+  if (!embed) {
     await interaction.editReply(`❌ Could not find <@${reg.discordId}> in this server.`);
     return;
   }
 
-  const totalPoints = getMemberPoints(member);
-  const tierRoles = member.roles.cache
-    .filter(r => {
-      const parts = r.name.split(' ');
-      if (parts.length < 2) return false;
-      const tier = parts[parts.length - 1];
-      const mode = parts.slice(0, -1).join(' ');
-      const isRetired = tier.startsWith('R') && ALL_TIERS.includes(tier.slice(1));
-      return GAME_MODES.map(displayGameMode).includes(mode) && (ALL_TIERS.includes(tier) || isRetired);
-    })
-    .map(r => r.name)
-    .sort();
-
-  const title = getTitleForPoints(totalPoints);
-
-  const titleEmoji = getEmojiString(sanitizeToEmojiName(title.name));
-  const titleDisplay = titleEmoji ? `${titleEmoji} ${title.name}` : title.name;
-
-  const registeredDate = new Date(reg.registeredAt).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'long', day: 'numeric',
-  });
-
-  const tiersDisplay = tierRoles.length > 0
-    ? tierRoles.map(roleName => {
-        const parts = roleName.split(' ');
-        const tier = parts[parts.length - 1];
-        const mode = parts.slice(0, -1).join(' ');
-        const modeEmoji = getGameModeEmoji(mode);
-        return modeEmoji ? `${modeEmoji} **${tier}** (${mode})` : `**${tier}** (${mode})`;
-      }).join('\n')
-    : '*No tiers yet*';
-
-  const websiteLinkField = getWebsiteLinkField();
-
-  const embedFields: { name: string; value: string; inline?: boolean }[] = [
-    { name: '🎮 IGN',        value: `\`${reg.mcUsername}\``, inline: true },
-    { name: '🌍 Region',     value: reg.region,              inline: true },
-    { name: '💎 Points',     value: `${totalPoints} pts`,    inline: true },
-    { name: '⭐ Title',      value: titleDisplay,            inline: true },
-    { name: '📅 Registered', value: registeredDate,         inline: true },
-    { name: '🏆 Tiers',      value: tiersDisplay,           inline: false },
-  ];
-
-  if (websiteLinkField) {
-    embedFields.push({ name: websiteLinkField.name, value: websiteLinkField.value, inline: false });
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle(`👤 Profile — ${mcUsername}`)
-    .setColor(title.color)
-    .setDescription(`<@${reg.discordId}>`)
-    .setThumbnail(getBackendSkinUrl(reg.discordId))
-    .addFields(...embedFields)
-    .setFooter({ text: 'Cosmic Tiers System' })
-    .setTimestamp();
-
-  const files: AttachmentBuilder[] = [];
-
-  await interaction.editReply({ embeds: [embed], files });
+  await interaction.editReply({ embeds: [embed] });
 }
 
 // ─── /delete-user Command ─────────────────────────────────────────────────────
@@ -1556,12 +1531,12 @@ async function handleSkinChangeOther(interaction: ChatInputCommandInteraction) {
   }
 
   if (attachment) {
-    if (attachment.contentType !== 'image/png') {
-      await interaction.editReply('❌ The skin file must be a **PNG** image. Please try again with a `.png` file.');
+    if (!SKIN_VALID_TYPES.has(attachment.contentType ?? '')) {
+      await interaction.editReply('❌ The skin file must be a **PNG or JPG** image. No other file types are accepted.');
       return;
     }
     if (attachment.size > 20 * 1024) {
-      await interaction.editReply('❌ Skin file is too large. Please upload a PNG under **20 KB**.');
+      await interaction.editReply('❌ Skin file is too large. Please upload a skin file under **20 KB**.');
       return;
     }
   }
@@ -1588,7 +1563,7 @@ const MC_USERNAME_RX = /^[a-zA-Z0-9_]{3,16}$/;
 
 async function applyProfileEdits(
   interaction: ChatInputCommandInteraction,
-  guild: ReturnType<typeof interaction['guild']>,
+  guild: Guild | null,
   discordId: string,
   reg: { mcUsername: string; region: string },
   newMcUsername: string | null,
@@ -1659,11 +1634,11 @@ async function applyProfileEdits(
   }
 
   if (skinAttachment) {
-    if (skinAttachment.contentType !== 'image/png') {
-      return '❌ The attached skin file must be a **PNG** image. Please try again with a `.png` file.';
+    if (!SKIN_VALID_TYPES.has(skinAttachment.contentType ?? '')) {
+      return '❌ The attached skin file must be a **PNG or JPG** image. No other file types are accepted.';
     }
     if (skinAttachment.size > 20 * 1024) {
-      return '❌ Skin file is too large. Please upload a PNG under **20 KB**.';
+      return '❌ Skin file is too large. Please upload a skin file under **20 KB**.';
     }
     const skinUrl = skinAttachment.proxyURL || skinAttachment.url;
     updateSkin(discordId, skinUrl);
@@ -3221,6 +3196,794 @@ async function handleToggleQueue(interaction: ChatInputCommandInteraction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
+// ─── Shared Profile Embed Builder ────────────────────────────────────────────
+
+async function buildPlayerProfileEmbed(
+  guild: Guild,
+  discordId: string,
+  mcUsername: string,
+  showTester: boolean,
+): Promise<EmbedBuilder | null> {
+  let member: GuildMember;
+  try {
+    member = await guild.members.fetch(discordId);
+  } catch {
+    return null;
+  }
+
+  const totalPoints = getMemberPoints(member);
+  const tierRoles = member.roles.cache
+    .filter(r => {
+      const parts = r.name.split(' ');
+      if (parts.length < 2) return false;
+      const tier = parts[parts.length - 1];
+      const mode = parts.slice(0, -1).join(' ');
+      const isRetired = tier.startsWith('R') && ALL_TIERS.includes(tier.slice(1));
+      return GAME_MODES.map(displayGameMode).includes(mode) && (ALL_TIERS.includes(tier) || isRetired);
+    })
+    .map(r => r.name)
+    .sort();
+
+  const title        = getTitleForPoints(totalPoints);
+  const titleEmoji   = getEmojiString(sanitizeToEmojiName(title.name));
+  const titleDisplay = titleEmoji ? `${titleEmoji} ${title.name}` : title.name;
+
+  const reg = getRegistrationByDiscordId(discordId);
+  if (!reg) return null;
+
+  const registeredDate = new Date(reg.registeredAt).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  const tiersDisplay = tierRoles.length > 0
+    ? tierRoles.map(roleName => {
+        const parts = roleName.split(' ');
+        const tier  = parts[parts.length - 1];
+        const mode  = parts.slice(0, -1).join(' ');
+        const modeEmoji = getGameModeEmoji(mode);
+        return modeEmoji ? `${modeEmoji} **${tier}** (${mode})` : `**${tier}** (${mode})`;
+      }).join('\n')
+    : '*No tiers yet*';
+
+  const embedFields: { name: string; value: string; inline?: boolean }[] = [
+    { name: '🎮 IGN',        value: `\`${mcUsername}\``,  inline: true },
+    { name: '🌍 Region',     value: reg.region,            inline: true },
+    { name: '💎 Points',     value: `${totalPoints} pts`,  inline: true },
+    { name: '⭐ Title',      value: titleDisplay,          inline: true },
+    { name: '📅 Registered', value: registeredDate,        inline: true },
+    { name: '🏆 Tiers',      value: tiersDisplay,          inline: false },
+  ];
+
+  // Tester info
+  if (showTester) {
+    const config = getConfig();
+    if (config.tierTesterRoleId && member.roles.cache.has(config.tierTesterRoleId)) {
+      try {
+        const resp = await fetch(`${WEBSITE_API_URL.replace(/\/$/, '')}/api/testers`, {
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (resp.ok) {
+          const data = await resp.json() as { testers: Array<{ discordId: string; testCount: number; gameModes: string[] }> };
+          const testerEntry = data.testers.find(t => t.discordId === discordId);
+          if (testerEntry) {
+            const modesStr = testerEntry.gameModes.length > 0
+              ? testerEntry.gameModes.map(m => displayGameMode(m)).join(', ')
+              : 'All Modes';
+            embedFields.push({
+              name: '🧪 Tier Tester',
+              value: `**Tests Conducted:** ${testerEntry.testCount}\n**Game Modes:** ${modesStr}`,
+              inline: false,
+            });
+          } else {
+            embedFields.push({ name: '🧪 Tier Tester', value: '*Active Tier Tester*', inline: false });
+          }
+        }
+      } catch { /* non-critical — skip tester section on timeout */ }
+    }
+  }
+
+  const websiteLinkField = getWebsiteLinkField();
+  if (websiteLinkField) embedFields.push({ name: websiteLinkField.name, value: websiteLinkField.value, inline: false });
+
+  return new EmbedBuilder()
+    .setTitle(`👤 Profile — ${mcUsername}`)
+    .setColor(title.color)
+    .setDescription(`<@${discordId}>`)
+    .setThumbnail(getBackendSkinUrl(discordId))
+    .addFields(...embedFields)
+    .setFooter({ text: 'Cosmic Tiers System' })
+    .setTimestamp();
+}
+
+// ─── Profile Channel Panel Builder ───────────────────────────────────────────
+
+function buildProfileChannelComponents() {
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(PROFILE_REGISTER_ID).setLabel('Register').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId(PROFILE_SUPPORT_ID).setLabel('Support').setStyle(ButtonStyle.Primary),
+  );
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(PROFILE_VIEW_ID).setLabel('View Profile').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(PROFILE_VIEW_OTHERS_ID).setLabel('View Others Profile').setStyle(ButtonStyle.Primary),
+  );
+  const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(PROFILE_USERNAME_ID).setLabel('Change Username').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(PROFILE_SKIN_ID).setLabel('Change Skin').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(PROFILE_REGION_ID).setLabel('Change Region').setStyle(ButtonStyle.Success),
+  );
+  return [row1, row2, row3];
+}
+
+function buildProfileChannelEmbed(): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(0xFFBF00)
+    .setTitle('Cosmic Tiers — Player Hub')
+    .setDescription(
+      `Welcome to the **Cosmic Tiers Player Hub** — your central command center for everything related to your Minecraft PvP ranking journey.\n\n` +
+      `Whether you are registering for the first time, tracking your progress, or managing your account, you will find everything you need here.\n\n` +
+      `**Getting Started**\n` +
+      `If this is your first time here, click **Register** to link your Minecraft account and join the ranked system.\n\n` +
+      `**Account Management**\n` +
+      `Update your in-game name, region, and skin at any time using the buttons below.\n\n` +
+      `**Explore the Community**\n` +
+      `View your own profile or search for any player on the server to see their tiers, points, and achievements.\n\n` +
+      `**Need Assistance?**\n` +
+      `Our team is always here to help. Click **Support** to open a ticket and a staff member will assist you as soon as possible.`,
+    )
+    .setImage(PROFILE_CHANNEL_IMAGE)
+    .setFooter({ text: 'Cosmic Tiers • Use the buttons below to get started' })
+    .setTimestamp();
+}
+
+// ─── /set-profile-channel Command ────────────────────────────────────────────
+
+async function handleSetProfileChannel(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const config = getConfig();
+  const caller = interaction.member as GuildMember;
+  const isManager = config.staffRoleId ? caller.roles.cache.has(config.staffRoleId) : false;
+  const isAdmin   = caller.permissions.has(PermissionFlagsBits.ManageRoles);
+
+  if (!isManager && !isAdmin) {
+    await interaction.editReply('❌ You need **Manage Roles** permission or the Manager role to use this command.');
+    return;
+  }
+
+  const channel = interaction.options.getChannel('channel', true);
+  if (!channel || !('send' in channel)) {
+    await interaction.editReply('❌ Please select a valid text channel.');
+    return;
+  }
+
+  const targetChannel = channel as TextChannel;
+
+  // Delete old panel message if it exists
+  if (config.profileChannelMessageId && config.profileChannelId) {
+    try {
+      const oldCh = await client.channels.fetch(config.profileChannelId);
+      if (oldCh && 'messages' in oldCh) {
+        const oldMsg = await (oldCh as TextChannel).messages.fetch(config.profileChannelMessageId);
+        await oldMsg.delete();
+      }
+    } catch { /* old message may already be gone */ }
+  }
+
+  const msg = await targetChannel.send({
+    embeds: [buildProfileChannelEmbed()],
+    components: buildProfileChannelComponents(),
+  });
+
+  setConfig({ profileChannelId: targetChannel.id, profileChannelMessageId: msg.id });
+
+  await interaction.editReply(`✅ Profile hub panel posted in <#${targetChannel.id}>.`);
+}
+
+// ─── Profile Channel Button: Register ────────────────────────────────────────
+
+async function handleProfileRegister(interaction: ButtonInteraction): Promise<void> {
+  const existing = getRegistrationByDiscordId(interaction.user.id);
+  if (existing) {
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(TIER_TEST_YELLOW)
+          .setTitle('Already Registered')
+          .setDescription(
+            `You are already registered as **\`${existing.mcUsername}\`** (${existing.region}).\n\n` +
+            `Your Minecraft username cannot be changed here — use the **Change Username** button for that.\n` +
+            `Use the **Change Skin** button to update your skin.`,
+          ),
+      ],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(REGISTER_MODAL_ID)
+    .setTitle('Register Your Minecraft Account');
+
+  const mcInput = new TextInputBuilder()
+    .setCustomId(REG_INPUT_MC)
+    .setLabel('Minecraft Username — this cannot be changed often!')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('e.g. Steve123')
+    .setRequired(true)
+    .setMinLength(3)
+    .setMaxLength(16);
+
+  const regionInput = new TextInputBuilder()
+    .setCustomId(REG_INPUT_REGION)
+    .setLabel('Your Region (AS / AF / EU / NA / SA / OC / AN)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('AS · AF · EU · NA · SA · OC · AN')
+    .setRequired(true)
+    .setMinLength(2)
+    .setMaxLength(2);
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(mcInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(regionInput),
+  );
+
+  await interaction.showModal(modal);
+}
+
+// ─── Profile Channel Button: Support ─────────────────────────────────────────
+
+async function handleProfileSupport(interaction: ButtonInteraction): Promise<void> {
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(PROFILE_SUPPORT_SEL_ID)
+    .setPlaceholder('Select a support category...')
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('General Help')
+        .setValue('general_help')
+        .setDescription('General questions, issues, or anything you need help with'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Apply for Tester')
+        .setValue('apply_tester')
+        .setDescription('Apply to become an official Tier Tester'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Apply for Staff')
+        .setValue('apply_staff')
+        .setDescription('Apply to join the Cosmic Tiers staff team'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Collaboration')
+        .setValue('collaboration')
+        .setDescription('Partnership, collab, or community inquiries'),
+    );
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle('Support — Select a Category')
+        .setDescription(
+          `Select the category that best matches your request from the dropdown below.\n\n` +
+          `A private support ticket channel will be created for you and a staff member will assist you as soon as possible.\n\n` +
+          `**Categories**\n` +
+          `• **General Help** — Issues, questions, or anything else\n` +
+          `• **Apply for Tester** — Become an official Tier Tester\n` +
+          `• **Apply for Staff** — Join the Cosmic Tiers staff team\n` +
+          `• **Collaboration** — Partnership or community inquiries`,
+        )
+        .setFooter({ text: 'Your ticket is only visible to you and staff' }),
+    ],
+    components: [row],
+    ephemeral: true,
+  });
+}
+
+async function handleProfileSupportSelect(interaction: StringSelectMenuInteraction): Promise<void> {
+  await interaction.deferUpdate();
+
+  const value = interaction.values[0];
+  const guild = interaction.guild;
+  if (!guild) return;
+
+  const config = getConfig();
+  const member = interaction.member as GuildMember;
+  const reg    = getRegistrationByDiscordId(interaction.user.id);
+  const displayName = reg?.mcUsername ?? interaction.user.username;
+
+  const categoryInfo: Record<string, { title: string; instructions: string }> = {
+    general_help: {
+      title: 'General Help',
+      instructions:
+        `Welcome! Please describe your issue or question in as much detail as possible.\n\n` +
+        `Our team will respond as soon as possible. Be sure to include:\n` +
+        `• What you were trying to do\n` +
+        `• What happened instead\n` +
+        `• Any relevant screenshots or information`,
+    },
+    apply_tester: {
+      title: 'Apply for Tester',
+      instructions:
+        `Thank you for your interest in becoming a **Tier Tester**!\n\n` +
+        `Please answer the following questions:\n` +
+        `**1.** What is your Minecraft username and current tier?\n` +
+        `**2.** Which game modes are you comfortable testing in?\n` +
+        `**3.** How many hours per week can you dedicate to testing?\n` +
+        `**4.** Do you have any previous testing experience? If so, describe it.\n` +
+        `**5.** Why do you want to become a Tier Tester?`,
+    },
+    apply_staff: {
+      title: 'Apply for Staff',
+      instructions:
+        `Thank you for your interest in joining the **Cosmic Tiers Staff Team**!\n\n` +
+        `Please answer the following questions:\n` +
+        `**1.** What is your Minecraft username and Discord tag?\n` +
+        `**2.** How old are you, and what is your time zone?\n` +
+        `**3.** How many hours per week can you dedicate to being a staff member?\n` +
+        `**4.** What previous staff or moderation experience do you have?\n` +
+        `**5.** Why do you want to join the Cosmic Tiers staff team?\n` +
+        `**6.** What skills or qualities do you bring to the team?`,
+    },
+    collaboration: {
+      title: 'Collaboration',
+      instructions:
+        `Thank you for reaching out about **Collaboration**!\n\n` +
+        `Please provide the following information:\n` +
+        `**1.** What is your community or organization?\n` +
+        `**2.** What type of collaboration are you proposing?\n` +
+        `**3.** How many members does your community have?\n` +
+        `**4.** What mutual benefits would this collaboration bring?\n` +
+        `**5.** Any links to your community (Discord, YouTube, etc.)?`,
+    },
+  };
+
+  const info = categoryInfo[value];
+  if (!info) return;
+
+  const shortName = displayName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16);
+  const channelName = `support-${value.replace('_', '-')}-${shortName}`.slice(0, 100);
+
+  // Build permission overwrites
+  const overwrites: any[] = [
+    { id: guild.roles.everyone.id, deny: ['ViewChannel'] },
+    {
+      id: interaction.user.id,
+      allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'AttachFiles'],
+    },
+  ];
+
+  if (config.staffRoleId) {
+    overwrites.push({
+      id: config.staffRoleId,
+      allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'AttachFiles', 'ManageMessages'],
+    });
+  }
+  if (config.modRoleId) {
+    overwrites.push({
+      id: config.modRoleId,
+      allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'AttachFiles', 'ManageMessages'],
+    });
+  }
+
+  // Try to use the profile channel's parent category
+  let parentId: string | undefined;
+  if (config.profileChannelId) {
+    try {
+      const profileCh = await guild.channels.fetch(config.profileChannelId);
+      if (profileCh && 'parentId' in profileCh && profileCh.parentId) {
+        parentId = profileCh.parentId;
+      }
+    } catch { /* ignore */ }
+  }
+
+  let ticketChannel: TextChannel;
+  try {
+    ticketChannel = await guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      ...(parentId ? { parent: parentId } : {}),
+      permissionOverwrites: overwrites,
+      topic: `Support ticket — ${info.title} — opened by ${interaction.user.tag} (${interaction.user.id})`,
+    }) as TextChannel;
+  } catch (err) {
+    console.error('[profile-support] Failed to create ticket channel:', err);
+    await interaction.followUp({
+      content: '❌ Could not create a support ticket. Please ask a staff member directly.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // Build mention string for the message
+  const mentions: string[] = [`<@${interaction.user.id}>`];
+  if (config.staffRoleId)  mentions.push(`<@&${config.staffRoleId}>`);
+  if (config.modRoleId)    mentions.push(`<@&${config.modRoleId}>`);
+
+  const ticketEmbed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle(`Support Ticket — ${info.title}`)
+    .setDescription(info.instructions)
+    .addFields(
+      { name: 'Opened By',  value: `<@${interaction.user.id}>`, inline: true },
+      { name: 'Category',   value: info.title, inline: true },
+    )
+    .setFooter({ text: 'Cosmic Tiers Support • Use the buttons below to close this ticket' })
+    .setTimestamp();
+
+  const ticketButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(CLOSE_TICKET_ID).setLabel('Close Ticket').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(DELETE_TICKET_ID).setLabel('Delete Ticket').setStyle(ButtonStyle.Danger),
+  );
+
+  await ticketChannel.send({
+    content: mentions.join(' '),
+    embeds: [ticketEmbed],
+    components: [ticketButtons],
+  });
+
+  await interaction.followUp({
+    content: `Your support ticket has been created: <#${ticketChannel.id}>`,
+    ephemeral: true,
+  });
+}
+
+// ─── Profile Channel Button: View Profile ─────────────────────────────────────
+
+async function handleProfileView(interaction: ButtonInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+  if (!reg) {
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(RESULTS_RED)
+          .setTitle('Not Registered')
+          .setDescription(
+            `You do not have a Cosmic Tiers account yet.\n\n` +
+            `Click the **Register** button to link your Minecraft account and join the ranked system.`,
+          ),
+      ],
+    });
+    return;
+  }
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply('❌ This can only be used inside a server.');
+    return;
+  }
+
+  const embed = await buildPlayerProfileEmbed(guild, interaction.user.id, reg.mcUsername, true);
+  if (!embed) {
+    await interaction.editReply('❌ Could not load your profile. Please try again.');
+    return;
+  }
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+// ─── Profile Channel Button: View Others Profile ──────────────────────────────
+
+async function handleProfileViewOthers(interaction: ButtonInteraction): Promise<void> {
+  const findButton = new ButtonBuilder()
+    .setCustomId(PROFILE_FIND_USER_ID)
+    .setLabel('Find by Username')
+    .setStyle(ButtonStyle.Primary);
+
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle('View Other Players')
+        .setDescription(
+          `**Search by Minecraft Username**\n` +
+          `Click **Find by Username** below and enter a player's Minecraft username to view their profile.\n\n` +
+          `**Using Slash Commands**\n` +
+          `• \`/profile <username>\` — search and display any player's profile publicly\n` +
+          `• \`/profile-user @user\` — look up a player directly by their Discord mention\n\n` +
+          `Profiles include tier rankings, points, region, title, and more.`,
+        )
+        .setFooter({ text: 'Only you can see this message' }),
+    ],
+    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(findButton)],
+    ephemeral: true,
+  });
+}
+
+// ─── Profile Channel Button: Find by Username (opens modal) ──────────────────
+
+async function handleProfileFindUserButton(interaction: ButtonInteraction): Promise<void> {
+  const modal = new ModalBuilder()
+    .setCustomId(PROFILE_FIND_MODAL_ID)
+    .setTitle('Find Player by Username');
+
+  const usernameInput = new TextInputBuilder()
+    .setCustomId(PROFILE_FIND_INPUT)
+    .setLabel('Minecraft Username')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('e.g. Steve123')
+    .setRequired(true)
+    .setMinLength(3)
+    .setMaxLength(16);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(usernameInput));
+  await interaction.showModal(modal);
+}
+
+async function handleProfileFindModal(interaction: ModalSubmitInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const inputUsername = interaction.fields.getTextInputValue(PROFILE_FIND_INPUT).trim();
+  const reg = getRegistrationByMcUsername(inputUsername);
+
+  if (!reg) {
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(RESULTS_RED)
+          .setTitle('Player Not Found')
+          .setDescription(
+            `No player was found with the Minecraft username **\`${inputUsername}\`**.\n\n` +
+            `Please double-check the spelling and try again. Usernames are case-insensitive.`,
+          ),
+      ],
+    });
+    return;
+  }
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply('❌ This can only be used inside a server.');
+    return;
+  }
+
+  const embed = await buildPlayerProfileEmbed(guild, reg.discordId, reg.mcUsername, true);
+  if (!embed) {
+    await interaction.editReply(`❌ Could not load profile for **\`${reg.mcUsername}\`**. They may have left the server.`);
+    return;
+  }
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+// ─── Profile Channel Button: Change Username ──────────────────────────────────
+
+async function handleProfileUsername(interaction: ButtonInteraction): Promise<void> {
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+  if (!reg) {
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(RESULTS_RED)
+          .setTitle('Not Registered')
+          .setDescription('You must register first before changing your username.\nClick the **Register** button to get started.'),
+      ],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const remaining = getUsernameChangeRemainingMs(interaction.user.id);
+  if (remaining > 0) {
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(RESULTS_RED)
+          .setTitle('Username Change on Cooldown')
+          .setDescription(
+            `You can change your Minecraft username again in **${formatDuration(remaining)}**.\n\n` +
+            `Username changes are limited to once every **7 days** to maintain the integrity of the ranking system.`,
+          ),
+      ],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(PROFILE_UNAME_MODAL_ID)
+    .setTitle('Change Your Minecraft Username');
+
+  const usernameInput = new TextInputBuilder()
+    .setCustomId(PROFILE_UNAME_INPUT)
+    .setLabel(`Current: ${reg.mcUsername} — enter new username`)
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('New Minecraft username (3–16 characters)')
+    .setRequired(true)
+    .setMinLength(3)
+    .setMaxLength(16);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(usernameInput));
+  await interaction.showModal(modal);
+}
+
+async function handleProfileUsernameModal(interaction: ModalSubmitInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+  if (!reg) {
+    await interaction.editReply('❌ You are not registered. Please use the Register button first.');
+    return;
+  }
+
+  const newUsername = interaction.fields.getTextInputValue(PROFILE_UNAME_INPUT).trim();
+
+  if (!MC_USERNAME_RX.test(newUsername)) {
+    await interaction.editReply('❌ Invalid Minecraft username. Must be 3–16 characters, letters/numbers/underscores only.');
+    return;
+  }
+
+  if (newUsername.toLowerCase() === reg.mcUsername.toLowerCase()) {
+    await interaction.editReply('⚠️ That is already your current Minecraft username.');
+    return;
+  }
+
+  const remaining = getUsernameChangeRemainingMs(interaction.user.id);
+  if (remaining > 0) {
+    await interaction.editReply(`❌ You can change your username again in **${formatDuration(remaining)}**.`);
+    return;
+  }
+
+  const taken = getRegistrationByMcUsername(newUsername);
+  if (taken && taken.discordId !== interaction.user.id) {
+    await interaction.editReply(`❌ The username **\`${newUsername}\`** is already registered by another player.`);
+    return;
+  }
+
+  const result = await callApi('/api/bot/update-profile', { discordId: interaction.user.id, mcUsername: newUsername });
+  if (!result) {
+    await interaction.editReply('❌ Failed to update username — please try again later.');
+    return;
+  }
+
+  updateMcUsername(interaction.user.id, newUsername);
+  markUsernameChanged(interaction.user.id);
+
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle('Username Updated')
+        .setDescription(
+          `Your Minecraft username has been successfully updated.\n\n` +
+          `**Previous:** \`${reg.mcUsername}\`\n` +
+          `**New:** \`${newUsername}\`\n\n` +
+          `You can change your username again in **7 days**.`,
+        )
+        .setTimestamp(),
+    ],
+  });
+}
+
+// ─── Profile Channel Button: Change Skin ─────────────────────────────────────
+
+async function handleProfileSkin(interaction: ButtonInteraction): Promise<void> {
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+  if (!reg) {
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(RESULTS_RED)
+          .setTitle('Not Registered')
+          .setDescription('You must register first before changing your skin.\nClick the **Register** button to get started.'),
+      ],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle('Change Your Skin')
+        .setDescription(
+          `To update your Minecraft skin on Cosmic Tiers, follow these steps:\n\n` +
+          `**Step 1:** Go to <#1487116864562925578>\n` +
+          `**Step 2:** Use the \`/skin-change\` command\n` +
+          `**Step 3:** Attach your Minecraft skin file (PNG or JPG, under 20 KB)\n\n` +
+          `Your skin will appear in future tier test results and on your profile.\n\n` +
+          `To reset to the default Steve skin, use \`/skin-change reset: Yes\`.`,
+        )
+        .setFooter({ text: 'Only PNG and JPG skin files are accepted' }),
+    ],
+    ephemeral: true,
+  });
+}
+
+// ─── Profile Channel Button: Change Region ───────────────────────────────────
+
+async function handleProfileRegion(interaction: ButtonInteraction): Promise<void> {
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+  if (!reg) {
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(RESULTS_RED)
+          .setTitle('Not Registered')
+          .setDescription('You must register first before changing your region.\nClick the **Register** button to get started.'),
+      ],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const regionButtons = PROFILE_REGIONS.map(r =>
+    new ButtonBuilder()
+      .setCustomId(`${PROFILE_REGION_SET_PFX}${r.code}`)
+      .setLabel(r.label)
+      .setStyle(r.code === reg.region ? ButtonStyle.Primary : ButtonStyle.Secondary),
+  );
+
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  for (let i = 0; i < regionButtons.length; i += 4) {
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(regionButtons.slice(i, i + 4)));
+  }
+
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle('Change Your Region')
+        .setDescription(
+          `Select your region from the buttons below. Your current region is highlighted in blue.\n\n` +
+          `**Current Region:** \`${reg.region}\``,
+        )
+        .setFooter({ text: 'Only you can see this message' }),
+    ],
+    components: rows,
+    ephemeral: true,
+  });
+}
+
+async function handleProfileRegionSet(interaction: ButtonInteraction): Promise<void> {
+  await interaction.deferUpdate();
+
+  const newRegion = interaction.customId.slice(PROFILE_REGION_SET_PFX.length);
+  const reg = getRegistrationByDiscordId(interaction.user.id);
+
+  if (!reg) {
+    await interaction.followUp({ content: '❌ You are not registered.', ephemeral: true });
+    return;
+  }
+
+  if (newRegion === reg.region) {
+    await interaction.followUp({ content: `That is already your current region (**${newRegion}**).`, ephemeral: true });
+    return;
+  }
+
+  const result = await callApi('/api/bot/update-profile', { discordId: interaction.user.id, region: newRegion });
+  if (!result) {
+    await interaction.followUp({ content: '❌ Failed to update region. Please try again.', ephemeral: true });
+    return;
+  }
+
+  updateRegion(interaction.user.id, newRegion);
+
+  // Refresh region buttons to reflect the new selection
+  const regionButtons = PROFILE_REGIONS.map(r =>
+    new ButtonBuilder()
+      .setCustomId(`${PROFILE_REGION_SET_PFX}${r.code}`)
+      .setLabel(r.label)
+      .setStyle(r.code === newRegion ? ButtonStyle.Primary : ButtonStyle.Secondary),
+  );
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  for (let i = 0; i < regionButtons.length; i += 4) {
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(regionButtons.slice(i, i + 4)));
+  }
+
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle('Region Updated')
+        .setDescription(`Your region has been updated to **\`${newRegion}\`** successfully.`)
+        .setFooter({ text: 'Only you can see this message' }),
+    ],
+    components: rows,
+  });
+}
+
 // ─── /add-test-count Command ──────────────────────────────────────────────────
 
 async function handleAddTestCount(interaction: ChatInputCommandInteraction) {
@@ -3588,6 +4351,7 @@ async function registerCommands(clientId: string) {
         profileUserCommand.toJSON(),
         addTestCountCommand.toJSON(),
         transferOwnershipCommand.toJSON(),
+        setProfileChannelCommand.toJSON(),
       ],
     });
     console.log('Slash commands registered!');
@@ -3939,7 +4703,7 @@ client.on('messageCreate', async (message: Message) => {
   const channelName = 'name' in channel ? channel.name : '';
   if (channelName.startsWith('tt-')) {
     const attachment = message.attachments.first();
-    if (attachment && attachment.contentType === 'image/png' && attachment.size <= 20 * 1024) {
+    if (attachment && SKIN_VALID_TYPES.has(attachment.contentType ?? '') && attachment.size <= 20 * 1024) {
       const reg = getRegistrationByDiscordId(message.author.id);
       // Only process if this is the ticket owner's channel (topic contains their discord ID)
       const topic: string = ('topic' in channel ? channel.topic : '') ?? '';
@@ -4183,6 +4947,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'reload')                     return await handleReload(interaction);
       if (interaction.commandName === 'add-test-count')             return await handleAddTestCount(interaction);
       if (interaction.commandName === 'transfer-ownership')         return await handleTransferOwnership(interaction);
+      if (interaction.commandName === 'set-profile-channel')        return await handleSetProfileChannel(interaction);
       return;
     }
 
@@ -4194,6 +4959,17 @@ client.on('interactionCreate', async interaction => {
       if (id === CLOSE_TICKET_ID)  return await handleCloseTicket(interaction);
       if (id === DELETE_TICKET_ID) return await handleDeleteTicket(interaction);
       if (id === APPLY_TESTER_ID)  return await handleApplyTesterButton(interaction);
+
+      // ── Profile channel buttons ──────────────────────────────────────────────
+      if (id === PROFILE_REGISTER_ID)    return await handleProfileRegister(interaction as ButtonInteraction);
+      if (id === PROFILE_SUPPORT_ID)     return await handleProfileSupport(interaction as ButtonInteraction);
+      if (id === PROFILE_VIEW_ID)        return await handleProfileView(interaction as ButtonInteraction);
+      if (id === PROFILE_VIEW_OTHERS_ID) return await handleProfileViewOthers(interaction as ButtonInteraction);
+      if (id === PROFILE_FIND_USER_ID)   return await handleProfileFindUserButton(interaction as ButtonInteraction);
+      if (id === PROFILE_USERNAME_ID)    return await handleProfileUsername(interaction as ButtonInteraction);
+      if (id === PROFILE_SKIN_ID)        return await handleProfileSkin(interaction as ButtonInteraction);
+      if (id === PROFILE_REGION_ID)      return await handleProfileRegion(interaction as ButtonInteraction);
+      if (id.startsWith(PROFILE_REGION_SET_PFX)) return await handleProfileRegionSet(interaction as ButtonInteraction);
 
       // ── Queue system ────────────────────────────────────────────────────────
       if (id === QUEUE_LEAVE_ID)   return await handleQueueLeave(interaction as ButtonInteraction);
@@ -4288,10 +5064,18 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
+    // ── Select Menus ─────────────────────────────────────────────────────────
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId === PROFILE_SUPPORT_SEL_ID) return await handleProfileSupportSelect(interaction as StringSelectMenuInteraction);
+      return;
+    }
+
     // ── Modals ────────────────────────────────────────────────────────────────
     if (interaction.isModalSubmit()) {
-      if (interaction.customId === MODAL_ID)          return await handleTierTestModal(interaction);
-      if (interaction.customId === REGISTER_MODAL_ID) return await handleRegisterModal(interaction as ModalSubmitInteraction);
+      if (interaction.customId === MODAL_ID)            return await handleTierTestModal(interaction);
+      if (interaction.customId === REGISTER_MODAL_ID)   return await handleRegisterModal(interaction as ModalSubmitInteraction);
+      if (interaction.customId === PROFILE_FIND_MODAL_ID) return await handleProfileFindModal(interaction as ModalSubmitInteraction);
+      if (interaction.customId === PROFILE_UNAME_MODAL_ID) return await handleProfileUsernameModal(interaction as ModalSubmitInteraction);
       return;
     }
   } catch (err) {

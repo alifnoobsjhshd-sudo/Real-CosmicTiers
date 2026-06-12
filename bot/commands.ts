@@ -610,6 +610,14 @@ export const reloadCommand = new SlashCommandBuilder()
   .setDescription('Reload bot config and refresh all panels (admin only)')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
+export const setProfileChannelCommand = new SlashCommandBuilder()
+  .setName('set-profile-channel')
+  .setDescription('Set the profile/hub channel and post the profile panel in it (manager only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+  .addChannelOption(option =>
+    option.setName('channel').setDescription('The channel to post the profile panel in').setRequired(true)
+  );
+
 export const addTestCountCommand = new SlashCommandBuilder()
   .setName('add-test-count')
   .setDescription('Add bonus test count to a tester (manager only) — useful for restoring count after account deletion')
