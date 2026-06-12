@@ -1,11 +1,20 @@
 ---
 name: Tester list source of truth
-description: Website tester section must only show isTester=true players to stay in sync with the bot's Discord role list.
+description: Website tester section — what players qualify as testers, ghost exclusion, and period filtering.
 ---
 
-## Rule
-The website's `getTesters()` in `backend/src/storage.ts` must query **only** `players WHERE isTester=true`. Do NOT include players from `result_entries` who are not in the players table ("ghost testers"), and do NOT include players who had `isTester` revoked (they still have result_entries rows).
+## Rule — Who is a tester on the website
+`getTesters()` in both `server/storage.ts` and `backend/src/storage.ts` must show:
+- Players with `isTester = true` (explicitly set by bot via `/api/bot/tester-role`)
+- OR players with rows in `result_entries` as a tester (registered players who ran tests)
+- NEVER ghost testers (accounts in `result_entries` but NOT in the `players` table)
 
-**Why:** The old query used `OR isTester=true OR discordId IN (result_entries.testerDiscordId)` which included deleted/unregistered/former testers that the Discord bot would never show (bot shows only active role members).
+The query is: `WHERE isTester=true OR discordId IN (SELECT DISTINCT testerDiscordId FROM result_entries)` — but only players in the `players` table are returned, so ghost accounts are naturally excluded.
 
-**How to apply:** The fix is a simple `WHERE isTester = true` on the players table. The bonus test count (`bonusTestCount`) is added on top of the period stats at display time.
+**Why:** Changing to `isTester=true` only is too aggressive — many legitimate testers have `result_entries` rows but their `isTester` flag was never explicitly set (sync gaps with the bot). This caused the website to show nothing after the "ghost tester" fix.
+
+**How to apply:** Keep the OR condition, query from `players` table only. Ghost testers never appear because the outer query is on `players`. Do not remove the OR condition.
+
+## Period filtering
+Both `server/routes.ts` and `backend/src/routes.ts` accept `?period=alltime|month|year`.
+The website frontend uses `queryKey: [\`/api/testers?period=${testerPeriod}\`]` so TanStack Query refetches when the period changes. The default fetcher joins the key array with "/" and uses it as the URL, so a single-element array with the full URL (including query string) works correctly.

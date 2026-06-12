@@ -446,12 +446,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTesters(period?: string): Promise<TierTester[]> {
-    // Only show players explicitly marked as active testers (isTester=true).
-    // This keeps the website in sync with the bot, which only shows active Discord role members.
-    const registeredPlayers = await db
-      .select()
-      .from(playersTable)
-      .where(eq(playersTable.isTester, true));
+    // Pull all tester Discord IDs that appear in result_entries (registered players who ran tests).
+    const fromResults = await db
+      .select({ discordId: resultEntriesTable.testerDiscordId })
+      .from(resultEntriesTable)
+      .groupBy(resultEntriesTable.testerDiscordId);
+    const testerDiscordIds = fromResults.map(r => r.discordId);
+
+    // Include players who are marked isTester=true OR who have result_entries records.
+    // We query ONLY from the players table so ghost accounts (unregistered users who appear
+    // in result_entries but were never registered) are naturally excluded.
+    let registeredPlayers;
+    if (testerDiscordIds.length > 0) {
+      registeredPlayers = await db
+        .select()
+        .from(playersTable)
+        .where(or(eq(playersTable.isTester, true), inArray(playersTable.discordId, testerDiscordIds)));
+    } else {
+      registeredPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
+    }
 
     const allTiers = await db.select().from(playerTiersTable);
     const allRetired = await db.select().from(retiredPlayerTiersTable);

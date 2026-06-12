@@ -66,6 +66,7 @@ export default function Home() {
   const [infoTab, setInfoTab] = useState<InfoTab>("titles");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTesters, setExpandedTesters] = useState<Set<string>>(new Set());
+  const [testerPeriod, setTesterPeriod] = useState<"alltime" | "month" | "year">("alltime");
   const [topGameMode, setTopGameMode] = useState<string>(GAME_MODES[0]);
   const [loadingVisible, setLoadingVisible] = useState(true);
   const [loadingKey, setLoadingKey] = useState(0);
@@ -86,7 +87,7 @@ export default function Home() {
   });
 
   const { data: testersData, isLoading: testLoading } = useQuery<TesterLeaderboardResponse>({
-    queryKey: ["/api/testers"],
+    queryKey: [`/api/testers?period=${testerPeriod}`],
   });
 
   const { data: resultsData, isLoading: resultsLoading } = useQuery<ResultsResponse>({
@@ -237,6 +238,8 @@ export default function Home() {
               toggleExpand={toggleTesterExpand}
               lastUpdated={testersData?.lastUpdated}
               onSelectPlayer={selectPlayer}
+              period={testerPeriod}
+              onPeriodChange={setTesterPeriod}
             />
           </div>
         )}
@@ -465,8 +468,14 @@ function LeaderboardSkeleton() {
 
 /* ─── Testers Section ─────────────────────────────────────────────────────── */
 
+const TESTER_PERIODS: { value: "alltime" | "month" | "year"; label: string }[] = [
+  { value: "alltime", label: "All Time" },
+  { value: "month",   label: "This Month" },
+  { value: "year",    label: "This Year" },
+];
+
 function TestersSection({
-  testers, loading, expandedTesters, toggleExpand, lastUpdated, onSelectPlayer
+  testers, loading, expandedTesters, toggleExpand, lastUpdated, onSelectPlayer, period, onPeriodChange
 }: {
   testers: TierTester[];
   loading: boolean;
@@ -474,36 +483,72 @@ function TestersSection({
   toggleExpand: (id: string) => void;
   lastUpdated?: number;
   onSelectPlayer: (p: PlayerProfile) => void;
+  period: "alltime" | "month" | "year";
+  onPeriodChange: (p: "alltime" | "month" | "year") => void;
 }) {
-  if (loading) return <LeaderboardSkeleton />;
-
-  if (testers.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-        <Users className="h-12 w-12 opacity-30" />
-        <p className="text-lg font-medium">No tier testers found</p>
-        <p className="text-sm">Set up the Tier Tester role with the bot to see testers here.</p>
-      </div>
-    );
-  }
+  const { theme } = useTheme();
 
   return (
-    <div className="flex flex-col gap-3" data-testid="testers-section">
-      <div className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_auto] gap-3 px-3 mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        <span>#</span>
-        <span>Tester</span>
-        <span>Tests</span>
+    <div className="flex flex-col gap-4">
+      {/* Period filter */}
+      <div className="flex items-center gap-2" data-testid="tester-period-filter">
+        {TESTER_PERIODS.map(p => {
+          const active = period === p.value;
+          return (
+            <button
+              key={p.value}
+              data-testid={`tester-period-${p.value}`}
+              onClick={() => onPeriodChange(p.value)}
+              className="px-3 py-1.5 rounded text-sm font-medium transition-all duration-200"
+              style={active ? {
+                backgroundColor: `hsl(${theme.cssVars.primary})`,
+                color: `hsl(${theme.cssVars.primaryForeground})`,
+                boxShadow: `0 0 10px -2px hsl(${theme.cssVars.primary} / 0.35)`,
+              } : {
+                backgroundColor: "hsl(213 27% 14%)",
+                color: "hsl(var(--muted-foreground))",
+              }}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+        <span className="ml-auto text-xs text-muted-foreground">
+          {testers.length} tester{testers.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
-      {testers.map((tester) => (
-        <TesterRow
-          key={tester.discordId}
-          tester={tester}
-          expanded={expandedTesters.has(tester.discordId)}
-          onToggle={() => toggleExpand(tester.discordId)}
-          onSelectPlayer={onSelectPlayer}
-        />
-      ))}
+      {loading ? (
+        <LeaderboardSkeleton />
+      ) : testers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+          <Users className="h-12 w-12 opacity-30" />
+          <p className="text-lg font-medium">No tier testers found</p>
+          <p className="text-sm">
+            {period === "alltime"
+              ? "Set up the Tier Tester role with the bot to see testers here."
+              : "No tests recorded for this period."}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3" data-testid="testers-section">
+          <div className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_auto] gap-3 px-3 mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>#</span>
+            <span>Tester</span>
+            <span>Tests</span>
+          </div>
+
+          {testers.map((tester) => (
+            <TesterRow
+              key={tester.discordId}
+              tester={tester}
+              expanded={expandedTesters.has(tester.discordId)}
+              onToggle={() => toggleExpand(tester.discordId)}
+              onSelectPlayer={onSelectPlayer}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
