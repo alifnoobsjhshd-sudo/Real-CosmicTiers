@@ -84,7 +84,6 @@ export default function Home() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const [testerPeriod, setTesterPeriod] = useState<"month" | "year" | "alltime">("month");
 
   const [, navigate] = useLocation();
   const switchTab = (newTab: Tab) => {
@@ -133,9 +132,9 @@ export default function Home() {
   });
 
   const { data: testersData, isLoading: testLoading } = useQuery<TesterLeaderboardResponse>({
-    queryKey: ["/api/testers", testerPeriod],
+    queryKey: ["/api/testers"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/testers?period=${testerPeriod}`);
+      const res = await apiRequest("GET", "/api/testers?period=alltime");
       return res.json();
     },
   });
@@ -267,8 +266,6 @@ export default function Home() {
               toggleExpand={toggleTesterExpand}
               lastUpdated={testersData?.lastUpdated}
               onSelectPlayer={openProfile}
-              period={testerPeriod}
-              onPeriodChange={setTesterPeriod}
             />
           </div>
         )}
@@ -525,14 +522,8 @@ function LeaderboardSkeleton() {
 
 /* ─── Testers Section ─────────────────────────────────────────────────────── */
 
-const PERIOD_LABELS: Record<string, string> = {
-  month: "This Month",
-  year: "This Year",
-  alltime: "All Time",
-};
-
 function TestersSection({
-  testers, loading, expandedTesters, toggleExpand, lastUpdated, onSelectPlayer, period, onPeriodChange
+  testers, loading, expandedTesters, toggleExpand, lastUpdated, onSelectPlayer
 }: {
   testers: TierTester[];
   loading: boolean;
@@ -540,59 +531,21 @@ function TestersSection({
   toggleExpand: (id: string) => void;
   lastUpdated?: number;
   onSelectPlayer: (p: PlayerProfile) => void;
-  period: "month" | "year" | "alltime";
-  onPeriodChange: (p: "month" | "year" | "alltime") => void;
 }) {
-  const periodOptions: Array<{ value: "month" | "year" | "alltime"; label: string }> = [
-    { value: "month", label: "This Month" },
-    { value: "year", label: "This Year" },
-    { value: "alltime", label: "All Time" },
-  ];
-
-  const filterBar = (
-    <div className="flex items-center gap-2 mb-3">
-      {periodOptions.map(opt => (
-        <button
-          key={opt.value}
-          onClick={() => onPeriodChange(opt.value)}
-          className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
-            period === opt.value
-              ? "border-primary text-primary bg-primary/10"
-              : "border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-      <span className="ml-1 text-xs text-muted-foreground/60">
-        Sorted by tests — {PERIOD_LABELS[period]}
-      </span>
-    </div>
-  );
-
-  if (loading) return (
-    <div>
-      {filterBar}
-      <LeaderboardSkeleton />
-    </div>
-  );
+  if (loading) return <LeaderboardSkeleton />;
 
   if (testers.length === 0) {
     return (
-      <div>
-        {filterBar}
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-          <Users className="h-12 w-12 opacity-30" />
-          <p className="text-lg font-medium">No tier testers found</p>
-          <p className="text-sm">Set up the Tier Tester role with the bot to see testers here.</p>
-        </div>
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+        <Users className="h-12 w-12 opacity-30" />
+        <p className="text-lg font-medium">No tier testers found</p>
+        <p className="text-sm">Set up the Tier Tester role with the bot to see testers here.</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-3" data-testid="testers-section">
-      {filterBar}
       <div className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_auto] gap-3 px-3 mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         <span>#</span>
         <span>Tester</span>
