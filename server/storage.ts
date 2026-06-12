@@ -89,6 +89,7 @@ export interface IStorage {
   deletePlayer(discordId: string): Promise<void>;
   retireTier(discordId: string, gameMode: string): Promise<void>;
   unretireTier(discordId: string, gameMode: string): Promise<void>;
+  getAllPlayers(): Promise<Array<{ discordId: string; mcUsername: string; region: string; skinUrl: string | null; registeredAt: number }>>;
   getLeaderboard(): Promise<PlayerProfile[]>;
   getTesters(period?: string): Promise<TierTester[]>;
   getTesterStatsByPeriod(period: string): Promise<Record<string, number>>;
@@ -429,6 +430,17 @@ export class DatabaseStorage implements IStorage {
     const stats: Record<string, number> = {};
     for (const r of rows) stats[r.testerDiscordId] = r.cnt;
     return stats;
+  }
+
+  async getAllPlayers(): Promise<Array<{ discordId: string; mcUsername: string; region: string; skinUrl: string | null; registeredAt: number }>> {
+    const rows = await db.select().from(playersTable);
+    return rows.map(p => ({
+      discordId: p.discordId,
+      mcUsername: p.mcUsername,
+      region: p.region,
+      skinUrl: p.skinUrl ?? null,
+      registeredAt: p.registeredAt,
+    }));
   }
 
   async getTesters(period?: string): Promise<TierTester[]> {
