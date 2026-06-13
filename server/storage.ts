@@ -5,6 +5,7 @@ import {
   retiredPlayerTiers as retiredPlayerTiersTable,
   resultEntries as resultEntriesTable,
   specialTitles as specialTitlesTable,
+  guildConfig as guildConfigTable,
   TITLES,
   TIER_POINTS,
   type PlayerProfile,
@@ -109,6 +110,25 @@ export interface IStorage {
   giveSpecialTitle(discordId: string, titleName: string | null): Promise<void>;
   removeSpecialTitle(discordId: string): Promise<void>;
   getTopPlayers(): Promise<TopPlayersResponse>;
+  getGuildConfig(guildId: string): Promise<Record<string, any>>;
+  setGuildConfig(guildId: string, config: Record<string, any>): Promise<void>;
+  getPlayerFull(discordId: string): Promise<{
+    discordId: string;
+    mcUsername: string;
+    region: string;
+    tiers: Array<{ gameMode: string; tier: string; retired: boolean }>;
+    isTester: boolean;
+    testerGameModes: string[];
+    specialTitleRoleId: string | null;
+  } | null>;
+  getBotLeaderboard(): Promise<Array<{
+    discordId: string;
+    mcUsername: string;
+    totalPoints: number;
+    pointDelta: number;
+    tiers: Record<string, string>;
+    retiredTiers: string[];
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -429,6 +449,117 @@ export class DatabaseStorage implements IStorage {
     const stats: Record<string, number> = {};
     for (const r of rows) stats[r.testerDiscordId] = r.cnt;
     return stats;
+  }
+
+  async getAllPlayers(): Promise<Array<{ discordId: string; mcUsername: string; region: string; skinUrl: string | null; registeredAt: number }>> {
+    const rows = await db.select().from(playersTable);
+    return rows.map(p => ({
+      discordId: p.discordId,
+      mcUsername: p.mcUsername,
+      region: p.region,
+      skinUrl: p.skinUrl ?? null,
+      registeredAt: p.registeredAt,
+    }));
+  }
+
+  async getGuildConfig(guildId: string): Promise<Record<string, any>> {
+    const result = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, guildId)).limit(1);
+    if (!result[0]) return {};
+    try {
+      return JSON.parse(result[0].configJson);
+    } catch {
+      return {};
+    }
+  }
+
+  async setGuildConfig(guildId: string, config: Record<string, any>): Promise<void> {
+    await db
+      .insert(guildConfigTable)
+      .values({ guildId, configJson: JSON.stringify(config) })
+      .onConflictDoUpdate({
+        target: guildConfigTable.guildId,
+        set: { configJson: JSON.stringify(config) },
+      });
+  }
+
+  async getPlayerFull(discordId: string): Promise<{
+    discordId: string;
+    mcUsername: string;
+    region: string;
+    tiers: Array<{ gameMode: string; tier: string; retired: boolean }>;
+    isTester: boolean;
+    testerGameModes: string[];
+    specialTitleRoleId: string | null;
+  } | null> {
+    const rows = await db.select().from(playersTable).where(eq(playersTable.discordId, discordId)).limit(1);
+    if (!rows[0]) return null;
+    const p = rows[0];
+
+    const tierRows = await db.select().from(playerTiersTable).where(eq(playerTiersTable.discordId, discordId));
+    const retiredRows = await db.select().from(retiredPlayerTiersTable).where(eq(retiredPlayerTiersTable.discordId, discordId));
+    const retiredGameModes = new Set(retiredRows.map(r => r.gameMode));
+
+    let specialTitleRoleId: string | null = null;
+    if (p.specialTitle) {
+      const titleRow = await db.select().from(specialTitlesTable).where(eq(specialTitlesTable.name, p.specialTitle)).limit(1);
+      specialTitleRoleId = titleRow[0]?.roleId ?? null;
+    }
+
+    return {
+      discordId: p.discordId,
+      mcUsername: p.mcUsername,
+      region: p.region,
+      tiers: tierRows.map(t => ({
+        gameMode: t.gameMode,
+        tier: t.tier,
+        retired: retiredGameModes.has(t.gameMode),
+      })),
+      isTester: p.isTester ?? false,
+      testerGameModes: p.testerGameModes ?? [],
+      specialTitleRoleId,
+    };
+  }
+
+  async getBotLeaderboard(): Promise<Array<{
+    discordId: string;
+    mcUsername: string;
+    totalPoints: number;
+    pointDelta: number;
+    tiers: Record<string, string>;
+    retiredTiers: string[];
+  }>> {
+    const allPlayers = await db.select().from(playersTable);
+    const allTiers = await db.select().from(playerTiersTable);
+    const allRetired = await db.select().from(retiredPlayerTiersTable);
+
+    const tiersByPlayer: Record<string, Record<string, string>> = {};
+    for (const t of allTiers) {
+      if (!tiersByPlayer[t.discordId]) tiersByPlayer[t.discordId] = {};
+      tiersByPlayer[t.discordId][t.gameMode] = t.tier;
+    }
+
+    const retiredByPlayer: Record<string, string[]> = {};
+    for (const r of allRetired) {
+      if (!retiredByPlayer[r.discordId]) retiredByPlayer[r.discordId] = [];
+      retiredByPlayer[r.discordId].push(r.gameMode);
+    }
+
+    return allPlayers
+      .map(p => {
+        const tiers = tiersByPlayer[p.discordId] ?? {};
+        const totalPoints = calcPoints(tiers);
+        const pointDelta = totalPoints - (p.previousPoints ?? 0);
+        return {
+          discordId: p.discordId,
+          mcUsername: p.mcUsername,
+          totalPoints,
+          pointDelta,
+          tiers,
+          retiredTiers: retiredByPlayer[p.discordId] ?? [],
+        };
+      })
+      .filter(p => p.totalPoints > 0)
+      .sort((a, b) => b.totalPoints - a.totalPoints || a.mcUsername.localeCompare(b.mcUsername));
   }
 
   async getTesters(period?: string): Promise<TierTester[]> {

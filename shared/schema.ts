@@ -33,6 +33,11 @@ export const players = pgTable("players", {
   bonusTestCount: integer("bonus_test_count").default(0).notNull(),
 });
 
+export const guildConfig = pgTable("guild_config", {
+  guildId: text("guild_id").primaryKey(),
+  configJson: text("config_json").notNull().default('{}'),
+});
+
 export const specialTitles = pgTable("special_titles", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),

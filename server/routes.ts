@@ -206,6 +206,72 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/bot/players", botAuth, async (_req, res) => {
+    try {
+      const players = await storage.getAllPlayers();
+      res.json({ players });
+    } catch (err) {
+      console.error("[bot/players]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/bot/tester-stats", botAuth, async (req, res) => {
+    try {
+      const period = typeof req.query.period === "string" ? req.query.period : "alltime";
+      const stats = await storage.getTesterStatsByPeriod(period);
+      res.json({ stats, period });
+    } catch (err) {
+      console.error("[bot/tester-stats]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/bot/config/:guildId", botAuth, async (req, res) => {
+    try {
+      const config = await storage.getGuildConfig(req.params.guildId);
+      res.json({ config });
+    } catch (err) {
+      console.error("[bot/config get]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/bot/config", botAuth, async (req, res) => {
+    try {
+      const { guildId, config } = req.body;
+      if (!guildId || !config) {
+        res.status(400).json({ error: "Missing guildId or config" });
+        return;
+      }
+      await storage.setGuildConfig(guildId, config);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[bot/config set]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/bot/player-full/:discordId", botAuth, async (req, res) => {
+    try {
+      const player = await storage.getPlayerFull(String(req.params.discordId));
+      res.json({ player });
+    } catch (err) {
+      console.error("[bot/player-full]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/bot/leaderboard", botAuth, async (_req, res) => {
+    try {
+      const entries = await storage.getBotLeaderboard();
+      res.json({ entries });
+    } catch (err) {
+      console.error("[bot/leaderboard]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.post("/api/bot/register", botAuth, async (req, res) => {
     try {
       const { discordId, mcUsername, region, skinUrl } = req.body;
@@ -539,6 +605,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
+  // ── Guild config table init ─────────────────────────────────────────────────
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS guild_config (
+        guild_id    TEXT PRIMARY KEY,
+        config_json TEXT NOT NULL DEFAULT '{}'
+      )
+    `);
+  } catch (e) {
+    console.warn("[guild_config] DB init failed:", (e as Error).message);
+  }
 
   // ── Settings table init + theme cache load ─────────────────────────────────
   try {
