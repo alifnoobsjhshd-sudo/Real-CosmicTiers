@@ -206,16 +206,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.get("/api/bot/players", botAuth, async (_req, res) => {
-    try {
-      const players = await storage.getAllPlayers();
-      res.json({ players });
-    } catch (err) {
-      console.error("[bot/players]", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
   app.post("/api/bot/register", botAuth, async (req, res) => {
     try {
       const { discordId, mcUsername, region, skinUrl } = req.body;
