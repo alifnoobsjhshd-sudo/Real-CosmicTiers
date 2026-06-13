@@ -2,8 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { createServer } from "http";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is required");
+if (!process.env.NEON_DATABASE_URL && !process.env.DATABASE_URL) {
+  throw new Error("NEON_DATABASE_URL environment variable is required");
 }
 
 const app = express();
