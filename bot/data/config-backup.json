@@ -5,5 +5,15 @@
     "Rookie": "1482790579573362698",
     "Combat Initiate": "1482791898589433888",
     "Combat Novice": "1483173333573963857"
-  }
+  },
+  "profileChannelId": "1563145570032295956",
+  "profileChannelMessageId": "1563147359741804656",
+  "leaderboardChannelId": "1563146158891606138",
+  "leaderboardMessageId": "1563147484405043354",
+  "currentTesterChannelId": "1563146391943913592",
+  "currentTesterMessageId": "1563147558572920843",
+  "tierTestChannelId": "1563146476274589726",
+  "tierTestMessageId": "1563147699098882180",
+  "staffRoleId": "1561790321300607097",
+  "tierTesterRoleId": "1561788435629482014"
 }
