@@ -16,5 +16,25 @@
   "tierTestMessageId": "1563147699098882180",
   "staffRoleId": "1561790321300607097",
   "tierTesterRoleId": "1561788435629482014",
-  "resultsChannelId": "1563148151274078278"
+  "resultsChannelId": "1563148151274078278",
+  "emojiStrings": {
+    "axe_pvp": "<:axe_pvp:1563249178291994755>",
+    "crystal_pvp": "<:crystal_pvp:1563249180854460486>",
+    "mace_pvp": "<:mace_pvp:1563249182905466911>",
+    "nethpot": "<:nethpot:1563249186252656751>",
+    "pot_pvp": "<:pot_pvp:1563249188278632581>",
+    "smp_pvp": "<:smp_pvp:1563249190916849808>",
+    "sword_pvp": "<:sword_pvp:1563249193672245249>",
+    "uhc": "<:uhc:1563249196335628428>",
+    "cartpvp": "<:cartpvp:1563249201670783047>",
+    "combat_cadet": "<:combat_cadet:1563249205798244422>",
+    "combat_initiate": "<:combat_initiate:1563249209300226178>",
+    "combat_novice": "<:combat_novice:1563249212315934722>",
+    "combat_specialist": "<:combat_specialist:1563249216422158527>",
+    "down": "<:down:1563249218749988885>",
+    "high_down": "<:high_down:1563249221056856161>",
+    "high_up": "<:high_up:1563249223753928885>",
+    "rookie": "<:rookie:1563249227788980224>",
+    "up": "<:up:1563249229902782464>"
+  }
 }
