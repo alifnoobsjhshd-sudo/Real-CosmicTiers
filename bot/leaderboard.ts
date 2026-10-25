@@ -11,7 +11,6 @@ import {
   type Role,
 } from 'discord.js';
 import { getConfig, setConfig } from './config.js';
-import { getRegistrationByDiscordId } from './registration.js';
 import { getTitleEmoji, formatTierWithEmoji, getEmojiString, sanitizeToEmojiName } from './emojis.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -189,7 +188,7 @@ interface LeaderboardEntry {
   mcUsername?: string;
 }
 
-async function getLeaderboardEntries(guild: Guild): Promise<LeaderboardEntry[]> {
+async function getLeaderboardEntries(): Promise<LeaderboardEntry[]> {
   try {
     const res = await fetch(`${API_BASE}/api/bot/leaderboard`, {
       headers: { 'x-internal-api-key': INTERNAL_API_KEY },
@@ -222,23 +221,10 @@ async function getLeaderboardEntries(guild: Guild): Promise<LeaderboardEntry[]> 
         tierRoles,
         mcUsername: e.mcUsername,
       };
-    });
+    }).filter(entry => typeof entry.mcUsername === 'string' && entry.mcUsername.trim().length > 0);
   } catch (err) {
-    console.error('[leaderboard] API fetch failed, falling back to guild scan:', err);
-    if (guild.members.cache.size < 2) await guild.members.fetch();
-    return guild.members.cache
-      .filter(m => !m.user.bot)
-      .map(member => ({
-        id: member.id,
-        points: getMemberPoints(member),
-        tierRoles: member.roles.cache
-          .filter(r => getRolePoints(r.name) > 0)
-          .map(r => r.name)
-          .sort((a, b) => getRolePoints(b) - getRolePoints(a)),
-        mcUsername: getRegistrationByDiscordId(member.id)?.mcUsername,
-      }))
-      .filter(e => e.points > 0)
-      .sort((a, b) => b.points - a.points || a.id.localeCompare(b.id));
+    console.error('[leaderboard] Database API request failed:', err);
+    throw new Error('Could not load leaderboard entries from the database.');
   }
 }
 
@@ -274,14 +260,13 @@ function buildLeaderboardEmbed(entries: LeaderboardEntry[], page: number): Embed
     const globalRank = start + i + 1;
     const title = getTitleForPoints(entry.points);
     const titleEmoji = getTitleEmoji(title.name);
-    const usernameDisplay = entry.mcUsername ? ` — ${entry.mcUsername}` : '';
     const trendEmoji = getTrendEmoji(entry.pointDelta ?? 0);
 
     const tiersLine = entry.tierRoles.length > 0
       ? entry.tierRoles.map(t => formatTierWithEmoji(t)).join('  •  ')
       : '*No tier roles*';
 
-    description += `## **${globalRank}.** <@${entry.id}>${usernameDisplay}\n`;
+    description += `## **${globalRank}.** **${entry.mcUsername}**\n`;
     description += `> ${titleEmoji ? `${titleEmoji} ` : ''}**${title.name}** • ${entry.points} pts${trendEmoji ? ` ${trendEmoji}` : ''}\n`;
     description += `> -# ${tiersLine}\n`;
     if (i < slice.length - 1) description += '\n';
@@ -327,7 +312,8 @@ export async function buildLeaderboardMessage(guild: Guild, page: number): Promi
   embeds: EmbedBuilder[];
   components: ActionRowBuilder<ButtonBuilder>[];
 }> {
-  const entries = await getLeaderboardEntries(guild);
+  void guild;
+  const entries = await getLeaderboardEntries();
   const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
 

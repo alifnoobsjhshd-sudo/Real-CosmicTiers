@@ -134,7 +134,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/testers", async (req, res) => {
     try {
       const period = typeof req.query.period === "string" ? req.query.period : "alltime";
-      const testers = await storage.getTesters(period);
+      const activeOnly = req.query.activeOnly === "true";
+      const testers = await storage.getTesters(period, activeOnly);
       res.json({ testers, period, lastUpdated: Date.now() });
     } catch (err) {
       console.error("[testers]", err);
@@ -323,7 +324,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/bot/tester-role", botAuth, async (req, res) => {
     try {
       const { discordId, action } = req.body;
-      if (!discordId || !action) {
+      if (!action || (action !== "remove-all" && !discordId)) {
         res.status(400).json({ error: "Missing required fields" });
         return;
       }
@@ -331,6 +332,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         await storage.addTesterRole(discordId);
       } else if (action === "remove") {
         await storage.removeTesterRole(discordId);
+      } else if (action === "remove-all") {
+        const discordIds = await storage.removeAllTesters();
+        res.json({ ok: true, discordIds });
+        return;
       }
       res.json({ ok: true });
     } catch (err) {

@@ -24,6 +24,7 @@ export interface BotConfig {
   registeredRoleId?: string;
   leaderboardChannelId?: string;
   leaderboardMessageId?: string;
+  queueChannelId?: string;
   testerStats?: Record<string, number>;
   usernameChangeTimestamps?: Record<string, number>;
   titleRoleIds?: Record<string, string>;

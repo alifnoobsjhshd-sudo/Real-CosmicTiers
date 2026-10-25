@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.js';
 
 export const uploadEmojiCommand = new SlashCommandBuilder()
   .setName('upload')
@@ -342,12 +342,29 @@ export const removeTesterCommand = new SlashCommandBuilder()
     option.setName('player').setDescription('The registered player to remove (Minecraft username)').setRequired(true).setAutocomplete(true)
   );
 
+export const removeAllTestersCommand = new SlashCommandBuilder()
+  .setName('remove-tester-all')
+  .setDescription('Remove all active tier testers from the database and remove their tester roles (manager only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles);
+
 export const setLeaderboardChannelCommand = new SlashCommandBuilder()
   .setName('set-leaderboard-channel')
   .setDescription('Set the channel where the live points leaderboard is displayed')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addChannelOption(option =>
     option.setName('channel').setDescription('The channel to post the leaderboard in').setRequired(true)
+  );
+
+export const setQueueChannelCommand = new SlashCommandBuilder()
+  .setName('set-queue-channel')
+  .setDescription('Set the channel where all tier test queue messages are posted (manager only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+  .addChannelOption(option =>
+    option
+      .setName('channel')
+      .setDescription('The shared queue channel')
+      .addChannelTypes(ChannelType.GuildText)
+      .setRequired(true)
   );
 
 export const setStaffRoleCommand = new SlashCommandBuilder()

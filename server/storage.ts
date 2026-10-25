@@ -80,6 +80,7 @@ export interface IStorage {
   }): Promise<void>;
   addTesterRole(discordId: string): Promise<void>;
   removeTesterRole(discordId: string): Promise<void>;
+  removeAllTesters(): Promise<string[]>;
   setTesterGameModes(discordId: string, gameModes: string[]): Promise<void>;
   incrementTesterStat(discordId: string): Promise<void>;
   clearTesterStat(discordId: string): Promise<void>;
@@ -91,7 +92,7 @@ export interface IStorage {
   retireTier(discordId: string, gameMode: string): Promise<void>;
   unretireTier(discordId: string, gameMode: string): Promise<void>;
   getLeaderboard(): Promise<PlayerProfile[]>;
-  getTesters(period?: string): Promise<TierTester[]>;
+  getTesters(period?: string, activeOnly?: boolean): Promise<TierTester[]>;
   getTesterStatsByPeriod(period: string): Promise<Record<string, number>>;
   getResults(limit?: number): Promise<ResultEntry[]>;
   getSkin(discordId: string): Promise<string | null>;
@@ -274,6 +275,15 @@ export class DatabaseStorage implements IStorage {
       .update(playersTable)
       .set({ isTester: false, testerGameModes: [] })
       .where(eq(playersTable.discordId, discordId));
+  }
+
+  async removeAllTesters(): Promise<string[]> {
+    const removed = await db
+      .update(playersTable)
+      .set({ isTester: false, testerGameModes: [] })
+      .where(eq(playersTable.isTester, true))
+      .returning({ discordId: playersTable.discordId });
+    return removed.map(player => player.discordId);
   }
 
   async setTesterGameModes(discordId: string, gameModes: string[]): Promise<void> {
@@ -562,7 +572,7 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => b.totalPoints - a.totalPoints || a.mcUsername.localeCompare(b.mcUsername));
   }
 
-  async getTesters(period?: string): Promise<TierTester[]> {
+  async getTesters(period?: string, activeOnly = false): Promise<TierTester[]> {
     // Pull every tester who ever ran a test, along with their most-recent MC username.
     // result_entries stores testerDiscordId + testerMcUsername on every submission,
     // so this is the authoritative source of "who has actually tested".
@@ -579,7 +589,9 @@ export class DatabaseStorage implements IStorage {
     // Grab registered players marked isTester=true OR who have run tests before.
     // Only players with an active players row are included (ghost/deleted accounts are excluded).
     let registeredPlayers;
-    if (testerDiscordIds.length > 0) {
+    if (activeOnly) {
+      registeredPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
+    } else if (testerDiscordIds.length > 0) {
       registeredPlayers = await db
         .select()
         .from(playersTable)

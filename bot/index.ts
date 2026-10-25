@@ -52,7 +52,9 @@ import {
   clearUserCommand,
   removeTierCommand,
   removeTesterCommand,
+  removeAllTestersCommand,
   setLeaderboardChannelCommand,
+  setQueueChannelCommand,
   setStaffRoleCommand,
   addTesterCommand,
   helpCommand,
@@ -108,6 +110,7 @@ import {
   handleQueueLeave,
   handleQueueNext,
   handleQueueEnd,
+  restoreSharedQueueMessages,
   handleTtClose,
   handleTicketLeave,
   handleTicketClose,
@@ -152,6 +155,15 @@ import {
 } from './registration.js';
 import { sanitizeToEmojiName, getGameModeEmoji, getEmojiString } from './emojis.js';
 import { renderMinecraftSkin } from './skinrender.js';
+import {
+  handleSchedulingButton,
+  handleSchedulingSelect,
+  handleSchedulingModal,
+  isSchedulingInteraction,
+  isSchedulingSelect,
+  isSchedulingModal,
+  startTestTimeScheduler,
+} from './scheduling.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -1305,6 +1317,24 @@ async function handleSetCurrentTesterChannel(interaction: ChatInputCommandIntera
   }
 }
 
+async function handleSetQueueChannel(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+  const member = interaction.member as GuildMember;
+  if (!member.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    await interaction.editReply('❌ You need the **Manage Roles** permission to set the shared queue channel.');
+    return;
+  }
+  const channel = interaction.options.getChannel('channel', true);
+  if (channel.type !== ChannelType.GuildText) {
+    await interaction.editReply('❌ Choose a standard text channel for the shared queue.');
+    return;
+  }
+  setConfig({ queueChannelId: channel.id });
+  await interaction.editReply(
+    `✅ Shared queue channel set to <#${channel.id}>. New queue requests will be posted there instead of creating queue channels.`,
+  );
+}
+
 async function handleSetUnrankedRole(interaction: ChatInputCommandInteraction) {
   const role = interaction.options.getRole('role', true);
   setConfig({ unrankedRoleId: role.id });
@@ -1925,6 +1955,62 @@ async function handleRemoveTester(interaction: ChatInputCommandInteraction) {
       `**Test count:** Reset to 0`,
     );
 
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleRemoveAllTesters(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+  const caller = interaction.member as GuildMember;
+  if (!caller.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    await interaction.editReply('❌ You need the **Manage Roles** permission to use `/remove-tester-all`.');
+    return;
+  }
+
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply('❌ This command must be used inside the server.');
+    return;
+  }
+
+  const result = await callApi('/api/bot/tester-role', { action: 'remove-all' });
+  if (!result || !Array.isArray(result.discordIds)) {
+    await interaction.editReply('❌ The database could not remove the testers. Check the backend API logs and try again.');
+    return;
+  }
+
+  const config = getConfig();
+  const testerRoleIds = new Set<string>();
+  if (config.tierTesterRoleId) testerRoleIds.add(config.tierTesterRoleId);
+  for (const gameMode of GAME_MODES) {
+    const role = guild.roles.cache.find(item => item.name === `${displayGameMode(gameMode)} Tester`);
+    if (role) testerRoleIds.add(role.id);
+  }
+
+  let roleMembersUpdated = 0;
+  for (const discordId of result.discordIds as string[]) {
+    try {
+      const member = await guild.members.fetch(discordId);
+      const rolesToRemove = [...testerRoleIds].filter(roleId => member.roles.cache.has(roleId));
+      if (rolesToRemove.length > 0) {
+        await member.roles.remove(rolesToRemove, `All active tester records removed by ${interaction.user.username}`);
+        roleMembersUpdated++;
+      }
+    } catch {
+      // A database tester may no longer be a member; their DB status is still cleared.
+    }
+  }
+
+  scheduleTesterListRefresh(client);
+  schedulePanelRefresh(client);
+  const embed = new EmbedBuilder()
+    .setColor(0xFF4444)
+    .setTitle('🗑️ Active Tier Testers Removed')
+    .setDescription(
+      `Marked **${result.discordIds.length}** active tester record(s) inactive in the database.\n` +
+      `Removed tester roles from **${roleMembersUpdated}** current server member(s).\n` +
+      `Historical tier-test results were kept.`,
+    )
+    .setTimestamp();
   await interaction.editReply({ embeds: [embed] });
 }
 
@@ -4354,7 +4440,9 @@ async function registerCommands(clientId: string) {
         clearUserCommand.toJSON(),
         removeTierCommand.toJSON(),
         removeTesterCommand.toJSON(),
+        removeAllTestersCommand.toJSON(),
         setLeaderboardChannelCommand.toJSON(),
+        setQueueChannelCommand.toJSON(),
         setStaffRoleCommand.toJSON(),
         addTesterCommand.toJSON(),
         helpCommand.toJSON(),
@@ -4390,6 +4478,8 @@ client.once('clientReady', async () => {
   console.log(`[Bot] Logged in as ${client.user!.tag}`);
   await loadConfigFromApi();
   await loadRegistrationsFromApi();
+  await restoreSharedQueueMessages(client);
+  startTestTimeScheduler(client);
   await registerCommands(client.user!.id);
   // Audit all bot-managed roles and strip any dangerous permissions
   for (const [, guild] of client.guilds.cache) {
@@ -4944,6 +5034,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'set-tier-tester-role')       return await handleSetTierTesterRole(interaction);
       if (interaction.commandName === 'set-tiertest-channel')       return await handleSetTierTestChannel(interaction);
       if (interaction.commandName === 'set-current-tester-channel') return await handleSetCurrentTesterChannel(interaction);
+      if (interaction.commandName === 'set-queue-channel')         return await handleSetQueueChannel(interaction);
       if (interaction.commandName === 'set-unranked-role')          return await handleSetUnrankedRole(interaction);
       if (interaction.commandName === 'set-leaderboard-channel')    return await handleSetLeaderboardChannel(interaction);
       if (interaction.commandName === 'set-staff-role')             return await handleSetStaffRole(interaction);
@@ -4953,6 +5044,7 @@ client.on('interactionCreate', async interaction => {
       if (interaction.commandName === 'clear-user')                 return await handleClearUser(interaction);
       if (interaction.commandName === 'remove-tier')                return await handleRemoveTier(interaction);
       if (interaction.commandName === 'remove-tester')              return await handleRemoveTester(interaction);
+      if (interaction.commandName === 'remove-tester-all')          return await handleRemoveAllTesters(interaction);
       if (interaction.commandName === 'help')                       return await handleHelpInfo(interaction);
       if (interaction.commandName === 'info')                       return await handleHelpInfo(interaction);
       if (interaction.commandName === 'help-staff')                 return await handleHelpStaff(interaction);
@@ -4979,6 +5071,7 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isButton()) {
       const id = interaction.customId;
 
+      if (isSchedulingInteraction(id)) return await handleSchedulingButton(interaction, client);
       if (id === BUTTON_ID)        return await handleStartButton(interaction);
       if (id === CLOSE_TICKET_ID)  return await handleCloseTicket(interaction);
       if (id === DELETE_TICKET_ID) return await handleDeleteTicket(interaction);
@@ -4996,9 +5089,9 @@ client.on('interactionCreate', async interaction => {
       if (id.startsWith(PROFILE_REGION_SET_PFX)) return await handleProfileRegionSet(interaction as ButtonInteraction);
 
       // ── Queue system ────────────────────────────────────────────────────────
-      if (id === QUEUE_LEAVE_ID)   return await handleQueueLeave(interaction as ButtonInteraction);
-      if (id === QUEUE_NEXT_ID)    return await handleQueueNext(interaction as ButtonInteraction);
-      if (id === QUEUE_END_ID)     return await handleQueueEnd(interaction as ButtonInteraction);
+      if (id === QUEUE_LEAVE_ID || id.startsWith(`${QUEUE_LEAVE_ID}:`)) return await handleQueueLeave(interaction as ButtonInteraction);
+      if (id === QUEUE_NEXT_ID || id.startsWith(`${QUEUE_NEXT_ID}:`))   return await handleQueueNext(interaction as ButtonInteraction);
+      if (id === QUEUE_END_ID || id.startsWith(`${QUEUE_END_ID}:`))     return await handleQueueEnd(interaction as ButtonInteraction);
       if (id === TT_CLOSE_ID)      return await handleTtClose(interaction as ButtonInteraction);
       if (id === TICKET_LEAVE_ID)  return await handleTicketLeave(interaction as ButtonInteraction);
       if (id === TICKET_CLOSE_ID)  return await handleTicketClose(interaction as ButtonInteraction);
@@ -5090,12 +5183,14 @@ client.on('interactionCreate', async interaction => {
 
     // ── Select Menus ─────────────────────────────────────────────────────────
     if (interaction.isStringSelectMenu()) {
+      if (isSchedulingSelect(interaction.customId)) return await handleSchedulingSelect(interaction);
       if (interaction.customId === PROFILE_SUPPORT_SEL_ID) return await handleProfileSupportSelect(interaction as StringSelectMenuInteraction);
       return;
     }
 
     // ── Modals ────────────────────────────────────────────────────────────────
     if (interaction.isModalSubmit()) {
+      if (isSchedulingModal(interaction.customId)) return await handleSchedulingModal(interaction, client);
       if (interaction.customId === MODAL_ID)            return await handleTierTestModal(interaction);
       if (interaction.customId === REGISTER_MODAL_ID)   return await handleRegisterModal(interaction as ModalSubmitInteraction);
       if (interaction.customId === PROFILE_FIND_MODAL_ID) return await handleProfileFindModal(interaction as ModalSubmitInteraction);

@@ -17,7 +17,7 @@ import {
 import { getConfig, setConfig } from './config.js';
 import { getRegistrationByDiscordId } from './registration.js';
 import { getGameModeEmoji, parseEmojiForButton } from './emojis.js';
-import { createQueueChannel, createDirectTicketChannel } from './queue.js';
+import { QUEUE_PREF_NOW_PREFIX, QUEUE_PREF_SET_PREFIX } from './scheduling.js';
 
 export const TIER_TEST_YELLOW = 0xFFBF00;
 
@@ -379,7 +379,7 @@ export async function handleGameModeSelect(interaction: ButtonInteraction, gameM
   });
 }
 
-// ─── Aiming Tier Selected — create queue channel ──────────────────────────────
+// ─── Aiming Tier Selected — choose when to be tested ─────────────────────────
 
 export async function handleAimingTierSelect(interaction: ButtonInteraction, gameMode: string, aimingTier: string): Promise<void> {
   await interaction.deferUpdate();
@@ -400,12 +400,26 @@ export async function handleAimingTierSelect(interaction: ButtonInteraction, gam
     return;
   }
 
-  const config = getConfig();
-  if (config.queueEnabled === false) {
-    await createDirectTicketChannel(interaction, guild, gameMode, interaction.user.id, reg.mcUsername, reg.region, aimingTier);
-  } else {
-    await createQueueChannel(interaction, guild, gameMode, interaction.user.id, reg.mcUsername, reg.region, aimingTier);
-  }
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(TIER_TEST_YELLOW)
+        .setTitle('🕒 When would you like to be tested?')
+        .setDescription('Choose **Now** to join immediately, or **Set a time** to choose a one-time date and time in 24-hour format.'),
+    ],
+    components: [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${QUEUE_PREF_NOW_PREFIX}:${gameMode}:${aimingTier}`)
+          .setLabel('Now')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`${QUEUE_PREF_SET_PREFIX}:${gameMode}:${aimingTier}`)
+          .setLabel('Set a time')
+          .setStyle(ButtonStyle.Primary),
+      ),
+    ],
+  });
 }
 
 // ─── Legacy Modal Handler (kept for backward-compat if any existing modal is open) ──

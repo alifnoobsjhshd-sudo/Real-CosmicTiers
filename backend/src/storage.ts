@@ -81,6 +81,7 @@ export interface IStorage {
   }): Promise<void>;
   addTesterRole(discordId: string): Promise<void>;
   removeTesterRole(discordId: string): Promise<void>;
+  removeAllTesters(): Promise<string[]>;
   setTesterGameModes(discordId: string, gameModes: string[]): Promise<void>;
   incrementTesterStat(discordId: string): Promise<void>;
   clearTesterStat(discordId: string): Promise<void>;
@@ -91,7 +92,7 @@ export interface IStorage {
   retireTier(discordId: string, gameMode: string): Promise<void>;
   unretireTier(discordId: string, gameMode: string): Promise<void>;
   getLeaderboard(): Promise<PlayerProfile[]>;
-  getTesters(period?: string): Promise<TierTester[]>;
+  getTesters(period?: string, activeOnly?: boolean): Promise<TierTester[]>;
   getTesterStatsByPeriod(period: string): Promise<Record<string, number>>;
   getResults(limit?: number): Promise<ResultEntry[]>;
   getSkin(discordId: string): Promise<string | null>;
@@ -287,6 +288,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(playersTable.discordId, discordId));
   }
 
+  async removeAllTesters(): Promise<string[]> {
+    const removed = await db
+      .update(playersTable)
+      .set({ isTester: false, testerGameModes: [] })
+      .where(eq(playersTable.isTester, true))
+      .returning({ discordId: playersTable.discordId });
+    return removed.map(player => player.discordId);
+  }
+
   async setTesterGameModes(discordId: string, gameModes: string[]): Promise<void> {
     await db
       .update(playersTable)
@@ -445,7 +455,7 @@ export class DatabaseStorage implements IStorage {
     return stats;
   }
 
-  async getTesters(period?: string): Promise<TierTester[]> {
+  async getTesters(period?: string, activeOnly = false): Promise<TierTester[]> {
     // Pull all tester Discord IDs that appear in result_entries (registered players who ran tests).
     const fromResults = await db
       .select({ discordId: resultEntriesTable.testerDiscordId })
@@ -457,7 +467,9 @@ export class DatabaseStorage implements IStorage {
     // We query ONLY from the players table so ghost accounts (unregistered users who appear
     // in result_entries but were never registered) are naturally excluded.
     let registeredPlayers;
-    if (testerDiscordIds.length > 0) {
+    if (activeOnly) {
+      registeredPlayers = await db.select().from(playersTable).where(eq(playersTable.isTester, true));
+    } else if (testerDiscordIds.length > 0) {
       registeredPlayers = await db
         .select()
         .from(playersTable)

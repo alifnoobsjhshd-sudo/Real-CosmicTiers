@@ -14,6 +14,7 @@ import {
 } from 'discord.js';
 import { getConfig } from './config.js';
 import { getGameModeEmoji } from './emojis.js';
+import { getCountryOption } from './countryZones.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ export interface QueueInfo {
   region: string;
   gameMode: string;
   aimingTier?: string;
+  preferredAt?: number;
+  preferredCountry?: string;
 }
 
 export interface TierTestInfo {
@@ -52,6 +55,12 @@ export interface TierTestInfo {
   region: string;
   gameMode: string;
   aimingTier?: string;
+  preferredAt?: number;
+  preferredCountry?: string;
+  scheduledAt?: number;
+  scheduledCountry?: string;
+  scheduledBy?: string;
+  notified?: boolean;
 }
 
 export interface TicketInfo {
@@ -62,16 +71,48 @@ export interface TicketInfo {
   region:     string;
   gameMode:   string;
   aimingTier?: string;
+  preferredAt?: number;
+  preferredCountry?: string;
+  testerId?: string;
+  scheduledAt?: number;
+  scheduledCountry?: string;
+  scheduledBy?: string;
+  notified?: boolean;
 }
 
 // ─── In-memory state ──────────────────────────────────────────────────────────
 
 const _activeQueues    = new Map<string, QueueInfo>();
+const _activeQueueMessages = new Map<string, QueueInfo>();
 const _activeTierTests = new Map<string, TierTestInfo>();
 const _activeTickets   = new Map<string, TicketInfo>();
 
 export function getActiveQueue(channelId: string): QueueInfo | undefined {
   return _activeQueues.get(channelId);
+}
+
+export async function restoreSharedQueueMessages(client: Client): Promise<void> {
+  const guild = client.guilds.cache.first();
+  const queueChannelId = getConfig().queueChannelId;
+  if (!guild || !queueChannelId) return;
+  const channel = await guild.channels.fetch(queueChannelId).catch(() => null);
+  if (!channel || channel.type !== ChannelType.GuildText) return;
+  const messages = await channel.messages.fetch({ limit: 100 }).catch((error) => {
+    console.error('[queue] Could not restore shared queue messages:', error);
+    return null;
+  });
+  if (!messages) return;
+
+  for (const message of messages.values()) {
+    const info = (message.components as unknown as Array<{ components?: Array<{ customId?: string }> }>)
+      .flatMap(row => row.components ?? [])
+      .map(component => typeof component.customId === 'string' ? parseSharedQueueButton(component.customId) : null)
+      .find((item): item is QueueInfo => item !== null);
+    if (info) {
+      _activeQueueMessages.set(message.id, { ...info, channelId: channel.id, messageId: message.id });
+    }
+  }
+  console.log(`[queue] Restored ${_activeQueueMessages.size} active shared queue message(s).`);
 }
 
 export function getActiveTierTest(channelId: string): TierTestInfo | undefined {
@@ -100,29 +141,113 @@ export function parseQueueTopic(topic: string): { playerId: string; mcUsername: 
   };
 }
 
-export function parseTierTestTopic(topic: string): { playerId: string; testerId: string; mcUsername: string; region: string; gameMode: string; aimingTier?: string } | null {
+export function parseSharedQueueButton(customId: string): QueueInfo | null {
+  const parts = customId.split(':');
+  if (![QUEUE_LEAVE_ID, QUEUE_NEXT_ID, QUEUE_END_ID].includes(parts[0]) || parts.length !== 8) return null;
+  const [playerId, mcUsername, region, gameMode, tier, preferredAt, preferredCountry] = parts.slice(1);
+  if (!playerId || !mcUsername || !region || !gameMode) return null;
+  const parsedTime = Number(preferredAt);
+  return {
+    channelId: '',
+    messageId: '',
+    playerId,
+    mcUsername,
+    region,
+    gameMode,
+    aimingTier: tier && tier !== '-' ? tier : undefined,
+    preferredAt: Number.isFinite(parsedTime) && parsedTime > 0 ? parsedTime : undefined,
+    preferredCountry: preferredCountry && preferredCountry !== 'XX' ? preferredCountry : undefined,
+  };
+}
+
+export function parseTierTestTopic(topic: string): ({
+  playerId: string;
+  testerId: string;
+  mcUsername: string;
+  region: string;
+  gameMode: string;
+  aimingTier?: string;
+} & TestScheduleMetadata) | null {
   const parts = topic.split('|');
   if (parts.length < 6 || parts[0] !== 'TIERTEST') return null;
+  const optionalTier = parts[6];
   return {
     playerId: parts[1],
     testerId: parts[2],
     mcUsername: parts[3],
     region: parts[4],
     gameMode: parts[5],
-    aimingTier: parts[6] ?? undefined,
+    aimingTier: optionalTier && optionalTier !== '-' && !optionalTier.startsWith('P=') ? optionalTier : undefined,
+    ...parseScheduleMetadata(parts),
   };
 }
 
 export function parseTicketTopic(topic: string): Omit<TicketInfo, 'channelId' | 'messageId'> | null {
   const parts = topic.split('|');
   if (parts.length < 5 || parts[0] !== 'TICKET') return null;
+  const optionalTier = parts[5];
   return {
     playerId:   parts[1],
     mcUsername: parts[2],
     region:     parts[3],
     gameMode:   parts[4],
-    aimingTier: parts[5] ?? undefined,
+    aimingTier: optionalTier && optionalTier !== '-' && !optionalTier.startsWith('P=') ? optionalTier : undefined,
+    ...parseScheduleMetadata(parts),
   };
+}
+
+export interface TestScheduleMetadata {
+  preferredAt?: number;
+  preferredCountry?: string;
+  scheduledAt?: number;
+  scheduledCountry?: string;
+  scheduledBy?: string;
+  notified?: boolean;
+}
+
+function parseScheduleMetadata(parts: string[]): TestScheduleMetadata {
+  const metadata: TestScheduleMetadata = {};
+  for (const part of parts) {
+    if (part.startsWith('P=')) {
+      const [timestamp, country] = part.slice(2).split(':');
+      const value = Number(timestamp);
+      if (Number.isFinite(value) && value > 0) {
+        metadata.preferredAt = value;
+        metadata.preferredCountry = country;
+      }
+    } else if (part.startsWith('S=')) {
+      const [timestamp, country] = part.slice(2).split(':');
+      const value = Number(timestamp);
+      if (Number.isFinite(value) && value > 0) {
+        metadata.scheduledAt = value;
+        metadata.scheduledCountry = country;
+      }
+    } else if (part.startsWith('A=')) {
+      metadata.scheduledBy = part.slice(2) || undefined;
+    } else if (part === 'N=1') {
+      metadata.notified = true;
+    }
+  }
+  return metadata;
+}
+
+export function setTestSchedule(
+  channel: TextChannel,
+  scheduledAt: number,
+  countryCode: string,
+  testerId: string,
+): Promise<TextChannel> {
+  const keptParts = (channel.topic ?? '').split('|').filter((part) =>
+    !part.startsWith('S=') && !part.startsWith('A=') && part !== 'N=1' && part !== 'N=0',
+  );
+  keptParts.push(`S=${scheduledAt}:${countryCode}`, `A=${testerId}`, 'N=0');
+  return channel.setTopic(keptParts.join('|'));
+}
+
+export function markTestScheduleNotified(channel: TextChannel): Promise<TextChannel> {
+  const keptParts = (channel.topic ?? '').split('|').filter((part) => part !== 'N=1' && part !== 'N=0');
+  keptParts.push('N=1');
+  return channel.setTopic(keptParts.join('|'));
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -135,12 +260,12 @@ function displayGameMode(gm: string): string {
   return gm === 'cartpvp' ? 'Cart-PvP' : gm;
 }
 
-function isTester(member: GuildMember): boolean {
+export function isTester(member: GuildMember): boolean {
   const config = getConfig();
   return config.tierTesterRoleId ? member.roles.cache.has(config.tierTesterRoleId) : false;
 }
 
-function isStaffOrAdmin(member: GuildMember): boolean {
+export function isStaffOrAdmin(member: GuildMember): boolean {
   const config = getConfig();
   const hasStaff = config.staffRoleId ? member.roles.cache.has(config.staffRoleId) : false;
   const hasMod   = config.modRoleId   ? member.roles.cache.has(config.modRoleId)   : false;
@@ -202,6 +327,14 @@ async function buildQueueEmbed(guild: Guild, info: QueueInfo): Promise<EmbedBuil
   if (info.aimingTier) {
     embed.addFields({ name: '🎯 Aiming Tier', value: `\`${info.aimingTier}\``, inline: true });
   }
+  if (info.preferredAt && info.preferredCountry) {
+    const country = getCountryOption(info.preferredCountry);
+    embed.addFields({
+      name: '🕒 Preferred Test Time',
+      value: `<t:${info.preferredAt}:D> · <t:${info.preferredAt}:t> (${country?.name ?? info.preferredCountry})`,
+      inline: false,
+    });
+  }
 
   embed.addFields({ name: `👥 ${modeDisplay} Testers Online`, value: testerLine, inline: false });
 
@@ -247,6 +380,14 @@ async function buildTierTestEmbed(guild: Guild, info: TierTestInfo): Promise<Emb
   if (info.aimingTier) {
     embed.addFields({ name: '🎯 Aiming Tier', value: `\`${info.aimingTier}\``, inline: true });
   }
+  if (info.preferredAt && info.preferredCountry) {
+    const country = getCountryOption(info.preferredCountry);
+    embed.addFields({
+      name: '🕒 Player Preferred Test Time',
+      value: `<t:${info.preferredAt}:D> · <t:${info.preferredAt}:t> (${country?.name ?? info.preferredCountry})`,
+      inline: false,
+    });
+  }
 
   embed.setFooter({ text: 'Tier Test System — Cosmic Tiers' }).setTimestamp();
 
@@ -255,11 +396,28 @@ async function buildTierTestEmbed(guild: Guild, info: TierTestInfo): Promise<Emb
 
 // ─── Button row builders (exported for index.ts) ──────────────────────────────
 
-function buildQueueButtons(): ActionRowBuilder<ButtonBuilder> {
+function buildQueueButtons(info: QueueInfo): ActionRowBuilder<ButtonBuilder> {
+  const payload = [
+    info.playerId,
+    info.mcUsername,
+    info.region,
+    info.gameMode,
+    info.aimingTier ?? '-',
+    info.preferredAt ?? 0,
+    info.preferredCountry ?? 'XX',
+  ].join(':');
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(QUEUE_LEAVE_ID).setLabel('🚪 Leave').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId(QUEUE_NEXT_ID).setLabel('▶️ Start').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(QUEUE_END_ID).setLabel('⏹️ End').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`${QUEUE_LEAVE_ID}:${payload}`).setLabel('🚪 Leave').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId(`${QUEUE_NEXT_ID}:${payload}`).setLabel('▶️ Start').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`${QUEUE_END_ID}:${payload}`).setLabel('⏹️ End').setStyle(ButtonStyle.Secondary),
+  );
+}
+
+export function buildTestTimeButtons(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId('testtime_now').setLabel('Now').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('testtime_preferred').setLabel('Player preferred time').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('testtime_select').setLabel('Select time').setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -298,6 +456,14 @@ async function buildTicketEmbed(guild: Guild, info: TicketInfo): Promise<EmbedBu
     ...(info.aimingTier ? [{ name: '🎯 Aiming Tier', value: `\`${info.aimingTier}\``, inline: true }] : []),
     { name: '📶 Status',    value: playerStatus,             inline: true },
   ];
+  if (info.preferredAt && info.preferredCountry) {
+    const country = getCountryOption(info.preferredCountry);
+    baseFields.push({
+      name: '🕒 Player Preferred Test Time',
+      value: `<t:${info.preferredAt}:D> · <t:${info.preferredAt}:t> (${country?.name ?? info.preferredCountry})`,
+      inline: false,
+    });
+  }
 
   const embed = new EmbedBuilder()
     .setTitle(`🎟️ Tier Test Ticket — ${modeLabel}`)
@@ -347,75 +513,78 @@ export async function createQueueChannel(
   mcUsername: string,
   region: string,
   aimingTier?: string,
+  preferredAt?: number,
+  preferredCountry?: string,
 ): Promise<void> {
   const config = getConfig();
   const modeDisplay  = displayGameMode(gameMode);
   const gmRoleName   = `${modeDisplay} Tester`;
   const gameModeRole = guild.roles.cache.find(r => r.name === gmRoleName);
 
-  // Duplicate guards
-  const queueName = `queue-${sanitize(mcUsername)}`;
-  const ttName    = `tt-${sanitize(mcUsername)}`;
-  const existingQ = guild.channels.cache.find(c => c.name === queueName);
-  if (existingQ) {
-    await interaction.editReply({ content: `❌ You already have a queue: <#${existingQ.id}>. Please leave it first.`, components: [], embeds: [] });
+  if (!config.queueChannelId) {
+    await interaction.editReply({
+      content: '❌ The shared queue channel is not configured. Ask a manager to run `/set-queue-channel`.',
+      components: [],
+      embeds: [],
+    });
     return;
   }
+
+  let queueChannel: TextChannel;
+  try {
+    const channel = await guild.channels.fetch(config.queueChannelId);
+    if (!channel || channel.type !== ChannelType.GuildText) throw new Error('Configured queue channel is not a text channel.');
+    queueChannel = channel;
+  } catch (err) {
+    console.error('[queue] Could not access configured queue channel:', err);
+    await interaction.editReply({
+      content: '❌ I cannot access the configured queue channel. Ask a manager to check `/set-queue-channel` and the bot permissions.',
+      components: [],
+      embeds: [],
+    });
+    return;
+  }
+
+  const recentMessages = await queueChannel.messages.fetch({ limit: 100 }).catch(() => null);
+  const existingQueue = Array.from(_activeQueueMessages.values()).find(entry => entry.playerId === playerId)
+    ?? (recentMessages
+      ? Array.from(recentMessages.values())
+        .map(message => ({
+          message,
+          info: (message.components as unknown as Array<{ components?: Array<{ customId?: string }> }>)
+            .flatMap(row => row.components ?? [])
+            .map(component => typeof component.customId === 'string' ? parseSharedQueueButton(component.customId) : null)
+            .find((info): info is QueueInfo => info !== null),
+        }))
+        .find(entry => entry.info?.playerId === playerId)?.info
+      : undefined);
+  if (existingQueue) {
+    await interaction.editReply({
+      content: `❌ You already have an active queue message in <#${queueChannel.id}>. Leave it before opening another.`,
+      components: [],
+      embeds: [],
+    });
+    return;
+  }
+
+  const ttName = `tt-${sanitize(mcUsername)}`;
   const existingTt = guild.channels.cache.find(c => c.name === ttName);
   if (existingTt) {
     await interaction.editReply({ content: `❌ You already have an active tier test: <#${existingTt.id}>. Please wait for it to close.`, components: [], embeds: [] });
     return;
   }
 
-  const overwrites: OverwriteResolvable[] = [
-    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-    // Player: view-only — cannot type in the queue channel
-    {
-      id: playerId,
-      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
-      deny: [PermissionFlagsBits.SendMessages],
-    },
-  ];
-  // Tier testers: can see the queue but cannot type (read-only)
-  if (config.tierTesterRoleId) overwrites.push({
-    id: config.tierTesterRoleId,
-    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
-    deny: [PermissionFlagsBits.SendMessages],
-  });
-  // Game-mode-specific tester role: same — view only
-  if (gameModeRole && gameModeRole.id !== config.tierTesterRoleId) overwrites.push({
-    id: gameModeRole.id,
-    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
-    deny: [PermissionFlagsBits.SendMessages],
-  });
-  // Managers and mods: full access including sending messages
-  if (config.staffRoleId) overwrites.push({
-    id: config.staffRoleId,
-    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-  });
-  if (config.modRoleId && config.modRoleId !== config.staffRoleId) overwrites.push({
-    id: config.modRoleId,
-    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-  });
-
-  let queueChannel: TextChannel;
-  try {
-    queueChannel = await guild.channels.create({
-      name: queueName,
-      type: ChannelType.GuildText,
-      permissionOverwrites: overwrites,
-      topic: aimingTier
-        ? `QUEUE|${playerId}|${mcUsername}|${region}|${gameMode}|${aimingTier}`
-        : `QUEUE|${playerId}|${mcUsername}|${region}|${gameMode}`,
-      reason: `Queue for ${mcUsername} (${modeDisplay})`,
-    }) as TextChannel;
-  } catch (err) {
-    console.error('[queue] Failed to create queue channel:', err);
-    await interaction.editReply({ content: '❌ Failed to create queue channel. Make sure the bot has **Manage Channels** permission.', components: [], embeds: [] });
-    return;
-  }
-
-  const tmpInfo: QueueInfo = { channelId: queueChannel.id, messageId: '', playerId, mcUsername, region, gameMode, aimingTier };
+  const tmpInfo: QueueInfo = {
+    channelId: queueChannel.id,
+    messageId: '',
+    playerId,
+    mcUsername,
+    region,
+    gameMode,
+    aimingTier,
+    preferredAt,
+    preferredCountry,
+  };
   const embed = await buildQueueEmbed(guild, tmpInfo);
 
   const testerMention = config.tierTesterRoleId ? `<@&${config.tierTesterRoleId}>` : '';
@@ -427,16 +596,13 @@ export async function createQueueChannel(
   const msg = await queueChannel.send({
     content: notifyContent ? `${notifyContent} — **${mcUsername}** is waiting for a **${modeDisplay}** tier test!` : undefined,
     embeds: [embed],
-    components: [buildQueueButtons()],
+    components: [buildQueueButtons(tmpInfo)],
   });
 
-  // Hint message for testers after the embed
-  await queueChannel.send('🧪 if you are a tester click **start** button to start the tier test');
-
-  _activeQueues.set(queueChannel.id, { ...tmpInfo, messageId: msg.id });
+  _activeQueueMessages.set(msg.id, { ...tmpInfo, messageId: msg.id });
 
   await interaction.editReply({
-    content: `✅ You're now in the queue! Head to <#${queueChannel.id}> and wait for a Tier Tester.`,
+    content: `✅ You're now in the queue! Your request is posted in <#${queueChannel.id}>. A Tier Tester will contact you.`,
     components: [],
     embeds: [],
   });
@@ -452,6 +618,8 @@ export async function createDirectTicketChannel(
   mcUsername: string,
   region: string,
   aimingTier?: string,
+  preferredAt?: number,
+  preferredCountry?: string,
 ): Promise<void> {
   const config      = getConfig();
   const modeDisplay = displayGameMode(gameMode);
@@ -498,9 +666,15 @@ export async function createDirectTicketChannel(
       name: ticketName,
       type: ChannelType.GuildText,
       permissionOverwrites: overwrites,
-      topic: aimingTier
-        ? `TICKET|${playerId}|${mcUsername}|${region}|${gameMode}|${aimingTier}`
-        : `TICKET|${playerId}|${mcUsername}|${region}|${gameMode}`,
+      topic: [
+        'TICKET',
+        playerId,
+        mcUsername,
+        region,
+        gameMode,
+        aimingTier ?? '-',
+        ...(preferredAt && preferredCountry ? [`P=${preferredAt}:${preferredCountry}`] : []),
+      ].join('|'),
       reason: `Tier test ticket for ${mcUsername} (${modeDisplay})`,
     }) as TextChannel;
   } catch (err) {
@@ -509,7 +683,17 @@ export async function createDirectTicketChannel(
     return;
   }
 
-  const tmpInfo: TicketInfo = { channelId: ticketChannel.id, messageId: '', playerId, mcUsername, region, gameMode, aimingTier };
+  const tmpInfo: TicketInfo = {
+    channelId: ticketChannel.id,
+    messageId: '',
+    playerId,
+    mcUsername,
+    region,
+    gameMode,
+    aimingTier,
+    preferredAt,
+    preferredCountry,
+  };
   const embed = await buildTicketEmbed(guild, tmpInfo);
 
   const gameMentionId = gameModeRole?.id ?? config.tierTesterRoleId;
@@ -525,6 +709,7 @@ export async function createDirectTicketChannel(
   });
 
   _activeTickets.set(ticketChannel.id, { ...tmpInfo, messageId: msg.id });
+  await ticketChannel.send({ content: '**Choose your tier test time**', components: [buildTestTimeButtons()] });
 
   await interaction.editReply({
     content: `✅ Your tier test ticket has been created! Head to <#${ticketChannel.id}> and wait for a Tier Tester.`,
@@ -577,11 +762,21 @@ export async function handleTicketClose(interaction: ButtonInteraction): Promise
 export async function handleQueueLeave(interaction: ButtonInteraction): Promise<void> {
   const member  = interaction.member as GuildMember;
   const channel = interaction.channel as TextChannel;
-  const info    = parseQueueTopic(channel.topic ?? '') ?? getActiveQueue(channel.id);
+  const sharedInfo = parseSharedQueueButton(interaction.customId);
+  const info = sharedInfo
+    ? { ...sharedInfo, channelId: channel.id, messageId: interaction.message.id }
+    : parseQueueTopic(channel.topic ?? '') ?? getActiveQueue(channel.id);
 
   const isPlayer = info?.playerId === interaction.user.id;
   if (!isPlayer && !isStaffOrAdmin(member)) {
     await interaction.reply({ content: '❌ Only the player who started this queue or staff can use **Leave**.', ephemeral: true });
+    return;
+  }
+
+  if (sharedInfo) {
+    _activeQueueMessages.delete(interaction.message.id);
+    await interaction.deferUpdate();
+    await interaction.message.delete().catch((err) => console.error('[queue] Failed to delete queue message:', err));
     return;
   }
 
@@ -601,6 +796,14 @@ export async function handleQueueEnd(interaction: ButtonInteraction): Promise<vo
   }
 
   const channel = interaction.channel as TextChannel;
+  const sharedInfo = parseSharedQueueButton(interaction.customId);
+  if (sharedInfo) {
+    _activeQueueMessages.delete(interaction.message.id);
+    await interaction.deferUpdate();
+    await interaction.message.delete().catch((err) => console.error('[queue] Failed to delete queue message:', err));
+    return;
+  }
+
   _activeQueues.delete(channel.id);
 
   await interaction.update({ components: [] });
@@ -620,7 +823,10 @@ export async function handleQueueNext(interaction: ButtonInteraction): Promise<v
   if (!guild) { await interaction.reply({ content: '❌ Must be used inside a server.', ephemeral: true }); return; }
 
   const channel = interaction.channel as TextChannel;
-  const info    = parseQueueTopic(channel.topic ?? '') ?? getActiveQueue(channel.id);
+  const sharedInfo = parseSharedQueueButton(interaction.customId);
+  const info = sharedInfo
+    ? { ...sharedInfo, channelId: channel.id, messageId: interaction.message.id }
+    : parseQueueTopic(channel.topic ?? '') ?? getActiveQueue(channel.id);
 
   if (!info) {
     await interaction.reply({ content: '❌ Could not read queue information. Please contact an admin.', ephemeral: true });
@@ -634,7 +840,11 @@ export async function handleQueueNext(interaction: ButtonInteraction): Promise<v
   }
 
   await interaction.deferUpdate();
-  await _createTierTestChannel(guild, interaction.user.id, info, channel.id);
+  const created = await _createTierTestChannel(guild, interaction.user.id, info, channel.id);
+  if (created && sharedInfo) {
+    _activeQueueMessages.delete(interaction.message.id);
+    await interaction.message.delete().catch((err) => console.error('[queue] Failed to delete started queue message:', err));
+  }
 }
 
 // ─── Create Tier Test Channel (called by handleQueueNext) ────────────────────
@@ -642,11 +852,12 @@ export async function handleQueueNext(interaction: ButtonInteraction): Promise<v
 async function _createTierTestChannel(
   guild: Guild,
   testerId: string,
-  queueInfo: { playerId: string; mcUsername: string; region: string; gameMode: string; aimingTier?: string },
+  queueInfo: Pick<QueueInfo, 'playerId' | 'mcUsername' | 'region' | 'gameMode' | 'aimingTier'> &
+    Partial<Pick<QueueInfo, 'preferredAt' | 'preferredCountry'>>,
   queueChannelId: string,
-): Promise<void> {
+): Promise<boolean> {
   const config = getConfig();
-  const { playerId, mcUsername, region, gameMode, aimingTier } = queueInfo;
+  const { playerId, mcUsername, region, gameMode, aimingTier, preferredAt, preferredCountry } = queueInfo;
   const modeDisplay  = displayGameMode(gameMode);
   const gmRoleName   = `${modeDisplay} Tester`;
   const gameModeRole = guild.roles.cache.find(r => r.name === gmRoleName);
@@ -656,7 +867,7 @@ async function _createTierTestChannel(
   if (existing) {
     const queueCh = guild.channels.cache.get(queueChannelId) as TextChannel | undefined;
     await queueCh?.send(`❌ A tier test channel already exists: <#${existing.id}>. Close it first.`).catch(() => null);
-    return;
+    return false;
   }
 
   const overwrites: OverwriteResolvable[] = [
@@ -693,19 +904,37 @@ async function _createTierTestChannel(
       name: ttName,
       type: ChannelType.GuildText,
       permissionOverwrites: overwrites,
-      topic: aimingTier
-        ? `TIERTEST|${playerId}|${testerId}|${mcUsername}|${region}|${gameMode}|${aimingTier}`
-        : `TIERTEST|${playerId}|${testerId}|${mcUsername}|${region}|${gameMode}`,
+      topic: [
+        'TIERTEST',
+        playerId,
+        testerId,
+        mcUsername,
+        region,
+        gameMode,
+        aimingTier ?? '-',
+        ...(preferredAt && preferredCountry ? [`P=${preferredAt}:${preferredCountry}`] : []),
+      ].join('|'),
       reason: `Tier test — ${mcUsername} tested by ${testerId}`,
     }) as TextChannel;
   } catch (err) {
     console.error('[queue] Failed to create tier test channel:', err);
     const queueCh = guild.channels.cache.get(queueChannelId) as TextChannel | undefined;
     await queueCh?.send('❌ Failed to create tier test channel. Check bot **Manage Channels** permission.').catch(() => null);
-    return;
+    return false;
   }
 
-  const info: TierTestInfo = { channelId: ttChannel.id, messageId: '', playerId, testerId, mcUsername, region, gameMode, aimingTier };
+  const info: TierTestInfo = {
+    channelId: ttChannel.id,
+    messageId: '',
+    playerId,
+    testerId,
+    mcUsername,
+    region,
+    gameMode,
+    aimingTier,
+    preferredAt,
+    preferredCountry,
+  };
 
   // Message 1: status embed + Close button
   const embed    = await buildTierTestEmbed(guild, info);
@@ -719,11 +948,16 @@ async function _createTierTestChannel(
 
   // Message 3: tier select buttons
   await ttChannel.send({ content: '**Select the tested tier:** 🎯', components: buildTierButtonRows(gameMode) });
+  // Message 4: scheduling controls shown to the player and all visible testers
+  await ttChannel.send({ content: '**Choose your tier test time**', components: [buildTestTimeButtons()] });
 
-  // Delete the queue channel
+  // Legacy per-player queue channels are still removed; the shared channel stays.
   _activeQueues.delete(queueChannelId);
   const queueCh = guild.channels.cache.get(queueChannelId) as TextChannel | undefined;
-  if (queueCh) setTimeout(() => queueCh.delete('Tier test started').catch(console.error), 1000);
+  if (queueCh?.topic?.startsWith('QUEUE|')) {
+    setTimeout(() => queueCh.delete('Tier test started').catch(console.error), 1000);
+  }
+  return true;
 }
 
 // ─── Tier Test Close Button ───────────────────────────────────────────────────
@@ -772,7 +1006,18 @@ async function _refreshAll(client: Client): Promise<void> {
       const msg = await ch.messages.fetch(info.messageId).catch(() => null);
       if (!msg) { _activeQueues.delete(channelId); continue; }
       const embed = await buildQueueEmbed(guild, info);
-      await msg.edit({ embeds: [embed], components: [buildQueueButtons()] });
+      await msg.edit({ embeds: [embed], components: [buildQueueButtons(info)] });
+    } catch { /* ignore */ }
+  }
+
+  for (const [messageId, info] of _activeQueueMessages) {
+    try {
+      const ch = guild.channels.cache.get(info.channelId) as TextChannel | undefined;
+      if (!ch) { _activeQueueMessages.delete(messageId); continue; }
+      const msg = await ch.messages.fetch(messageId).catch(() => null);
+      if (!msg) { _activeQueueMessages.delete(messageId); continue; }
+      const embed = await buildQueueEmbed(guild, info);
+      await msg.edit({ embeds: [embed], components: [buildQueueButtons(info)] });
     } catch { /* ignore */ }
   }
 

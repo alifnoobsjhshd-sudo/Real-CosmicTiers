@@ -13,7 +13,6 @@ import { formatTierWithEmoji, getGameModeEmoji } from './emojis.js';
 
 const WEBSITE_LINK = process.env['WEBSITE_LINK'] ?? '';
 const WEBSITE_API_URL = process.env['WEBSITE_API_URL'] ?? 'http://localhost:5000';
-const INTERNAL_API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
 const GAME_MODES = ['Sword-PvP', 'UHC', 'Pot-PvP', 'Nethpot', 'SMP-PvP', 'Axe-PvP', 'Mace-PvP', 'Crystal-PvP', 'cartpvp'];
 
@@ -41,69 +40,49 @@ export function isTierRoleName(name: string): boolean {
 
 // ─── API Helpers ──────────────────────────────────────────────────────────────
 
-async function fetchTesterGameModes(): Promise<Record<string, string[]>> {
-  try {
-    const resp = await fetch(`${WEBSITE_API_URL}/api/testers`);
-    if (!resp.ok) return {};
-    const data = await resp.json() as { testers?: { discordId: string; gameModes?: string[] }[] };
-    const map: Record<string, string[]> = {};
-    for (const t of data.testers ?? []) {
-      map[t.discordId] = t.gameModes ?? [];
-    }
-    return map;
-  } catch {
-    return {};
-  }
-}
-
-async function fetchTesterStats(period: string): Promise<Record<string, number>> {
-  try {
-    const resp = await fetch(`${WEBSITE_API_URL}/api/bot/tester-stats?period=${period}`, {
-      headers: { 'x-internal-api-key': INTERNAL_API_KEY },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!resp.ok) return {};
-    const data = await resp.json() as { stats?: Record<string, number> };
-    return data.stats ?? {};
-  } catch {
-    return {};
-  }
-}
-
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 interface TesterEntry {
   id: string;
+  mcUsername: string;
   testCount: number;
   tierRoles: string[];
   gameModes: string[];
 }
 
-async function getTesterList(guild: Guild, period: string): Promise<TesterEntry[]> {
-  const config = getConfig();
+async function getTesterList(period: string): Promise<TesterEntry[]> {
+  const response = await fetch(
+    `${WEBSITE_API_URL.replace(/\/$/, '')}/api/testers?period=${encodeURIComponent(period)}&activeOnly=true`,
+    { signal: AbortSignal.timeout(10_000) },
+  );
+  if (!response.ok) throw new Error(`Tester database request failed: HTTP ${response.status}`);
+  const data = await response.json() as {
+    testers?: Array<{
+      discordId: string;
+      mcUsername: string | null;
+      testCount?: number;
+      tiers?: Record<string, string>;
+      retiredTiers?: string[];
+      gameModes?: string[];
+    }>;
+  };
 
-  if (!config.tierTesterRoleId) return [];
-  if (guild.members.cache.size < 2) await guild.members.fetch();
-
-  const role = guild.roles.cache.get(config.tierTesterRoleId);
-  if (!role || role.members.size === 0) return [];
-
-  const [stats, gameModeMap] = await Promise.all([
-    fetchTesterStats(period),
-    fetchTesterGameModes(),
-  ]);
-
-  return role.members
-    .map(member => ({
-      id: member.id,
-      testCount: stats[member.id] ?? 0,
-      tierRoles: member.roles.cache
-        .filter(r => isTierRoleName(r.name))
-        .map(r => r.name)
-        .sort(),
-      gameModes: gameModeMap[member.id] ?? [],
-    }))
-    .sort((a, b) => b.testCount - a.testCount || a.id.localeCompare(b.id));
+  return (data.testers ?? [])
+    .map(tester => {
+      const retired = new Set(tester.retiredTiers ?? []);
+      const tierRoles = Object.entries(tester.tiers ?? {}).map(([mode, tier]) =>
+        `${displayGameMode(mode)} ${retired.has(mode) ? 'R' : ''}${tier}`,
+      );
+      return {
+        id: tester.discordId,
+        mcUsername: tester.mcUsername ?? '',
+        testCount: tester.testCount ?? 0,
+        tierRoles: tierRoles.sort(),
+        gameModes: tester.gameModes ?? [],
+      };
+    })
+    .filter(tester => tester.mcUsername.trim().length > 0)
+    .sort((a, b) => b.testCount - a.testCount || a.mcUsername.localeCompare(b.mcUsername));
 }
 
 // ─── Embed Builder ────────────────────────────────────────────────────────────
@@ -118,7 +97,7 @@ function buildTesterEmbed(testers: TesterEntry[], page: number, period: string):
       .setColor(0xFFBF00)
       .setDescription(
         '**🏅 Current Tier Testers:**\n\n' +
-        '*No tier testers found. Configure the role with `/set-tier-tester-role`.*'
+        '*No active tier testers are registered in the database.*'
       )
       .setTimestamp();
   }
@@ -135,7 +114,7 @@ function buildTesterEmbed(testers: TesterEntry[], page: number, period: string):
       .filter(e => e.length > 0)
       .join(' ');
 
-    description += `**${globalRank}.** <@${tester.id}> — **${tester.testCount}** tests\n`;
+    description += `**${globalRank}.** **${tester.mcUsername}** — **${tester.testCount}** tests\n`;
     description += `> -# ${tiersText}\n`;
     description += `### Tester For:\n`;
     description += `- ${gameModeEmojis.length > 0 ? gameModeEmojis : '*Not configured*'}\n`;
@@ -206,7 +185,7 @@ export async function buildTesterMessage(guild: Guild, page: number, period: str
   embeds: EmbedBuilder[];
   components: ActionRowBuilder<ButtonBuilder>[];
 }> {
-  const testers = await getTesterList(guild, period);
+  const testers = await getTesterList(period);
   const totalPages = Math.max(1, Math.ceil(testers.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
 
