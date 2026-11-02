@@ -87,7 +87,7 @@ export default function Home() {
   });
 
   const { data: testersData, isLoading: testLoading } = useQuery<TesterLeaderboardResponse>({
-    queryKey: [`/api/testers?period=${testerPeriod}`],
+    queryKey: [`/api/testers?period=${testerPeriod}&activeOnly=true`],
   });
 
   const { data: resultsData, isLoading: resultsLoading } = useQuery<ResultsResponse>({

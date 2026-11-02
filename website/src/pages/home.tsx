@@ -133,9 +133,9 @@ export default function Home() {
   });
 
   const { data: testersData, isLoading: testLoading } = useQuery<TesterLeaderboardResponse>({
-    queryKey: ["/api/testers", testerPeriod],
+    queryKey: ["/api/testers", testerPeriod, "activeOnly"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/testers?period=${testerPeriod}`);
+      const res = await apiRequest("GET", `/api/testers?period=${testerPeriod}&activeOnly=true`);
       return res.json();
     },
   });

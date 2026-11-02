@@ -4493,6 +4493,28 @@ client.once('clientReady', async () => {
       console.error('[registration] Periodic sync failed:', err),
     );
   }, 5 * 60 * 1000);
+
+  let gatewayUnavailableSince: number | null = null;
+  let lastGatewayRecoveryAttempt = 0;
+  const gatewayWatchdog = setInterval(async () => {
+    if (client.isReady()) {
+      gatewayUnavailableSince = null;
+      return;
+    }
+
+    gatewayUnavailableSince ??= Date.now();
+    if (Date.now() - gatewayUnavailableSince < 120_000 || Date.now() - lastGatewayRecoveryAttempt < 300_000) return;
+
+    lastGatewayRecoveryAttempt = Date.now();
+    console.error('[Discord Gateway] Client has been unavailable for 2 minutes; reconnecting.');
+    try {
+      await client.destroy();
+      await client.login(TOKEN);
+    } catch (err) {
+      console.error('[Discord Gateway] Recovery attempt failed:', err);
+    }
+  }, 30_000);
+  gatewayWatchdog.unref();
 });
 
 // ─── Role Sync Helper ─────────────────────────────────────────────────────────
@@ -4998,6 +5020,12 @@ async function handleTierSelect(interaction: ButtonInteraction): Promise<void> {
 }
 
 client.on('error', err => console.error('[Discord Client Error]', err));
+client.on('shardDisconnect', (event, shardId) => {
+  console.warn(`[Discord Gateway] Shard ${shardId} disconnected (code ${event.code}).`);
+});
+client.on('shardReconnecting', shardId => {
+  console.warn(`[Discord Gateway] Reconnecting shard ${shardId}.`);
+});
 
 client.on('interactionCreate', async interaction => {
   try {
@@ -5220,6 +5248,16 @@ const app = express();
 
 app.get("/", (req, res) => {
   res.send("Bot is alive 🚀");
+});
+
+app.get("/health", (_req, res) => {
+  const discordReady = client.isReady();
+  res.status(discordReady ? 200 : 503).json({
+    status: discordReady ? "ok" : "degraded",
+    discord: discordReady ? "connected" : "disconnected",
+    gatewayPing: discordReady ? client.ws.ping : null,
+    uptimeSeconds: Math.floor(process.uptime()),
+  });
 });
 
 const PORT = process.env.PORT || 3000;
